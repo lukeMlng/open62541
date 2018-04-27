@@ -86,7 +86,7 @@ endif()
 option(UA_ENABLE_MULTITHREADING "Enable multithreading (experimental)" OFF)
 mark_as_advanced(UA_ENABLE_MULTITHREADING)
 
-option(UA_ENABLE_PUBSUB "Enable publish/subscribe (experimental)" OFF)
+option(UA_ENABLE_PUBSUB "Enable publish/subscribe (experimental)" ON)
 mark_as_advanced(UA_ENABLE_PUBSUB)
 
 option(UA_ENABLE_STATUSCODE_DESCRIPTIONS "Enable conversion of StatusCode to human-readable error message" ON)
@@ -139,7 +139,7 @@ set(UA_VALGRIND_INTERACTIVE_INTERVAL 1000 CACHE STRING "The number of iterations
 mark_as_advanced(UA_VALGRIND_INTERACTIVE_INTERVAL)
 
 # Build options for debugging
-option(UA_DEBUG "Enable assertions and additional functionality that should not be included in release builds" OFF)
+option(UA_DEBUG "Enable assertions and additional functionality that should not be included in release builds" ON)
 mark_as_advanced(UA_DEBUG)
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(UA_DEBUG ON)
@@ -149,7 +149,7 @@ option(UA_DEBUG_DUMP_PKGS "Dump every package received by the server as hexdump 
 mark_as_advanced(UA_DEBUG_DUMP_PKGS)
 
 # Build Targets
-option(UA_BUILD_EXAMPLES "Build example servers and clients" OFF)
+option(UA_BUILD_EXAMPLES "Build example servers and clients" ON)
 option(UA_BUILD_UNIT_TESTS "Build the unit tests" OFF)
 option(UA_BUILD_FUZZING "Build the fuzzing executables" OFF)
 mark_as_advanced(UA_BUILD_FUZZING)
@@ -371,6 +371,7 @@ set(internal_headers ${PROJECT_SOURCE_DIR}/deps/queue.h
                      ${PROJECT_SOURCE_DIR}/deps/libc_time.h
                      ${PROJECT_SOURCE_DIR}/src/ua_util.h
                      ${PROJECT_SOURCE_DIR}/src/ua_types_encoding_binary.h
+                     ${PROJECT_SOURCE_DIR}/src/ua_types_encoding_json.h #@Luke
                      ${PROJECT_BINARY_DIR}/src_generated/ua_types_generated_encoding_binary.h
                      ${PROJECT_BINARY_DIR}/src_generated/ua_transport_generated.h
                      ${PROJECT_BINARY_DIR}/src_generated/ua_transport_generated_handling.h
@@ -389,6 +390,7 @@ set(internal_headers ${PROJECT_SOURCE_DIR}/deps/queue.h
 
 # TODO: make client optional
 set(lib_sources ${PROJECT_SOURCE_DIR}/src/ua_types.c
+                ${PROJECT_SOURCE_DIR}/src/ua_types_encoding_json.c
                 ${PROJECT_SOURCE_DIR}/src/ua_types_encoding_binary.c
                 ${PROJECT_BINARY_DIR}/src_generated/ua_types_generated.c
                 ${PROJECT_BINARY_DIR}/src_generated/ua_transport_generated.c

@@ -1,0 +1,1779 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. 
+ *
+ *    Copyright 2014-2018 (c) Fraunhofer IOSB (Author: Julius Pfrommer)
+ *    Copyright 2014-2017 (c) Florian Palm
+ *    Copyright 2014-2016 (c) Sten Grüner
+ *    Copyright 2014 (c) Leon Urbas
+ *    Copyright 2015 (c) LEvertz
+ *    Copyright 2015 (c) Chris Iatrou
+ *    Copyright 2015-2016 (c) Oleksiy Vasylyev
+ *    Copyright 2016-2017 (c) Stefan Profanter, fortiss GmbH
+ *    Copyright 2016 (c) Lorenz Haas
+ *    Copyright 2017 (c) Mark Giraud, Fraunhofer IOSB
+ *    Copyright 2017 (c) Henrik Norrman
+ */
+
+
+#include "ua_types_encoding_json.h"
+//#include "cencode.h"
+
+
+/**
+ * Type Encoding and Decoding
+ * --------------------------
+ * The following methods contain encoding and decoding functions for the builtin
+ * data types and generic functions that operate on all types and arrays. This
+ * requires the type description from a UA_DataType structure.
+ *
+ * Encoding Context
+ * ^^^^^^^^^^^^^^^^
+ * If possible, the encoding context is stored in a thread-local variable to
+ * speed up encoding. If thread-local variables are not supported, the context
+ * is "looped through" every method call. The ``_``-macro accesses either the
+ * thread-local or the "looped through" context . */
+
+#define UA_ENCODING_MAX_RECURSION 20
+
+typedef UA_Byte u8;
+typedef UA_SByte i8;
+typedef UA_UInt16 u16;
+typedef UA_Int16 i16;
+typedef UA_UInt32 u32;
+typedef UA_Int32 i32;
+typedef UA_UInt64 u64;
+typedef UA_Int64 i64;
+typedef UA_StatusCode status;
+
+typedef struct {
+    /* Pointers to the current position and the last position in the buffer */
+    u8 *pos;
+    const u8 *end;
+
+    u16 depth; /* How often did we en-/decoding recurse? */
+
+    size_t customTypesArraySize;
+    const UA_DataType *customTypesArray;
+
+    UA_exchangeEncodeBuffer exchangeBufferCallback;
+    void *exchangeBufferCallbackHandle;
+} Ctx;
+
+typedef status(*encodeJsonSignature)(const void *UA_RESTRICT src, const UA_DataType *type,
+        Ctx *UA_RESTRICT ctx);
+
+
+#define ENCODE_JSON(TYPE) static status \
+    TYPE##_encodeJson(const UA_##TYPE *UA_RESTRICT src, const UA_DataType *type, Ctx *UA_RESTRICT ctx)
+
+#define ENCODE_DIRECT(SRC, TYPE) TYPE##_encodeJson((const UA_##TYPE*)SRC, NULL, ctx)
+
+
+/* Jumptables for de-/encoding and computing the buffer length. The methods in
+ * the decoding jumptable do not all clean up their allocated memory when an
+ * error occurs. So a final _deleteMembers needs to be called before returning
+ * to the user. */
+extern const encodeJsonSignature encodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1];
+
+static status encodeJsonInternal(const void *src, const UA_DataType *type, Ctx *ctx);
+
+
+status writeKey(Ctx *ctx, const char* key);
+status writeComma(Ctx *ctx);
+
+UA_String UA_DateTime_toJSON(UA_DateTime t);
+
+void addMatrixContentJSON(Ctx *ctx, void* array, const UA_DataType *type, size_t *index, UA_UInt32 *arrayDimensions, size_t dimensionIndex, size_t dimensionSize);
+
+static UA_Boolean useReversibleForm = UA_TRUE;
+
+ENCODE_JSON(ByteString);
+
+/**
+ * JSON HELPER
+ */
+#define WRITE(ELEM) writeJson##ELEM(ctx)
+
+#define JSON(ELEM) static status writeJson##ELEM(Ctx *UA_RESTRICT ctx)
+
+static UA_Boolean commaNeeded = UA_FALSE;
+static UA_UInt32 innerObject = 0;
+
+/*JSON(Debug) {
+    *(ctx->pos++) = '@';
+
+    return UA_STATUSCODE_GOOD;
+}*/
+
+JSON(Quote) {
+    *(ctx->pos++) = '"';
+
+    return UA_STATUSCODE_GOOD;
+}
+
+JSON(ObjStart) {
+    *(ctx->pos++) = '{';
+    innerObject++;
+    return UA_STATUSCODE_GOOD;
+}
+
+JSON(ObjEnd) {
+    *(ctx->pos++) = '}';
+    innerObject--;
+    commaNeeded = UA_TRUE;
+    return UA_STATUSCODE_GOOD;
+}
+
+JSON(ArrayStart) {
+    *(ctx->pos++) = '[';
+
+    return UA_STATUSCODE_GOOD;
+}
+
+JSON(ArrayEnd) {
+    *(ctx->pos++) = ']';
+
+    return UA_STATUSCODE_GOOD;
+}
+
+JSON(Comma) {
+    *(ctx->pos++) = ',';
+
+    return UA_STATUSCODE_GOOD;
+}
+
+JSON(dPoint) {
+    *(ctx->pos++) = ':';
+
+    return UA_STATUSCODE_GOOD;
+}
+
+status writeComma(Ctx *ctx) {
+    if (commaNeeded) {
+        WRITE(Comma);
+    }
+
+    return UA_STATUSCODE_GOOD;
+}
+
+status writeKey(Ctx *ctx, const char* key) {
+    writeComma(ctx);
+    WRITE(Quote);
+    for (size_t i = 0; i < strlen(key); i++) {
+        *(ctx->pos++) = (u8)key[i];
+    }
+    WRITE(Quote);
+    WRITE(dPoint);
+
+    commaNeeded = UA_TRUE;
+    return UA_STATUSCODE_GOOD;
+}
+
+/**
+ * Chunking
+ * ^^^^^^^^
+ * Breaking a message into chunks is integrated with the encoding. When the end
+ * of a buffer is reached, a callback is executed that sends the current buffer
+ * as a chunk and exchanges the encoding buffer "underneath" the ongoing
+ * encoding. This reduces the RAM requirements and unnecessary copying.
+ *
+ * In encodeJsonInternal and Array_encodeJson, we store a pointer to the
+ * last "good position" in the buffer. If we reach the end of the buffer, the
+ * encoding until that point is sent out. Afterwards the "good position" pointer
+ * is no longer valid. In order to prevent reuse, no method must return
+ * UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED after having called exchangeBuffer().
+ * This needs to be ensured for the following methods:
+ *
+ * encodeJsonInternal
+ * Array_encodeJson
+ * NodeId_encodeJson
+ * ExpandedNodeId_encodeJson
+ * LocalizedText_encodeJson
+ * ExtensionObject_encodeJson
+ * Variant_encodeJson
+ * DataValue_encodeJson
+ * DiagnosticInfo_encodeJson */
+
+/* Send the current chunk and replace the buffer */
+static status exchangeBuffer(Ctx *ctx) {
+    if (!ctx->exchangeBufferCallback)
+        return UA_STATUSCODE_BADENCODINGERROR;
+    return ctx->exchangeBufferCallback(ctx->exchangeBufferCallbackHandle, &ctx->pos, &ctx->end);
+}
+
+/* If encoding fails, exchange the buffer and try again. It is assumed that the
+ * following encoding never fails on a fresh buffer. This is true for numerical
+ * types. */
+static status
+encodeWithExchangeBuffer(const void *ptr, encodeJsonSignature encodeFunc, Ctx *ctx) {
+    status ret = encodeFunc(ptr, NULL, ctx);
+    if (ret == UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED) {
+        ret = exchangeBuffer(ctx);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+        encodeFunc(ptr, NULL, ctx);
+    }
+    return UA_STATUSCODE_GOOD;
+}
+
+#define ENCODE_WITHEXCHANGE(VAR, TYPE) \
+    encodeWithExchangeBuffer((const void*)VAR, (encodeJsonSignature)TYPE##_encodeJson, ctx)
+
+/*****************/
+/* Integer Types */
+/*****************/
+
+#if !UA_BINARY_OVERLAYABLE_INTEGER
+
+#pragma message "Integer endianness could not be detected to be little endian. Use slow generic encoding."
+
+/* These en/decoding functions are only used when the architecture isn't little-endian. */
+static void
+UA_encode16(const u16 v, u8 buf[2]) {
+    buf[0] = (u8) v;
+    buf[1] = (u8) (v >> 8);
+}
+
+static void
+UA_encode32(const u32 v, u8 buf[4]) {
+    buf[0] = (u8) v;
+    buf[1] = (u8) (v >> 8);
+    buf[2] = (u8) (v >> 16);
+    buf[3] = (u8) (v >> 24);
+}
+
+
+static void
+UA_encode64(const u64 v, u8 buf[8]) {
+    buf[0] = (u8) v;
+    buf[1] = (u8) (v >> 8);
+    buf[2] = (u8) (v >> 16);
+    buf[3] = (u8) (v >> 24);
+    buf[4] = (u8) (v >> 32);
+    buf[5] = (u8) (v >> 40);
+    buf[6] = (u8) (v >> 48);
+    buf[7] = (u8) (v >> 56);
+}
+
+#endif /* !UA_BINARY_OVERLAYABLE_INTEGER */
+
+
+//http://www.techiedelight.com/implement-itoa-function-in-c/
+//  function to swap two numbers
+
+void swap(char *x, char *y);
+char* reverse(char *buffer, UA_UInt16 i, UA_UInt16 j);
+UA_UInt16 itoaUnsigned(UA_UInt64 value, char* buffer, UA_Byte base);
+UA_UInt64 UA_abs(UA_Int64 v);
+UA_UInt16 itoa(UA_Int64 value, char* buffer);
+
+void swap(char *x, char *y) {
+    char t = *x;
+    *x = *y;
+    *y = t;
+}
+
+// function to reverse buffer[i..j]
+
+char* reverse(char *buffer, UA_UInt16 i, UA_UInt16 j) {
+    while (i < j)
+        swap(&buffer[i++], &buffer[j--]);
+
+    return buffer;
+}
+
+// Iterative function to implement itoa() function in C
+
+UA_UInt16 itoaUnsigned(UA_UInt64 value, char* buffer, UA_Byte base) {
+    // consider absolute value of number
+    UA_UInt64 n = value;
+
+    UA_UInt16 i = 0;
+    while (n) {
+        UA_UInt64 r = n % base;
+
+        if (r >= 10)
+            buffer[i++] = (char)(65 + (r - 10));
+        else
+            buffer[i++] = (char)(48 + r);
+
+        n = n / base;
+    }
+
+    // if number is 0
+    if (i == 0)
+        buffer[i++] = '0';
+
+
+    buffer[i] = '\0'; // null terminate string
+
+    i--;
+
+    // reverse the string 
+    reverse(buffer, 0, i);
+    i++;
+    return i;
+}
+
+//From http://graphics.stanford.edu/~seander/bithacks.html#IntegerAbs
+
+UA_UInt64 UA_abs(UA_Int64 v) {
+    UA_UInt64 r;
+    UA_Int64 const mask = v >> (sizeof(int) * 8 - 1);
+
+    r = (UA_UInt64)((v + mask) ^ mask);
+    return r;
+}
+
+//http://www.techiedelight.com/implement-itoa-function-in-c/
+// Iterative function to implement itoa() function in C
+
+UA_UInt16 itoa(UA_Int64 value, char* buffer) {
+    // consider absolute value of number
+    UA_UInt64 n = UA_abs(value);
+
+
+
+    UA_UInt16 i = 0;
+    while (n) {
+        UA_UInt64 r = n % 10;
+
+        if (r >= 10)
+            buffer[i++] = (char)(65 + (r - 10));
+        else
+            buffer[i++] = (char)(48 + r);
+
+        n = n / 10;
+    }
+
+    // if number is 0
+    if (i == 0)
+        buffer[i++] = '0';
+
+    // If base is 10 and value is negative, the resulting string 
+    // is preceded with a minus sign (-)
+    // With any other base, value is always considered unsigned
+    if (value < 0 && 10 == 10)
+        buffer[i++] = '-';
+
+    buffer[i] = '\0'; // null terminate string
+
+    i--;
+    // reverse the string and return it
+    reverse(buffer, 0, i);
+    i++;
+    return i;
+}
+
+/* Boolean */
+ENCODE_JSON(Boolean) {
+
+    size_t sizeOfJSONBool;
+    if (*src == UA_TRUE) {
+        sizeOfJSONBool = 4; //"true"
+    } else {
+        sizeOfJSONBool = 5; //"false";
+    }
+
+    if (ctx->pos + sizeOfJSONBool > ctx->end)
+        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
+
+    if (*src == UA_TRUE) {
+        *(ctx->pos++) = 't';
+        *(ctx->pos++) = 'r';
+        *(ctx->pos++) = 'u';
+        *(ctx->pos++) = 'e';
+    } else {
+        *(ctx->pos++) = 'f';
+        *(ctx->pos++) = 'a';
+        *(ctx->pos++) = 'l';
+        *(ctx->pos++) = 's';
+        *(ctx->pos++) = 'e';
+    }
+
+    return UA_STATUSCODE_GOOD;
+}
+
+
+/* Byte */
+ENCODE_JSON(Byte) {
+    char buf[3]; //TODO size
+    UA_UInt16 digits = itoaUnsigned(*src, buf, 10);
+
+    if (ctx->pos + digits > ctx->end)
+        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
+
+    memcpy(ctx->pos, buf, digits);
+
+    ctx->pos += digits;
+    return UA_STATUSCODE_GOOD;
+}
+
+
+/* signed Byte */
+ENCODE_JSON(SByte) {
+    char buf[4]; //TODO size
+    UA_UInt16 digits = itoa(*src, buf);
+
+    if (ctx->pos + digits > ctx->end)
+        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
+
+    memcpy(ctx->pos, buf, digits);
+
+    ctx->pos += digits;
+    return UA_STATUSCODE_GOOD;
+}
+
+/* UInt16 */
+ENCODE_JSON(UInt16) {
+
+#if UA_BINARY_OVERLAYABLE_INTEGER
+
+    char buf[50]; //TODO size
+    UA_UInt16 digits = itoaUnsigned(*src, buf, 10);
+
+    if (ctx->pos + digits > ctx->end)
+        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
+
+    memcpy(ctx->pos, buf, digits);
+#else
+    //TODO UA_encode16(*src, ctx->pos);
+#endif
+    ctx->pos += digits;
+    return UA_STATUSCODE_GOOD;
+}
+
+
+/* Int16 */
+ENCODE_JSON(Int16) {
+
+#if UA_BINARY_OVERLAYABLE_INTEGER
+
+    char buf[50]; //TODO size
+    UA_UInt16 digits = itoa(*src, buf);
+
+    if (ctx->pos + digits > ctx->end)
+        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
+
+    memcpy(ctx->pos, buf, digits);
+#else
+    //TODO UA_encode16(*src, ctx->pos);
+#endif
+    ctx->pos += digits;
+    return UA_STATUSCODE_GOOD;
+}
+
+/* UInt32 */
+ENCODE_JSON(UInt32) {
+
+#if UA_BINARY_OVERLAYABLE_INTEGER
+    char buf[50]; //TODO size
+    UA_UInt16 digits = itoaUnsigned(*src, buf, 10);
+
+    if (ctx->pos + digits > ctx->end)
+        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
+
+    memcpy(ctx->pos, buf, digits);
+#else
+    //UA_encode32(*src, ctx->pos);
+#endif
+    ctx->pos += digits;
+    return UA_STATUSCODE_GOOD;
+}
+
+
+/* Int32 */
+ENCODE_JSON(Int32) {
+
+#if UA_BINARY_OVERLAYABLE_INTEGER
+    char buf[50]; //TODO size
+    UA_UInt16 digits = itoa(*src, buf);
+
+    if (ctx->pos + digits > ctx->end)
+        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
+
+    memcpy(ctx->pos, buf, digits);
+#else
+    //UA_encode32(*src, ctx->pos);
+#endif
+    ctx->pos += digits;
+    return UA_STATUSCODE_GOOD;
+}
+
+/* UInt64 */
+ENCODE_JSON(UInt64) {
+#if UA_BINARY_OVERLAYABLE_INTEGER
+    char buf[50]; //TODO size
+    UA_UInt16 digits = itoaUnsigned(*src, buf, 10);
+
+    if (ctx->pos + digits > ctx->end)
+        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
+
+    memcpy(ctx->pos, buf, digits);
+#else
+    UA_encode64(*src, ctx->pos);
+#endif
+    ctx->pos += digits;
+    return UA_STATUSCODE_GOOD;
+}
+
+
+/* Int64 */
+ENCODE_JSON(Int64) {
+
+#if UA_BINARY_OVERLAYABLE_INTEGER
+    char buf[50]; //TODO size
+    UA_UInt16 digits = itoa(*src, buf);
+
+    if (ctx->pos + digits > ctx->end)
+        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
+
+    //TODO Decimal?
+    memcpy(ctx->pos, buf, digits);
+#else
+    UA_encode32(*src, ctx->pos);
+#endif
+    ctx->pos += digits;
+    return UA_STATUSCODE_GOOD;
+}
+
+/************************/
+/* Floating Point Types */
+/************************/
+
+#if UA_BINARY_OVERLAYABLE_FLOAT
+#define Float_encodeJson UInt32_encodeJson
+#define Float_decodeJson UInt32_decodeJson
+#define Double_encodeJson UInt64_encodeJson
+#define Double_decodeJson UInt64_decodeJson
+#else
+
+#include <math.h>
+
+#pragma message "No native IEEE 754 format detected. Use slow generic encoding."
+
+/* Handling of IEEE754 floating point values was taken from Beej's Guide to
+ * Network Programming (http://beej.us/guide/bgnet/) and enhanced to cover the
+ * edge cases +/-0, +/-inf and nan. */
+static uint64_t
+pack754(long double f, unsigned bits, unsigned expbits) {
+    unsigned significandbits = bits - expbits - 1;
+    long double fnorm;
+    long long sign;
+    if (f < 0) {
+        sign = 1;
+        fnorm = -f;
+    } else {
+        sign = 0;
+        fnorm = f;
+    }
+    int shift = 0;
+    while (fnorm >= 2.0) {
+        fnorm /= 2.0;
+        ++shift;
+    }
+    while (fnorm < 1.0) {
+        fnorm *= 2.0;
+        --shift;
+    }
+    fnorm = fnorm - 1.0;
+    long long significand = (long long) (fnorm * ((float) (1LL << significandbits) + 0.5f));
+    long long exponent = shift + ((1 << (expbits - 1)) - 1);
+    return (uint64_t) ((sign << (bits - 1)) | (exponent << (bits - expbits - 1)) | significand);
+}
+
+static long double
+unpack754(uint64_t i, unsigned bits, unsigned expbits) {
+    unsigned significandbits = bits - expbits - 1;
+    long double result = (long double) (i & (uint64_t) ((1LL << significandbits) - 1));
+    result /= (1LL << significandbits);
+    result += 1.0f;
+    unsigned bias = (unsigned) (1 << (expbits - 1)) - 1;
+    long long shift = (long long) ((i >> significandbits) & (uint64_t) ((1LL << expbits) - 1)) - bias;
+    while (shift > 0) {
+        result *= 2.0;
+        --shift;
+    }
+    while (shift < 0) {
+        result /= 2.0;
+        ++shift;
+    }
+    result *= ((i >> (bits - 1))&1) ? -1.0 : 1.0;
+    return result;
+}
+
+/* Float */
+#define FLOAT_NAN 0xffc00000
+#define FLOAT_INF 0x7f800000
+#define FLOAT_NEG_INF 0xff800000
+#define FLOAT_NEG_ZERO 0x80000000
+
+ENCODE_JSON(Float) {
+    //TODO
+    UA_Float f = *src;
+    u32 encoded;
+    /* cppcheck-suppress duplicateExpression */
+    if (f != f) encoded = FLOAT_NAN;
+    else if (f == 0.0f) encoded = signbit(f) ? FLOAT_NEG_ZERO : 0;
+    else if (f / f != f / f) encoded = f > 0 ? FLOAT_INF : FLOAT_NEG_INF;
+    else encoded = (u32) pack754(f, 32, 8);
+    return ENCODE_DIRECT(&encoded, UInt32);
+}
+
+
+/* Double */
+#define DOUBLE_NAN 0xfff8000000000000L
+#define DOUBLE_INF 0x7ff0000000000000L
+#define DOUBLE_NEG_INF 0xfff0000000000000L
+#define DOUBLE_NEG_ZERO 0x8000000000000000L
+
+ENCODE_JSON(Double) {
+
+    //TODO
+    UA_Double d = *src;
+    u64 encoded;
+    /* cppcheck-suppress duplicateExpression */
+    if (d != d) encoded = DOUBLE_NAN;
+    else if (d == 0.0) encoded = signbit(d) ? DOUBLE_NEG_ZERO : 0;
+    else if (d / d != d / d) encoded = d > 0 ? DOUBLE_INF : DOUBLE_NEG_INF;
+    else encoded = pack754(d, 64, 11);
+    return ENCODE_DIRECT(&encoded, UInt64);
+}
+
+
+#endif
+
+/******************/
+/* Array Handling */
+
+/******************/
+
+
+static status
+Array_encodeJsonOverlayable(uintptr_t ptr, size_t length, size_t elementMemSize, Ctx *ctx) {
+    /* Store the number of already encoded elements */
+    size_t finished = 0;
+
+    //size_t encode_index = type->builtin ? type->typeIndex : UA_BUILTIN_TYPES_COUNT;
+    //encodeJsonSignature encodeType = encodeJsonJumpTable[encode_index];
+
+    /* Loop as long as more elements remain than fit into the chunk */
+    /*while (ctx->end < ctx->pos + (elementMemSize * (length - finished))) {
+        size_t possible = ((uintptr_t) ctx->end - (uintptr_t) ctx->pos) / (sizeof (u8) * elementMemSize);
+        size_t possibleMem = possible * elementMemSize;
+        memcpy(ctx->pos, (void*) ptr, possibleMem);
+        ctx->pos += possibleMem;
+        ptr += possibleMem;
+        finished += possible;
+        status ret = exchangeBuffer(ctx);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+    } TODO */
+
+    /* Encode the remaining elements */
+    memcpy(ctx->pos, (void*) ptr, elementMemSize * (length - finished));
+    ctx->pos += elementMemSize * (length - finished);
+    return UA_STATUSCODE_GOOD;
+}
+
+static status
+Array_encodeJsonComplex(uintptr_t ptr, size_t length, const UA_DataType *type, Ctx *ctx) {
+    /* Get the encoding function for the data type. The jumptable at
+     * UA_BUILTIN_TYPES_COUNT points to the generic UA_encodeJson method */
+    size_t encode_index = type->builtin ? type->typeIndex : UA_BUILTIN_TYPES_COUNT;
+    encodeJsonSignature encodeType = encodeJsonJumpTable[encode_index];
+
+    WRITE(ArrayStart);
+    commaNeeded = false;
+
+    /* Encode every element */
+    for (size_t i = 0; i < length; ++i) {
+
+        if (commaNeeded) {
+            WRITE(Comma);
+        }
+
+        u8 *oldpos = ctx->pos;
+        status ret = encodeType((const void*) ptr, type, ctx);
+        ptr += type->memSize;
+        /* Encoding failed, switch to the next chunk when possible */
+        if (ret != UA_STATUSCODE_GOOD) {
+            if (ret == UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED) {
+                ctx->pos = oldpos; /* Set buffer position to the end of the last encoded element */
+                ret = exchangeBuffer(ctx);
+                ptr -= type->memSize; /* Undo to retry encoding the ith element */
+                --i;
+            }
+            UA_assert(ret != UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret; /* Unrecoverable fail */
+        }
+
+        commaNeeded = true;
+    }
+
+    commaNeeded = true;
+    WRITE(ArrayEnd);
+    return UA_STATUSCODE_GOOD;
+}
+
+static status
+Array_encodeJson(const void *src, size_t length, const UA_DataType *type, Ctx *ctx, UA_Boolean isVariantArray) {
+    /* Check and convert the array length to int32 */
+    /*i32 signed_length = -1;
+    if (length > UA_INT32_MAX)
+        return UA_STATUSCODE_BADINTERNALERROR;
+    if (length > 0)
+        signed_length = (i32) length;
+    else if (src == UA_EMPTY_ARRAY_SENTINEL)
+        signed_length = 0;*/
+
+
+    //No need for a lengt in JSON!
+    /* Encode the array length */
+    //status ret = ENCODE_WITHEXCHANGE(&signed_length, UInt32);
+
+    /* Quit early? */
+    //if(ret != UA_STATUSCODE_GOOD || length == 0)
+    //   return ret;
+
+    status ret = UA_STATUSCODE_GOOD;
+    /* Encode the content */
+
+
+
+    /* Byte Array  ByteString TODO*/
+    if (!isVariantArray && type->typeIndex == 2 /*byte*/) {
+        //UA_ByteString bs;
+        //bs.data = (UA_Byte const*)src;
+        //bs.length = length;
+        //size_t decode_index = type->builtin ? type->typeIndex : UA_BUILTIN_TYPES_COUNT;
+        //ret = ENCODE_DIRECT(&bs, ByteString);
+        return ret;
+    } else {
+        //@TODO FIXME
+        ret = Array_encodeJsonComplex((uintptr_t) src, length, type, ctx);
+        return ret;
+    }
+
+    if (!type->overlayable) {
+        ret = Array_encodeJsonComplex((uintptr_t) src, length, type, ctx);
+    } else {
+        ret = Array_encodeJsonOverlayable((uintptr_t) src, length, type->memSize, ctx);
+    }
+
+
+    return ret;
+}
+
+/*****************/
+/* Builtin Types */
+
+/*****************/
+
+
+static char escapeLookup[256];
+
+ENCODE_JSON(String) {
+
+    WRITE(Quote);
+    //TODO: Escape String
+    memset(&escapeLookup, 0, 256);
+    escapeLookup['"'] = '"';
+    escapeLookup['\\'] = '\\';
+    escapeLookup['\n'] = 'n';
+    escapeLookup['\r'] = 'r';
+    escapeLookup['\t'] = 't';
+    escapeLookup['\b'] = 'b';
+    escapeLookup['\f'] = 'f';
+
+    if (ctx->pos + src->length > ctx->end)
+        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
+
+    size_t i;
+    for (i = 0; i < src->length; i++) {
+        if (escapeLookup[src->data[i]]) {
+            *(ctx->pos++) = '\\';
+            *(ctx->pos++) = (u8)escapeLookup[src->data[i]];
+        } else {
+            *(ctx->pos++) = src->data[i];
+        }
+    }
+
+    WRITE(Quote);
+    return UA_STATUSCODE_GOOD;
+}
+
+ENCODE_JSON(ByteString) {
+
+    /*
+    //Estimate base64 size, this is a few bytes bigger https://stackoverflow.com/questions/1533113/calculate-the-size-to-a-base-64-encoded-message
+    UA_UInt32 output_size = ((src->length * 4) / 3) + (src->length / 96) + 6;
+
+    if (ctx->pos + output_size > ctx->end)
+        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
+
+
+    //set up a destination buffer large enough to hold the encoded data
+    char* output = (char*) malloc(output_size);
+    //keep track of our encoded position 
+    char* c = output;
+    // store the number of bytes encoded by a single call 
+    int cnt = 0;
+    // we need an encoder state 
+    base64_encodestate s;
+
+    //---------- START ENCODING ---------
+    // initialise the encoder state
+    base64_init_encodestate(&s);
+    // gather data from the input and send it to the output
+    cnt = base64_encode_block(src->data, src->length, c, &s);
+    c += cnt;
+    // since we have encoded the entire input string, we know that 
+    //   there is no more input data; finalise the encoding 
+    cnt = base64_encode_blockend(c, &s);
+    c += cnt;
+    //---------- STOP ENCODING  ----------
+
+
+    WRITE(Quote);
+
+    //Calculate size, Lib appends one \n, -1 because of this.
+    size_t actualLength = (c - 1) - output;
+    memcpy(ctx->pos, output, actualLength);
+    ctx->pos += actualLength;
+
+    free(output);
+    output = NULL;
+
+    WRITE(Quote);
+    */
+   return UA_STATUSCODE_GOOD;
+}
+
+
+char hexmapLower[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+char hexmapUpper[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+
+/* Guid */
+ENCODE_JSON(Guid) {
+    status ret = UA_STATUSCODE_GOOD;
+    char *hexmap = hexmapUpper; //TODO: Define 
+
+    if (ctx->pos + 38 > ctx->end)
+        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
+
+    WRITE(Quote);
+    char buf[36];
+    memset(&buf, 0, 20);
+
+    UA_Byte b1 = (UA_Byte)(src->data1 >> 24);
+    UA_Byte b2 = (UA_Byte)(src->data1 >> 16);
+    UA_Byte b3 = (UA_Byte)(src->data1 >> 8);
+    UA_Byte b4 = (UA_Byte)(src->data1 >> 0);
+    buf[0] = hexmap[(b1 & 0xF0) >> 4];
+    buf[1] = hexmap[b1 & 0x0F];
+    buf[2] = hexmap[(b2 & 0xF0) >> 4];
+    buf[3] = hexmap[b2 & 0x0F];
+    buf[4] = hexmap[(b3 & 0xF0) >> 4];
+    buf[5] = hexmap[b3 & 0x0F];
+    buf[6] = hexmap[(b4 & 0xF0) >> 4];
+    buf[7] = hexmap[b4 & 0x0F];
+
+    buf[8] = '-';
+
+    UA_Byte b5 = (UA_Byte)(src->data2 >> 8);
+    UA_Byte b6 = (UA_Byte)(src->data2 >> 0);
+
+    buf[9] = hexmap[(b5 & 0xF0) >> 4];
+    buf[10] = hexmap[b5 & 0x0F];
+    buf[11] = hexmap[(b6 & 0xF0) >> 4];
+    buf[12] = hexmap[b6 & 0x0F];
+
+    buf[13] = '-';
+
+    UA_Byte b7 = (UA_Byte)(src->data3 >> 8);
+    UA_Byte b8 = (UA_Byte)(src->data3 >> 0);
+
+    buf[14] = hexmap[(b7 & 0xF0) >> 4];
+    buf[15] = hexmap[b7 & 0x0F];
+    buf[16] = hexmap[(b8 & 0xF0) >> 4];
+    buf[17] = hexmap[b8 & 0x0F];
+
+    buf[18] = '-';
+
+    UA_Byte b9 = src->data4[0];
+    UA_Byte b10 = src->data4[1];
+
+    buf[19] = hexmap[(b9 & 0xF0) >> 4];
+    buf[20] = hexmap[b9 & 0x0F];
+    buf[21] = hexmap[(b10 & 0xF0) >> 4];
+    buf[22] = hexmap[b10 & 0x0F];
+
+    buf[23] = '-';
+
+    UA_Byte b11 = src->data4[2];
+    UA_Byte b12 = src->data4[3];
+    UA_Byte b13 = src->data4[4];
+    UA_Byte b14 = src->data4[5];
+    UA_Byte b15 = src->data4[6];
+    UA_Byte b16 = src->data4[7];
+
+    buf[24] = hexmap[(b11 & 0xF0) >> 4];
+    buf[25] = hexmap[b11 & 0x0F];
+    buf[26] = hexmap[(b12 & 0xF0) >> 4];
+    buf[27] = hexmap[b12 & 0x0F];
+    buf[28] = hexmap[(b13 & 0xF0) >> 4];
+    buf[29] = hexmap[b13 & 0x0F];
+    buf[30] = hexmap[(b14 & 0xF0) >> 4];
+    buf[31] = hexmap[b14 & 0x0F];
+    buf[32] = hexmap[(b15 & 0xF0) >> 4];
+    buf[33] = hexmap[b15 & 0x0F];
+    buf[34] = hexmap[(b16 & 0xF0) >> 4];
+    buf[35] = hexmap[b16 & 0x0F];
+
+    memcpy(ctx->pos, buf, 36);
+    ctx->pos += 36;
+    WRITE(Quote);
+
+    return ret;
+}
+
+
+static void
+printNumber(u16 n, u8 *pos, size_t digits) {
+    for (size_t i = digits; i > 0; --i) {
+        pos[i - 1] = (u8) ((n % 10) + '0');
+        n = n / 10;
+    }
+}
+
+UA_String
+UA_DateTime_toJSON(UA_DateTime t) {
+    /* length of the string is 31 (plus \0 at the end) */
+    UA_String str = {20, (u8*) UA_malloc(20)};
+    if (!str.data)
+        return UA_STRING_NULL;
+    UA_DateTimeStruct tSt = UA_DateTime_toStruct(t);
+    printNumber(tSt.year, str.data, 4);
+    str.data[4] = '-';
+    printNumber(tSt.day, &str.data[5], 2);
+    str.data[7] = '-';
+    printNumber(tSt.day, &str.data[8], 2);
+    str.data[10] = 'T';
+    printNumber(tSt.hour, &str.data[11], 2);
+    str.data[13] = ':';
+    printNumber(tSt.min, &str.data[14], 2);
+    str.data[16] = ':';
+    printNumber(tSt.sec, &str.data[17], 2);
+    str.data[19] = 'Z';
+    return str;
+}
+
+ENCODE_JSON(DateTime) {
+    UA_StatusCode ret = UA_STATUSCODE_GOOD;
+    UA_String str = UA_DateTime_toJSON(*src);
+    //WRITE(Quote);
+    ENCODE_DIRECT(&str, String);
+    //WRITE(Quote);
+    UA_String_deleteMembers(&str);
+    return ret;
+}
+
+/* NodeId */
+#define UA_NODEIDTYPE_NUMERIC_TWOBYTE 0
+#define UA_NODEIDTYPE_NUMERIC_FOURBYTE 1
+#define UA_NODEIDTYPE_NUMERIC_COMPLETE 2
+
+#define UA_EXPANDEDNODEID_SERVERINDEX_FLAG 0x40
+#define UA_EXPANDEDNODEID_NAMESPACEURI_FLAG 0x80
+
+/* For ExpandedNodeId, we prefill the encoding mask. We can return
+ * UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED before encoding the string, as the
+ * buffer is not replaced. */
+static status
+NodeId_encodeJsonWithEncodingMask(UA_NodeId const *src, u8 encoding, Ctx *ctx) {
+    status ret = UA_STATUSCODE_GOOD;
+
+    switch (src->identifierType) {
+        case UA_NODEIDTYPE_NUMERIC:
+        {
+            commaNeeded = UA_FALSE;
+
+            ret |= writeKey(ctx, "Id");
+            ret |= ENCODE_DIRECT(&src->identifier.numeric, UInt32);
+
+            break;
+        }
+        case UA_NODEIDTYPE_STRING:
+        {
+            commaNeeded = UA_FALSE;
+
+            ret |= writeKey(ctx, "IdType");
+            UA_UInt16 typeNumber = 1;
+            ret |= ENCODE_DIRECT(&typeNumber, UInt16);
+            ret |= writeKey(ctx, "Id");
+            ret |= ENCODE_DIRECT(&src->identifier.string, String);
+
+            break;
+        }
+        case UA_NODEIDTYPE_GUID:
+        {
+            commaNeeded = UA_FALSE;
+         
+            ret |= writeKey(ctx, "IdType");
+            UA_UInt16 typeNumber = 2;
+            ret |= ENCODE_DIRECT(&typeNumber, UInt16);
+            /* Id */
+            ret |= writeKey(ctx, "Id");
+            ret |= ENCODE_DIRECT(&src->identifier.guid, Guid);
+
+            break;
+        }
+        case UA_NODEIDTYPE_BYTESTRING:
+        {
+            commaNeeded = UA_FALSE;
+            // {"IdType":0,"Text":"Text"}
+
+            ret |= writeKey(ctx, "IdType");
+            UA_UInt16 typeNumber = 3;
+            ret |= ENCODE_DIRECT(&typeNumber, UInt16);
+            /* Id */
+            ret |= writeKey(ctx, "Id");
+            //TODO: ByteSTring
+            ret |= ENCODE_DIRECT(&src->identifier.byteString, ByteString);
+
+            break;
+        }
+        default:
+            return UA_STATUSCODE_BADINTERNALERROR;
+    }
+
+
+
+    if (useReversibleForm) {
+        if (src->namespaceIndex > 0) {
+            ret |= writeKey(ctx, "Namespace");
+            ret |= ENCODE_DIRECT(&src->namespaceIndex, UInt16);
+        }
+    } else {
+        /* For the non-reversible encoding, the field is the NamespaceUri 
+         * associated with the NamespaceIndex, encoded as a JSON string.
+         * A NamespaceIndex of 1 is always encoded as a JSON number.
+         */
+
+        //@TODO LOOKUP namespace uri and check if unknown
+        UA_String namespaceUri = UA_STRING("dummy");
+        if (src->namespaceIndex == 1 || namespaceUri.length) {
+            writeKey(ctx, "Namespace");
+            ret |= ENCODE_DIRECT(&src->namespaceIndex, UInt16);
+        } else {
+            writeKey(ctx, "Namespace");
+            ret |= WRITE(Quote);
+            ret |= ENCODE_DIRECT(&src->namespaceIndex, String);
+            ret |= WRITE(Quote);
+        }
+    }
+
+    return ret;
+}
+
+ENCODE_JSON(NodeId) {
+    WRITE(ObjStart);
+    UA_StatusCode ret = NodeId_encodeJsonWithEncodingMask(src, 0, ctx);
+    WRITE(ObjEnd);
+    return ret;
+}
+
+/* ExpandedNodeId */
+ENCODE_JSON(ExpandedNodeId) {
+
+    WRITE(ObjStart);
+
+    /* Set up the encoding mask */
+    u8 encoding = 0;
+    if ((void*) src->namespaceUri.data > UA_EMPTY_ARRAY_SENTINEL)
+        encoding |= UA_EXPANDEDNODEID_NAMESPACEURI_FLAG;
+    if (src->serverIndex > 0)
+        encoding |= UA_EXPANDEDNODEID_SERVERINDEX_FLAG;
+
+    /* Encode the NodeId */
+    status ret = NodeId_encodeJsonWithEncodingMask(&src->nodeId, encoding, ctx);
+    if (ret != UA_STATUSCODE_GOOD)
+        return ret;
+
+    /* Encode the namespace. Do not return
+     * UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED afterwards. */
+    if ((void*) src->namespaceUri.data > UA_EMPTY_ARRAY_SENTINEL) {
+
+        writeKey(ctx, "Namespace");
+        WRITE(Quote);
+        ret = ENCODE_DIRECT(&src->namespaceUri, String);
+        WRITE(Quote);
+        UA_assert(ret != UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+    }
+
+    /* Encode the serverIndex */
+    if (src->serverIndex > 0) {
+        writeKey(ctx, "ServerUri");
+        ret = ENCODE_WITHEXCHANGE(&src->serverIndex, UInt32);
+    }
+
+    UA_assert(ret != UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+
+    ret |= WRITE(ObjEnd);
+
+    return ret;
+}
+
+/* LocalizedText */
+#define UA_LOCALIZEDTEXT_ENCODINGMASKTYPE_LOCALE 0x01
+#define UA_LOCALIZEDTEXT_ENCODINGMASKTYPE_TEXT 0x02
+
+ENCODE_JSON(LocalizedText) {
+    status ret = UA_STATUSCODE_GOOD;
+
+    if (useReversibleForm) {
+        commaNeeded = UA_FALSE;
+
+        WRITE(ObjStart);
+        // {"Locale":"asd","Text":"Text"}
+        writeKey(ctx, "Locale");
+        ret |= ENCODE_DIRECT(&src->locale, String);
+
+        writeKey(ctx, "Text");
+        ret |= ENCODE_DIRECT(&src->text, String);
+
+        WRITE(ObjEnd);
+    } else {
+        /* For the non-reversible form, LocalizedText value shall 
+         * be encoded as a JSON string containing the Text component.*/
+        ret |= ENCODE_DIRECT(&src->text, String);
+    }
+
+    UA_assert(ret != UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+    return ret;
+}
+
+ENCODE_JSON(QualifiedName) {
+    status ret = UA_STATUSCODE_GOOD;
+
+    commaNeeded = UA_FALSE;
+
+    WRITE(ObjStart);
+    writeKey(ctx, "Name");
+    ret |= WRITE(Quote);
+    ret |= ENCODE_DIRECT(&src->name, String);
+    ret |= WRITE(Quote);
+
+    if (useReversibleForm) {
+        if (src->namespaceIndex != 0) {
+            writeKey(ctx, "Uri");
+            ret |= ENCODE_DIRECT(&src->namespaceIndex, UInt16);
+        }
+    } else {
+
+        /*For the non-reversible form, the NamespaceUri associated with the NamespaceIndex portion of
+the QualifiedName is encoded as JSON string unless the NamespaceIndex is 1 or if
+NamespaceUri is unknown. In these cases, the NamespaceIndex is encoded as a JSON number.
+         */
+
+        //@TODO LOOKUP namespace uri and check if unknown
+        UA_String namespaceUri = UA_STRING("dummy");
+        if (src->namespaceIndex == 1 || namespaceUri.length) {
+            writeKey(ctx, "Uri");
+            ret |= ENCODE_DIRECT(&src->namespaceIndex, UInt16);
+        } else {
+            writeKey(ctx, "Uri");
+            ret |= WRITE(Quote);
+            ret |= ENCODE_DIRECT(&src->namespaceIndex, String);
+            ret |= WRITE(Quote);
+        }
+    }
+
+    WRITE(ObjEnd);
+    return ret;
+}
+
+ENCODE_JSON(StatusCode) {
+    status ret = UA_STATUSCODE_GOOD;
+
+    if (!useReversibleForm) {
+        ret |= WRITE(ObjStart);
+        commaNeeded = UA_FALSE;
+        writeKey(ctx, "StatusCode");
+        ret |= ENCODE_DIRECT(src, UInt32);
+
+        writeKey(ctx, "Symbol");
+        //const char* statusDescriptionString = UA_StatusCode_name(*src);
+        UA_String statusDescription = UA_STRING("todo");// TODO: statusDescriptionString);
+        ret |= ENCODE_DIRECT(&statusDescription, String);
+
+        ret |= WRITE(ObjEnd);
+    } else {
+        ret |= ENCODE_DIRECT(src, UInt32);
+    }
+
+    return ret;
+}
+
+/* The json encoding has a different nodeid from the data type. So it is not
+ * possible to reuse UA_findDataType */
+static const UA_DataType *
+UA_findDataTypeByJsonInternal(const UA_NodeId *typeId, Ctx *ctx) {
+    /* We only store a numeric identifier for the encoding nodeid of data types */
+    if (typeId->identifierType != UA_NODEIDTYPE_NUMERIC)
+        return NULL;
+
+    /* Always look in built-in types first
+     * (may contain data types from all namespaces) */
+    for (size_t i = 0; i < UA_TYPES_COUNT; ++i) {
+        if (UA_TYPES[i].binaryEncodingId == typeId->identifier.numeric &&
+                UA_TYPES[i].typeId.namespaceIndex == typeId->namespaceIndex)
+            return &UA_TYPES[i];
+    }
+
+    /* When other namespace look in custom types, too */
+    if (typeId->namespaceIndex != 0) {
+        for (size_t i = 0; i < ctx->customTypesArraySize; ++i) {
+            if (ctx->customTypesArray[i].binaryEncodingId == typeId->identifier.numeric &&
+                    ctx->customTypesArray[i].typeId.namespaceIndex == typeId->namespaceIndex)
+                return &ctx->customTypesArray[i];
+        }
+    }
+
+    return NULL;
+}
+
+const UA_DataType *
+UA_findDataTypeByJson(const UA_NodeId *typeId) {
+    Ctx ctx;
+    ctx.customTypesArraySize = 0;
+    ctx.customTypesArray = NULL;
+    return UA_findDataTypeByJsonInternal(typeId, &ctx);
+}
+
+/* ExtensionObject */
+ENCODE_JSON(ExtensionObject) {
+    u8 encoding = (u8) src->encoding;
+    status ret = UA_STATUSCODE_GOOD;
+    /* No content or already encoded content. Do not return
+     * UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED after encoding the NodeId. */
+    if (encoding <= UA_EXTENSIONOBJECT_ENCODED_XML) {
+        commaNeeded = UA_FALSE;
+
+        WRITE(ObjStart);
+
+        writeKey(ctx, "TypeId");
+        ret = ENCODE_DIRECT(&src->content.encoded.typeId, NodeId);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+
+        writeKey(ctx, "Encoding");
+        ret = ENCODE_WITHEXCHANGE(&encoding, Byte);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+        switch (src->encoding) {
+            case UA_EXTENSIONOBJECT_ENCODED_NOBODY:
+                break;
+            case UA_EXTENSIONOBJECT_ENCODED_BYTESTRING:
+                writeKey(ctx, "Body");
+                ret = ENCODE_DIRECT(&src->content.encoded.body, ByteString); /* ByteString TODO: TEST*/
+                break;
+            case UA_EXTENSIONOBJECT_ENCODED_XML:
+                writeKey(ctx, "Body");
+                ret = ENCODE_DIRECT(&src->content.encoded.body, String); /* ByteString TODO: TEST*/
+                break;
+            default:
+                ret = UA_STATUSCODE_BADINTERNALERROR;
+        }
+
+        WRITE(ObjEnd);
+        return ret;
+    }
+
+    /* Cannot encode with no data or no type description */
+    if (!src->content.decoded.type || !src->content.decoded.data)
+        return UA_STATUSCODE_BADENCODINGERROR;
+
+    /* Write the NodeId for the json encoded type. The NodeId is always
+     * numeric, so no buffer replacement is taking place. */
+    UA_NodeId typeId = src->content.decoded.type->typeId;
+    if (typeId.identifierType != UA_NODEIDTYPE_NUMERIC)
+        return UA_STATUSCODE_BADENCODINGERROR;
+    typeId.identifier.numeric = src->content.decoded.type->binaryEncodingId;
+
+
+    if (useReversibleForm) {
+
+        WRITE(ObjStart);
+
+        commaNeeded = UA_FALSE;
+        writeKey(ctx, "TypeId");
+        ret = ENCODE_DIRECT(&typeId, NodeId);
+
+        /* Write the encoding byte */
+        encoding = 0; //TODO: encoding
+        writeKey(ctx, "Encoding");
+        ret |= ENCODE_DIRECT(&encoding, Byte);
+
+        /* Return early upon failures (no buffer exchange until here) */
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+
+        const UA_DataType *contentType = src->content.decoded.type;
+
+        /* Encode the content */
+        writeKey(ctx, "Body");
+        ret |= encodeJsonInternal(src->content.decoded.data, contentType, ctx);
+
+
+        WRITE(ObjEnd);
+    } else {
+
+        /* For the non-reversible form, ExtensionObject values 
+         * shall be encoded as a JSON object containing only the 
+         * value of the Body field. The TypeId and Encoding fields are dropped.
+         * 
+         * Does this mean there is a "Body" in the ExtensionObject or not?
+         */
+        commaNeeded = UA_FALSE;
+        WRITE(ObjStart);
+        const UA_DataType *contentType = src->content.decoded.type;
+        writeKey(ctx, "Body");
+        ret |= encodeJsonInternal(src->content.decoded.data, contentType, ctx);
+        WRITE(ObjEnd);
+    }
+    return ret;
+}
+
+/* Variant */
+/* Never returns UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED */
+static status
+Variant_encodeJsonWrapExtensionObject(const UA_Variant *src, const bool isArray, Ctx *ctx) {
+    /* Default to 1 for a scalar. */
+    size_t length = 1;
+
+    /* Encode the array length if required */
+    status ret = UA_STATUSCODE_GOOD;
+    if (isArray) {
+        if (src->arrayLength > UA_INT32_MAX)
+            return UA_STATUSCODE_BADENCODINGERROR;
+        length = src->arrayLength;
+        i32 encodedLength = (i32) src->arrayLength;
+        ret = ENCODE_DIRECT(&encodedLength, UInt32); /* Int32 */
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+    }
+
+    /* Set up the ExtensionObject */
+    UA_ExtensionObject eo;
+    UA_ExtensionObject_init(&eo);
+    eo.encoding = UA_EXTENSIONOBJECT_DECODED;
+    eo.content.decoded.type = src->type;
+    const u16 memSize = src->type->memSize;
+    uintptr_t ptr = (uintptr_t) src->data;
+
+    /* Iterate over the array */
+    for (size_t i = 0; i < length && ret == UA_STATUSCODE_GOOD; ++i) {
+        eo.content.decoded.data = (void*) ptr;
+        ret = encodeJsonInternal(&eo, &UA_TYPES[UA_TYPES_EXTENSIONOBJECT], ctx);
+        ptr += memSize;
+    }
+    return ret;
+}
+
+enum UA_VARIANT_ENCODINGMASKTYPE {
+    UA_VARIANT_ENCODINGMASKTYPE_TYPEID_MASK = 0x3F, /* bits 0:5 */
+    UA_VARIANT_ENCODINGMASKTYPE_DIMENSIONS = (0x01 << 6), /* bit 6 */
+    UA_VARIANT_ENCODINGMASKTYPE_ARRAY = (0x01 << 7) /* bit 7 */
+};
+
+void addMatrixContentJSON(Ctx *ctx, void* array, const UA_DataType *type, size_t *index, UA_UInt32 *arrayDimensions, size_t dimensionIndex, size_t dimensionSize) {
+
+
+    if (dimensionIndex == (dimensionSize - 1)) {
+        //The inner Arrays are written
+        commaNeeded = UA_FALSE;
+
+        WRITE(ArrayStart);
+
+        for (size_t i = 0; i < arrayDimensions[dimensionIndex]; i++) {
+            if (commaNeeded) {
+                WRITE(Comma);
+            }
+
+            encodeJsonInternal(((u8*)array) + (type->memSize * *index), type, ctx);
+            commaNeeded = UA_TRUE;
+            (*index)++;
+        }
+        WRITE(ArrayEnd);
+
+    } else {
+        UA_UInt32 currentDimensionSize = arrayDimensions[dimensionIndex];
+        dimensionIndex++;
+
+        commaNeeded = UA_FALSE;
+        WRITE(ArrayStart);
+        for (size_t i = 0; i < currentDimensionSize; i++) {
+            if (commaNeeded) {
+                WRITE(Comma);
+            }
+            addMatrixContentJSON(ctx, array, type, index, arrayDimensions, dimensionIndex, dimensionSize);
+            commaNeeded = UA_TRUE;
+        }
+
+        WRITE(ArrayEnd);
+    }
+}
+
+ENCODE_JSON(Variant) {
+    /* Quit early for the empty variant */
+    u8 encoding = 0;
+    status ret = UA_STATUSCODE_GOOD;
+    if (!src->type)
+        return ENCODE_DIRECT(&encoding, Byte);
+
+    /* Set the content type in the encoding mask */
+    const bool isBuiltin = src->type->builtin;
+    const bool isAlias = src->type->membersSize == 1
+            && UA_TYPES[src->type->members[0].memberTypeIndex].builtin;
+    if (isBuiltin)
+        encoding |= UA_VARIANT_ENCODINGMASKTYPE_TYPEID_MASK & (u8) (src->type->typeIndex + 1);
+    else if (isAlias)
+        encoding |= UA_VARIANT_ENCODINGMASKTYPE_TYPEID_MASK & (u8) (src->type->members[0].memberTypeIndex + 1);
+    else
+        encoding |= UA_VARIANT_ENCODINGMASKTYPE_TYPEID_MASK & (u8) (UA_TYPES_EXTENSIONOBJECT + 1);
+
+    /* Set the array type in the encoding mask */
+    const bool isArray = src->arrayLength > 0 || src->data <= UA_EMPTY_ARRAY_SENTINEL;
+    const bool hasDimensions = isArray && src->arrayDimensionsSize > 0;
+    if (isArray) {
+        encoding |= UA_VARIANT_ENCODINGMASKTYPE_ARRAY;
+        if (hasDimensions)
+            encoding |= UA_VARIANT_ENCODINGMASKTYPE_DIMENSIONS;
+    }
+
+    if (useReversibleForm) {
+        WRITE(ObjStart);
+
+        /* Encode the encoding byte */
+        ret = UA_STATUSCODE_GOOD; //ENCODE_DIRECT(&encoding, Byte);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+
+        /* Encode the content */
+        if (!isBuiltin && !isAlias)
+            ret = Variant_encodeJsonWrapExtensionObject(src, isArray, ctx);
+        else if (!isArray) {
+
+            commaNeeded = UA_FALSE;
+            writeKey(ctx, "Type");
+            ret |= ENCODE_DIRECT(&src->type->typeIndex, UInt16);
+
+            writeKey(ctx, "Body");
+            ret = encodeJsonInternal(src->data, src->type, ctx);
+        } else {
+            //TODO: Variant Array
+            commaNeeded = UA_FALSE;
+            writeKey(ctx, "Type");
+            ret |= ENCODE_DIRECT(&src->type->typeIndex, UInt16);
+
+            writeKey(ctx, "Body");
+            ret = Array_encodeJson(src->data, src->arrayLength, src->type, ctx, UA_TRUE);
+        }
+
+        /* Encode the array dimensions */
+        if (hasDimensions && ret == UA_STATUSCODE_GOOD) {
+            //TODO: Variant Dimension
+            writeKey(ctx, "Dimension");
+            ret = Array_encodeJson(src->arrayDimensions, src->arrayDimensionsSize, &UA_TYPES[UA_TYPES_INT32], ctx, UA_FALSE);
+        }
+
+
+        WRITE(ObjEnd);
+        commaNeeded = UA_TRUE;
+    } else {
+
+        /* Encode the content */
+        if (!isBuiltin && !isAlias)
+            ret = Variant_encodeJsonWrapExtensionObject(src, isArray, ctx);
+        else if (!isArray) {
+            WRITE(ObjStart);
+            commaNeeded = UA_FALSE;
+            writeKey(ctx, "Body");
+            ret = encodeJsonInternal(src->data, src->type, ctx);
+            WRITE(ObjEnd);
+            commaNeeded = UA_TRUE;
+        } else {
+
+            size_t dimensionSize = src->arrayDimensionsSize;
+            if (dimensionSize > 1) {
+                //nonreversible multidimensional array
+                size_t index = 0;
+                size_t dimensionIndex = 0;
+                void *ptr = src->data;
+                const UA_DataType *arraytype = src->type;
+                addMatrixContentJSON(ctx, ptr, arraytype, &index, src->arrayDimensions, dimensionIndex, dimensionSize);
+            } else {
+                //nonreversible simple array
+                WRITE(ObjStart);
+                commaNeeded = UA_FALSE;
+                writeKey(ctx, "Body");
+                ret = Array_encodeJson(src->data, src->arrayLength, src->type, ctx, UA_TRUE);
+                WRITE(ObjEnd);
+                commaNeeded = UA_TRUE;
+            }
+        }
+
+    }
+    return ret;
+}
+
+/* DataValue */
+ENCODE_JSON(DataValue) {
+
+    WRITE(ObjStart);
+    commaNeeded = UA_FALSE;
+
+    status ret = UA_STATUSCODE_GOOD; 
+
+    /* Encode the variant. Afterwards, do not return
+     * UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED, as the buffer might have been
+     * exchanged during encoding of the variant. */
+    if (src->hasValue) {
+        writeKey(ctx, "Value");
+        ret = ENCODE_DIRECT(&src->value, Variant);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+    }
+
+    if (src->hasStatus) {
+        writeKey(ctx, "Status");
+        ret |= ENCODE_WITHEXCHANGE(&src->status, StatusCode);
+    }
+    if (src->hasSourceTimestamp) {
+        writeKey(ctx, "SourceTimestamp");
+        ret |= ENCODE_WITHEXCHANGE(&src->sourceTimestamp, DateTime);
+    }
+    if (src->hasSourcePicoseconds) {
+        writeKey(ctx, "SourcePicoseconds");
+        ret |= ENCODE_WITHEXCHANGE(&src->sourcePicoseconds, UInt16);
+    }
+    if (src->hasServerTimestamp) {
+        writeKey(ctx, "ServerTimestamp");
+        ret |= ENCODE_WITHEXCHANGE(&src->serverTimestamp, DateTime);
+    }
+    if (src->hasServerPicoseconds) {
+        writeKey(ctx, "ServerPicoseconds");
+        ret |= ENCODE_WITHEXCHANGE(&src->serverPicoseconds, UInt16);
+    }
+    UA_assert(ret != UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+
+
+    WRITE(ObjEnd);
+    return ret;
+}
+
+/* DiagnosticInfo */
+ENCODE_JSON(DiagnosticInfo) {
+  
+    commaNeeded = UA_FALSE;
+
+    WRITE(ObjStart);
+
+    status ret = UA_STATUSCODE_GOOD; 
+    if (src->hasSymbolicId) {
+        writeKey(ctx, "SymbolicId");
+        ret |= ENCODE_DIRECT(&src->symbolicId, UInt32); /* Int32 */
+    }
+
+    if (src->hasNamespaceUri) {
+        writeKey(ctx, "NamespaceUri");
+        ret |= ENCODE_DIRECT(&src->namespaceUri, UInt32); /* Int32 */
+    }
+
+    if (src->hasLocalizedText) {
+        writeKey(ctx, "LocalizedText");
+        ret |= ENCODE_DIRECT(&src->localizedText, UInt32);
+        /* Int32 */
+    }
+    if (src->hasLocale) {
+        writeKey(ctx, "Locale");
+        ret |= ENCODE_DIRECT(&src->locale, UInt32);
+        /* Int32 */
+    }
+    if (ret != UA_STATUSCODE_GOOD)
+        return ret;
+
+    /* Encode the additional info */
+    if (src->hasAdditionalInfo) {
+        writeKey(ctx, "AdditionalInfo");
+        //WRITE(Quote);
+        ret = ENCODE_DIRECT(&src->additionalInfo, String);
+        //WRITE(Quote);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+    }
+
+    /* Encode the inner status code */
+    if (src->hasInnerStatusCode) {
+        writeKey(ctx, "InnerStatusCode");
+        ret = ENCODE_DIRECT(&src->innerStatusCode, StatusCode);
+        UA_assert(ret != UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+    }
+
+    /* Encode the inner diagnostic info */
+    if (src->hasInnerDiagnosticInfo) {
+        writeKey(ctx, "InnerDiagnosticInfo");
+        ret = encodeJsonInternal(src->innerDiagnosticInfo, &UA_TYPES[UA_TYPES_DIAGNOSTICINFO], ctx);
+    }
+
+    WRITE(ObjEnd);
+
+    UA_assert(ret != UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+    return ret;
+}
+
+
+/********************/
+/* Structured Types */
+/********************/
+
+const encodeJsonSignature encodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
+    (encodeJsonSignature) Boolean_encodeJson,
+    (encodeJsonSignature) SByte_encodeJson, /* SByte */
+    (encodeJsonSignature) Byte_encodeJson,
+    (encodeJsonSignature) Int16_encodeJson, /* Int16 */
+    (encodeJsonSignature) UInt16_encodeJson,
+    (encodeJsonSignature) Int32_encodeJson, /* Int32 */
+    (encodeJsonSignature) UInt32_encodeJson,
+    (encodeJsonSignature) Int64_encodeJson, /* Int64 */
+    (encodeJsonSignature) UInt64_encodeJson,
+    (encodeJsonSignature) Float_encodeJson,
+    (encodeJsonSignature) Double_encodeJson,
+    (encodeJsonSignature) String_encodeJson,
+    (encodeJsonSignature) DateTime_encodeJson, /* DateTime */
+    (encodeJsonSignature) Guid_encodeJson,
+    (encodeJsonSignature) String_encodeJson, /* ByteString */
+    (encodeJsonSignature) String_encodeJson, /* XmlElement */
+    (encodeJsonSignature) NodeId_encodeJson,
+    (encodeJsonSignature) ExpandedNodeId_encodeJson,
+    (encodeJsonSignature) StatusCode_encodeJson, /* StatusCode */
+    (encodeJsonSignature) QualifiedName_encodeJson, /* QualifiedName TODO warum hier encodeJsonInternal?*/
+    (encodeJsonSignature) LocalizedText_encodeJson,
+    (encodeJsonSignature) ExtensionObject_encodeJson,
+    (encodeJsonSignature) DataValue_encodeJson,
+    (encodeJsonSignature) Variant_encodeJson,
+    (encodeJsonSignature) DiagnosticInfo_encodeJson,
+    (encodeJsonSignature) encodeJsonInternal,
+};
+
+static status
+encodeJsonInternal(const void *src, const UA_DataType *type, Ctx *ctx) {
+    /* Check the recursion limit */
+    if (ctx->depth > UA_ENCODING_MAX_RECURSION)
+        return UA_STATUSCODE_BADENCODINGERROR;
+    ctx->depth++;
+
+    if (!type->builtin) {
+        WRITE(ObjStart);
+    }
+
+    commaNeeded = false;
+
+    uintptr_t ptr = (uintptr_t) src;
+    status ret = UA_STATUSCODE_GOOD;
+    u8 membersSize = type->membersSize;
+    const UA_DataType * typelists[2] = {UA_TYPES, &type[-type->typeIndex]};
+    for (size_t i = 0; i < membersSize && ret == UA_STATUSCODE_GOOD; ++i) {
+        const UA_DataTypeMember *member = &type->members[i];
+        const UA_DataType *membertype = &typelists[!member->namespaceZero][member->memberTypeIndex];
+
+        //TODO: Special case for Strings?
+        //TODO: Special case for ByteString
+        //TODO Special Case for QualifiedName
+
+        if (member->memberName != NULL && *member->memberName != 0) {
+            //TODO:
+            writeKey(ctx, member->memberName);
+
+        }
+
+
+        if (!member->isArray) {
+            ptr += member->padding;
+            size_t encode_index = membertype->builtin ? membertype->typeIndex : UA_BUILTIN_TYPES_COUNT;
+            size_t memSize = membertype->memSize;
+            u8 *oldpos = ctx->pos;
+            ret = encodeJsonJumpTable[encode_index]((const void*) ptr, membertype, ctx);
+            ptr += memSize;
+            if (ret == UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED) {
+                ctx->pos = oldpos; /* exchange/send the buffer */
+                ret = exchangeBuffer(ctx);
+                ptr -= member->padding + memSize; /* encode the same member in the next iteration */
+                if (ret == UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED || ctx->pos + memSize > ctx->end) {
+                    /* the send buffer is too small to encode the member, even after exchangeBuffer */
+                    ret = UA_STATUSCODE_BADRESPONSETOOLARGE;
+                    break;
+                }
+                --i;
+            }
+        } else {
+
+            ptr += member->padding;
+            const size_t length = *((const size_t*) ptr);
+            ptr += sizeof (size_t);
+
+            //UA_Boolean realArray = UA_FALSE;
+            //@TODO Special case for String because of its "bytearray"
+            if (type->typeIndex == 11) {
+                ENCODE_DIRECT(src, String);
+                continue;
+            }
+
+            ret = Array_encodeJson(*(void *UA_RESTRICT const *) ptr, length, membertype, ctx, UA_FALSE);
+            ptr += sizeof (void*);
+        }
+
+        if (member->memberTypeIndex != 0 && membertype->builtin) {
+            //WRITE(ObjEnd);
+        }
+
+    }
+
+    if (!type->builtin) {
+        WRITE(ObjEnd);
+    }
+
+    UA_assert(ret != UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+    ctx->depth--;
+    return ret;
+}
+
+status
+UA_encodeJson(const void *src, const UA_DataType *type,
+        u8 **bufPos, const u8 **bufEnd,
+        UA_exchangeEncodeBuffer exchangeCallback, void *exchangeHandle) {
+    /* Set up the context */
+    Ctx ctx;
+    ctx.pos = *bufPos;
+    ctx.end = *bufEnd;
+    ctx.depth = 0;
+    ctx.exchangeBufferCallback = exchangeCallback;
+    ctx.exchangeBufferCallbackHandle = exchangeHandle;
+
+    /* Encode */
+    status ret = encodeJsonInternal(src, type, &ctx);
+
+    /* Set the new buffer position for the output. Beware that the buffer might
+     * have been exchanged internally. */
+    *bufPos = ctx.pos;
+    *bufEnd = ctx.end;
+    return ret;
+}
