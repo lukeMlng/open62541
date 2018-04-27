@@ -14,6 +14,7 @@
 #include "ua_log_stdout.h"
 #include "ua_types_encoding_json.h"
 //#include "build/open62541.h"
+//#include "build/open62541.h"
 
 const UA_Byte NM_VERSION_MASK = 15;
 const UA_Byte NM_PUBLISHER_ID_ENABLED_MASK = 16;
@@ -66,13 +67,58 @@ UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src, UA_Byte **bufPos,
     ctx.depth = 0;
     encodingJsonInit(&ctx);
     
+    status rv = UA_STATUSCODE_GOOD;
     
-    status ret = writeKey(&ctx, "MessageType");
+    rv = writeKey(&ctx, "MessageType");
     UA_String s = UA_STRING("ua-data");
-    ret = UA_encodeJson(&s, &UA_TYPES[UA_TYPES_STRING], &ctx.pos, &ctx.end, NULL, NULL);
+    rv = UA_encodeJson(&s, &UA_TYPES[UA_TYPES_STRING], &ctx.pos, &ctx.end, NULL, NULL);
     
+        // PublisherId
+    if(src->publisherIdEnabled) {
+        
+        rv = writeKey(&ctx, "PublisherId");
+        
+        switch (src->publisherIdType) {
+        case UA_PUBLISHERDATATYPE_BYTE:
+            rv = UA_encodeJson(&src->publisherId.publisherIdByte, &UA_TYPES[UA_TYPES_BYTE], &ctx.pos, &ctx.end, NULL, NULL);
+            break;
+
+        case UA_PUBLISHERDATATYPE_UINT16:
+            rv = UA_encodeJson(&src->publisherId.publisherIdUInt16, &UA_TYPES[UA_TYPES_UINT16], &ctx.pos, &ctx.end, NULL, NULL);
+            break;
+
+        case UA_PUBLISHERDATATYPE_UINT32:
+            rv = UA_encodeJson(&src->publisherId.publisherIdUInt32, &UA_TYPES[UA_TYPES_UINT32], &ctx.pos, &ctx.end, NULL, NULL);
+            break;
+
+        case UA_PUBLISHERDATATYPE_UINT64:
+            rv = UA_encodeJson(&src->publisherId.publisherIdUInt64, &UA_TYPES[UA_TYPES_UINT64], &ctx.pos, &ctx.end, NULL, NULL);
+            break;
+
+        case UA_PUBLISHERDATATYPE_STRING:
+            rv = UA_encodeJson(&src->publisherId.publisherIdString, &UA_TYPES[UA_TYPES_STRING], &ctx.pos, &ctx.end, NULL, NULL);
+            break;
+
+        default:
+            rv = UA_STATUSCODE_BADINTERNALERROR;
+            break;
+        }
+    }
+    
+    if(rv != UA_STATUSCODE_GOOD)
+        return rv;
+    
+    
+    // DataSetClassId
+    if(src->dataSetClassIdEnabled) {
+        rv = writeKey(&ctx, "DataSetClassId");
+        rv = UA_encodeJson(&src->dataSetClassId, &UA_TYPES[UA_TYPES_GUID], &ctx.pos, &ctx.end, NULL, NULL);
+        if(rv != UA_STATUSCODE_GOOD)
+            return rv;
+    }
+
     encodingJsonFinish(&ctx);
-    return ret;
+    return rv;
 }
 
 UA_StatusCode
