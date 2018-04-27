@@ -6,6 +6,7 @@
  */
 
 #include "ua_types_encoding_binary.h"
+#include "ua_types_encoding_json.h"
 #include "ua_server_pubsub.h"
 #include "server/ua_server_internal.h"
 #include "ua_pubsub.h"
@@ -894,8 +895,13 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
         return;
 
     if(writerGroup->config.encodingMimeType != UA_PUBSUB_ENCODING_UADP) {
-        UA_LOG_ERROR(server->config.logger, UA_LOGCATEGORY_SERVER, "Unknown encoding type.");
-        return;
+        if(writerGroup->config.encodingMimeType == UA_PUBSUB_ENCODING_JSON){
+            UA_LOG_INFO(server->config.logger, UA_LOGCATEGORY_NETWORK, "Encoding is JSON!");
+        }else{
+            UA_LOG_ERROR(server->config.logger, UA_LOGCATEGORY_SERVER, "Unknown encoding type.");
+            return;
+        }
+        
     }
     //prevent error if the maxEncapsulatedDataSetMessageCount is set to 0->1
     writerGroup->config.maxEncapsulatedDataSetMessageCount = (UA_UInt16) (writerGroup->config.maxEncapsulatedDataSetMessageCount == 0 ||
@@ -988,20 +994,38 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
             UA_LOG_ERROR(server->config.logger, UA_LOGCATEGORY_SERVER, "Publish failed. PubSubConnection invalid.");
             return;
         }
-        //send the prepared messages
-        UA_ByteString buf;
-        size_t msgSize = UA_NetworkMessage_calcSizeBinary(&nmStore[i]);
-        if(UA_ByteString_allocBuffer(&buf, msgSize) == UA_STATUSCODE_GOOD) {
-            UA_Byte *bufPos = buf.data;
-            memset(bufPos, 0, msgSize);
-            const UA_Byte *bufEnd = &(buf.data[buf.length]);
-            if(UA_NetworkMessage_encodeBinary(&nmStore[i], &bufPos, bufEnd) != UA_STATUSCODE_GOOD){
-                UA_ByteString_deleteMembers(&buf);
-                return;
-            };
-            connection->channel->send(connection->channel, NULL, &buf);
+        
+        if(writerGroup->config.encodingMimeType == UA_PUBSUB_ENCODING_JSON){
+            UA_ByteString buf;
+            size_t msgSize = 100;
+            if(UA_ByteString_allocBuffer(&buf, msgSize) == UA_STATUSCODE_GOOD) {
+                UA_Byte *bufPos = buf.data;
+                memset(bufPos, 0, msgSize);
+                const UA_Byte *bufEnd = &(buf.data[buf.length]);
+                if(UA_NetworkMessage_encodeJson(&nmStore[i], &bufPos, bufEnd) != UA_STATUSCODE_GOOD){
+                    UA_ByteString_deleteMembers(&buf);
+                    return;
+                };
+                UA_LOG_INFO(server->config.logger, UA_LOGCATEGORY_NETWORK, "Send JSON!");
+                connection->channel->send(connection->channel, NULL, &buf);
+            }
+            UA_ByteString_deleteMembers(&buf);
+        }else if(writerGroup->config.encodingMimeType == UA_PUBSUB_ENCODING_UADP) {
+            //send the prepared messages
+            UA_ByteString buf;
+            size_t msgSize = UA_NetworkMessage_calcSizeBinary(&nmStore[i]);
+            if(UA_ByteString_allocBuffer(&buf, msgSize) == UA_STATUSCODE_GOOD) {
+                UA_Byte *bufPos = buf.data;
+                memset(bufPos, 0, msgSize);
+                const UA_Byte *bufEnd = &(buf.data[buf.length]);
+                if(UA_NetworkMessage_encodeBinary(&nmStore[i], &bufPos, bufEnd) != UA_STATUSCODE_GOOD){
+                    UA_ByteString_deleteMembers(&buf);
+                    return;
+                };
+                connection->channel->send(connection->channel, NULL, &buf);
+            }
+            UA_ByteString_deleteMembers(&buf);
         }
-        UA_ByteString_deleteMembers(&buf);
         UA_NetworkMessage_deleteMembers(&nmStore[i]);
     }
 }

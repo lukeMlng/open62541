@@ -88,9 +88,9 @@ addWriterGroup(UA_Server *server) {
     UA_WriterGroupConfig writerGroupConfig;
     memset(&writerGroupConfig, 0, sizeof(UA_WriterGroupConfig));
     writerGroupConfig.name = UA_STRING("Demo WriterGroup");
-    writerGroupConfig.publishingInterval = 100;
+    writerGroupConfig.publishingInterval = 1000;
     writerGroupConfig.enabled = UA_FALSE;
-    writerGroupConfig.encodingMimeType = UA_PUBSUB_ENCODING_UADP;
+    writerGroupConfig.encodingMimeType = UA_PUBSUB_ENCODING_JSON;
     /* The configuration flags for the messages are encapsulated inside the
      * message- and transport settings extension objects. These extension objects
      * are defined by the standard. e.g. UadpWriterGroupMessageDataType */

@@ -9,17 +9,18 @@
  *    Copyright 2017 (c) Mark Giraud, Fraunhofer IOSB
  */
 
-#ifndef UA_TYPES_ENCODING_BINARY_H_
-#define UA_TYPES_ENCODING_BINARY_H_
+#ifndef UA_TYPES_ENCODING_JSON_H_
+#define UA_TYPES_ENCODING_JSON_H_
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "open62541.h"
+#include "ua_types_encoding_binary.h"
+#include "ua_types.h"
 
-typedef UA_StatusCode (*UA_exchangeEncodeBuffer)(void *handle, UA_Byte **bufPos,
-                                                 const UA_Byte **bufEnd);
+//typedef UA_StatusCode (*UA_exchangeEncodeBuffer)(void *handle, UA_Byte **bufPos,
+//                                                 const UA_Byte **bufEnd);
 
 /* Encodes the scalar value described by type in the binary encoding. Encoding
  * is thread-safe if thread-local variables are enabled. Encoding is also
@@ -80,4 +81,4 @@ UA_findDataTypeByJson(const UA_NodeId *typeId);
 }
 #endif
 
-#endif /* UA_TYPES_ENCODING_BINARY_H_ */
+#endif /* UA_TYPES_ENCODING_JSON_H_ */

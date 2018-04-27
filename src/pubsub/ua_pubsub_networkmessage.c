@@ -12,6 +12,8 @@
 #include "ua_types_generated_encoding_binary.h"
 #include "ua_types_generated_handling.h"
 #include "ua_log_stdout.h"
+#include "ua_types_encoding_json.h"
+#include "build/open62541.h"
 
 const UA_Byte NM_VERSION_MASK = 15;
 const UA_Byte NM_PUBLISHER_ID_ENABLED_MASK = 16;
@@ -51,6 +53,15 @@ const UA_Byte DS_MH_SHIFT_LEN = 1;
 static UA_Boolean UA_NetworkMessage_ExtendedFlags1Enabled(const UA_NetworkMessage* src);
 static UA_Boolean UA_NetworkMessage_ExtendedFlags2Enabled(const UA_NetworkMessage* src);
 static UA_Boolean UA_DataSetMessageHeader_DataSetFlags2Enabled(const UA_DataSetMessageHeader* src);
+
+UA_StatusCode
+UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src, UA_Byte **bufPos,
+                               const UA_Byte *bufEnd) {
+    
+    UA_String s = UA_STRING("ua-data");
+    UA_StatusCode status = UA_encodeJson(&s, &UA_TYPES[UA_TYPES_STRING], bufPos, &bufEnd, NULL, NULL);
+    return status;
+}
 
 UA_StatusCode
 UA_NetworkMessage_encodeBinary(const UA_NetworkMessage* src, UA_Byte **bufPos,
