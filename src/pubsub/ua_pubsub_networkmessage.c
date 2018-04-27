@@ -13,7 +13,7 @@
 #include "ua_types_generated_handling.h"
 #include "ua_log_stdout.h"
 #include "ua_types_encoding_json.h"
-#include "build/open62541.h"
+//#include "build/open62541.h"
 
 const UA_Byte NM_VERSION_MASK = 15;
 const UA_Byte NM_PUBLISHER_ID_ENABLED_MASK = 16;
@@ -54,13 +54,25 @@ static UA_Boolean UA_NetworkMessage_ExtendedFlags1Enabled(const UA_NetworkMessag
 static UA_Boolean UA_NetworkMessage_ExtendedFlags2Enabled(const UA_NetworkMessage* src);
 static UA_Boolean UA_DataSetMessageHeader_DataSetFlags2Enabled(const UA_DataSetMessageHeader* src);
 
+
+
 UA_StatusCode
 UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src, UA_Byte **bufPos,
                                const UA_Byte *bufEnd) {
     
+    Ctx ctx;
+    ctx.pos = *bufPos;
+    ctx.end = bufEnd;
+    ctx.depth = 0;
+    encodingJsonInit(&ctx);
+    
+    
+    status ret = writeKey(&ctx, "MessageType");
     UA_String s = UA_STRING("ua-data");
-    UA_StatusCode status = UA_encodeJson(&s, &UA_TYPES[UA_TYPES_STRING], bufPos, &bufEnd, NULL, NULL);
-    return status;
+    ret = UA_encodeJson(&s, &UA_TYPES[UA_TYPES_STRING], &ctx.pos, &ctx.end, NULL, NULL);
+    
+    encodingJsonFinish(&ctx);
+    return ret;
 }
 
 UA_StatusCode

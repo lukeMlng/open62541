@@ -16,8 +16,28 @@
 extern "C" {
 #endif
 
+#include "ua_util.h"
 #include "ua_types_encoding_binary.h"
 #include "ua_types.h"
+
+
+typedef struct {
+    /* Pointers to the current position and the last position in the buffer */
+    u8 *pos;
+    const u8 *end;
+
+    u16 depth; /* How often did we en-/decoding recurse? */
+
+    size_t customTypesArraySize;
+    const UA_DataType *customTypesArray;
+
+    UA_exchangeEncodeBuffer exchangeBufferCallback;
+    void *exchangeBufferCallbackHandle;
+} Ctx;
+    
+status writeKey(Ctx *ctx, const char* key);
+status encodingJsonInit(Ctx *ctx);
+size_t encodingJsonFinish(Ctx *ctx);
 
 //typedef UA_StatusCode (*UA_exchangeEncodeBuffer)(void *handle, UA_Byte **bufPos,
 //                                                 const UA_Byte **bufEnd);

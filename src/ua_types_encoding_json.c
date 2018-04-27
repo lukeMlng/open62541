@@ -40,29 +40,6 @@
 
 #define UA_ENCODING_MAX_RECURSION 20
 
-typedef UA_Byte u8;
-typedef UA_SByte i8;
-typedef UA_UInt16 u16;
-typedef UA_Int16 i16;
-typedef UA_UInt32 u32;
-typedef UA_Int32 i32;
-typedef UA_UInt64 u64;
-typedef UA_Int64 i64;
-typedef UA_StatusCode status;
-
-typedef struct {
-    /* Pointers to the current position and the last position in the buffer */
-    u8 *pos;
-    const u8 *end;
-
-    u16 depth; /* How often did we en-/decoding recurse? */
-
-    size_t customTypesArraySize;
-    const UA_DataType *customTypesArray;
-
-    UA_exchangeEncodeBuffer exchangeBufferCallback;
-    void *exchangeBufferCallbackHandle;
-} Ctx;
 
 typedef status(*encodeJsonSignature)(const void *UA_RESTRICT src, const UA_DataType *type,
         Ctx *UA_RESTRICT ctx);
@@ -83,7 +60,7 @@ extern const encodeJsonSignature encodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1]
 static status encodeJsonInternal(const void *src, const UA_DataType *type, Ctx *ctx);
 
 
-status writeKey(Ctx *ctx, const char* key);
+
 status writeComma(Ctx *ctx);
 
 UA_String UA_DateTime_toJSON(UA_DateTime t);
@@ -173,6 +150,21 @@ status writeKey(Ctx *ctx, const char* key) {
     commaNeeded = UA_TRUE;
     return UA_STATUSCODE_GOOD;
 }
+
+status encodingJsonInit(Ctx *ctx) {
+  
+    *(ctx->pos++) = '{';
+    commaNeeded = UA_FALSE;
+    return UA_STATUSCODE_GOOD;
+}
+
+size_t encodingJsonFinish(Ctx *ctx) {
+    *(ctx->pos++) = '}';
+    
+    //TODO size;
+    return 0;
+}
+
 
 /**
  * Chunking
