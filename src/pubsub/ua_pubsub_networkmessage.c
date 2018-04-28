@@ -80,7 +80,7 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_Byte **bufPos,
 
     // TODO: MetaDataVersion
     if(src->header.configVersionMajorVersionEnabled || src->header.configVersionMinorVersionEnabled) {
-        rv = writeKey(&ctx, "Timestamp");
+        rv = writeKey(&ctx, "MetaDataVersion");
         UA_ConfigurationVersionDataType cvd;
         cvd.majorVersion = src->header.configVersionMajorVersion;
         cvd.minorVersion = src->header.configVersionMinorVersion;
