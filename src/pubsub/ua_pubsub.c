@@ -997,7 +997,7 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
         
         if(writerGroup->config.encodingMimeType == UA_PUBSUB_ENCODING_JSON){
             UA_ByteString buf;
-            size_t msgSize = 100;
+            size_t msgSize = 200; //WIP, TODO: get Json buffer size!
             if(UA_ByteString_allocBuffer(&buf, msgSize) == UA_STATUSCODE_GOOD) {
                 UA_Byte *bufPos = buf.data;
                 memset(bufPos, 0, msgSize);
@@ -1006,6 +1006,20 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
                     UA_ByteString_deleteMembers(&buf);
                     return;
                 };
+                
+                /* {
+                 * "MessageId":"5EDFCEF4-7B81-8B74-9689-A8CAC6CC6CC6",
+                 * "MessageType":"ua-data",
+                 * "Messages":
+                 *  [
+                 *   {
+                 *    "Timestamp":{"majorVersion":2079806354,"minorVersion":0},
+                 *    "Timestamp":"2018-28-28T14:24:44Z",
+                 *    "Payload":[0]
+                 *   }
+                 *  ]
+                 * }
+                 */
                 UA_LOG_INFO(server->config.logger, UA_LOGCATEGORY_NETWORK, "Send JSON!");
                 connection->channel->send(connection->channel, NULL, &buf);
             }

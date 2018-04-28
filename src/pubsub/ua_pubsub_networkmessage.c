@@ -79,6 +79,15 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_Byte **bufPos,
     }
 
     // TODO: MetaDataVersion
+    if(src->header.configVersionMajorVersionEnabled || src->header.configVersionMinorVersionEnabled) {
+        rv = writeKey(&ctx, "Timestamp");
+        UA_ConfigurationVersionDataType cvd;
+        cvd.majorVersion = src->header.configVersionMajorVersion;
+        cvd.minorVersion = src->header.configVersionMinorVersion;
+        rv = UA_encodeJson(&cvd, &UA_TYPES[UA_TYPES_CONFIGURATIONVERSIONDATATYPE], &ctx.pos, &ctx.end, NULL, NULL);
+        if(rv != UA_STATUSCODE_GOOD)
+            return rv;
+    }
     
     // Timestamp
     if(src->header.timestampEnabled) {
@@ -95,7 +104,6 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_Byte **bufPos,
         if(rv != UA_STATUSCODE_GOOD)
             return rv;
     }
-    
     
     rv = writeKey(&ctx, "Payload");
     encodingJsonStartArray(&ctx);
@@ -138,6 +146,9 @@ UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src, UA_Byte **bufPos,
     
     
     // TODO: MessageId
+    rv = writeKey(&ctx, "MessageId");
+    UA_Guid guid = UA_Guid_random();
+    rv = UA_encodeJson(&guid, &UA_TYPES[UA_TYPES_GUID], &ctx.pos, &ctx.end, NULL, NULL);
     
     // MessageType
     rv = writeKey(&ctx, "MessageType");
