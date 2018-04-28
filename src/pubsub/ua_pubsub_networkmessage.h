@@ -94,6 +94,10 @@ typedef struct {
 } UA_DataSetMessage;
 
 UA_StatusCode
+UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_Byte **bufPos,
+                               const UA_Byte *bufEnd);
+
+UA_StatusCode
 UA_DataSetMessage_encodeBinary(const UA_DataSetMessage* src, UA_Byte **bufPos,
                                const UA_Byte *bufEnd);
 

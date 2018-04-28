@@ -59,10 +59,6 @@ extern const encodeJsonSignature encodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1]
 
 static status encodeJsonInternal(const void *src, const UA_DataType *type, Ctx *ctx);
 
-
-
-status writeComma(Ctx *ctx);
-
 UA_String UA_DateTime_toJSON(UA_DateTime t);
 
 void addMatrixContentJSON(Ctx *ctx, void* array, const UA_DataType *type, size_t *index, UA_UInt32 *arrayDimensions, size_t dimensionIndex, size_t dimensionSize);
@@ -151,20 +147,33 @@ status writeKey(Ctx *ctx, const char* key) {
     return UA_STATUSCODE_GOOD;
 }
 
-status encodingJsonInit(Ctx *ctx) {
+status encodingJsonStartObject(Ctx *ctx) {
   
     *(ctx->pos++) = '{';
     commaNeeded = UA_FALSE;
     return UA_STATUSCODE_GOOD;
 }
 
-size_t encodingJsonFinish(Ctx *ctx) {
+size_t encodingJsonEndObject(Ctx *ctx) {
     *(ctx->pos++) = '}';
     
     //TODO size;
     return 0;
 }
 
+status encodingJsonStartArray(Ctx *ctx) {
+  
+    *(ctx->pos++) = '[';
+    commaNeeded = UA_FALSE;
+    return UA_STATUSCODE_GOOD;
+}
+
+size_t encodingJsonEndArray(Ctx *ctx) {
+    *(ctx->pos++) = ']';
+    
+    //TODO size;
+    return 0;
+}
 
 /**
  * Chunking
@@ -1746,6 +1755,8 @@ encodeJsonInternal(const void *src, const UA_DataType *type, Ctx *ctx) {
     if (!type->builtin) {
         WRITE(ObjEnd);
     }
+    
+    commaNeeded = true;
 
     UA_assert(ret != UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
     ctx->depth--;

@@ -13,8 +13,6 @@
 #include "ua_types_generated_handling.h"
 #include "ua_log_stdout.h"
 #include "ua_types_encoding_json.h"
-//#include "build/open62541.h"
-//#include "build/open62541.h"
 
 const UA_Byte NM_VERSION_MASK = 15;
 const UA_Byte NM_PUBLISHER_ID_ENABLED_MASK = 16;
@@ -56,6 +54,75 @@ static UA_Boolean UA_NetworkMessage_ExtendedFlags2Enabled(const UA_NetworkMessag
 static UA_Boolean UA_DataSetMessageHeader_DataSetFlags2Enabled(const UA_DataSetMessageHeader* src);
 
 
+//TEST with: socat UDP-RECV:4840,ip-add-membership=224.0.0.22:eth0,reuseaddr -
+
+UA_StatusCode
+UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_Byte **bufPos,
+                               const UA_Byte *bufEnd) {
+    Ctx ctx;
+    ctx.pos = *bufPos;
+    ctx.end = bufEnd;
+    ctx.depth = 0;
+    
+    status rv = UA_STATUSCODE_GOOD;
+    
+    encodingJsonStartObject(&ctx);
+    
+    // TODO: DataSetWriterId
+    
+    // DataSetMessageSequenceNr
+    if(src->header.dataSetMessageSequenceNrEnabled) { 
+        rv = writeKey(&ctx, "SequenceNumber");
+        rv = UA_encodeJson(&(src->header.dataSetMessageSequenceNr), &UA_TYPES[UA_TYPES_UINT32], &ctx.pos, &ctx.end, NULL, NULL);
+        if(rv != UA_STATUSCODE_GOOD)
+            return rv;
+    }
+
+    // TODO: MetaDataVersion
+    
+    // Timestamp
+    if(src->header.timestampEnabled) {
+        rv = writeKey(&ctx, "Timestamp");
+        rv = UA_encodeJson(&(src->header.timestamp), &UA_TYPES[UA_TYPES_DATETIME], &ctx.pos, &ctx.end, NULL, NULL);
+        if(rv != UA_STATUSCODE_GOOD)
+            return rv;
+    }
+
+    // Status
+    if(src->header.statusEnabled) {
+        rv = writeKey(&ctx, "Status");
+        rv = UA_encodeJson(&(src->header.status), &UA_TYPES[UA_TYPES_STATUSCODE], &ctx.pos, &ctx.end, NULL, NULL);
+        if(rv != UA_STATUSCODE_GOOD)
+            return rv;
+    }
+    
+    
+    rv = writeKey(&ctx, "Payload");
+    encodingJsonStartArray(&ctx);
+    if(src->header.fieldEncoding == UA_FIELDENCODING_VARIANT) {
+        for (UA_UInt16 i = 0; i < src->data.deltaFrameData.fieldCount; i++) {
+            rv = UA_encodeJson(&(src->data.deltaFrameData.deltaFrameFields[i].fieldValue.value), &UA_TYPES[UA_TYPES_VARIANT], &ctx.pos, &ctx.end, NULL, NULL);
+            if(rv != UA_STATUSCODE_GOOD)
+                return rv;
+        }
+    } else if(src->header.fieldEncoding == UA_FIELDENCODING_RAWDATA) {
+        return UA_STATUSCODE_BADNOTIMPLEMENTED;
+    } else if(src->header.fieldEncoding == UA_FIELDENCODING_DATAVALUE) {
+        for (UA_UInt16 i = 0; i < src->data.deltaFrameData.fieldCount; i++) {
+            rv = UA_encodeJson(&(src->data.deltaFrameData.deltaFrameFields[i].fieldValue), &UA_TYPES[UA_TYPES_DATAVALUE], &ctx.pos, &ctx.end, NULL, NULL);
+            if(rv != UA_STATUSCODE_GOOD)
+                return rv;
+        }
+    }
+    encodingJsonEndArray(&ctx);
+    
+    encodingJsonEndObject(&ctx);
+    
+    *bufPos = ctx.pos;
+    bufEnd = ctx.end;
+    return rv;
+}
+
 
 UA_StatusCode
 UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src, UA_Byte **bufPos,
@@ -65,15 +132,19 @@ UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src, UA_Byte **bufPos,
     ctx.pos = *bufPos;
     ctx.end = bufEnd;
     ctx.depth = 0;
-    encodingJsonInit(&ctx);
+    encodingJsonStartObject(&ctx);
     
     status rv = UA_STATUSCODE_GOOD;
     
+    
+    // TODO: MessageId
+    
+    // MessageType
     rv = writeKey(&ctx, "MessageType");
     UA_String s = UA_STRING("ua-data");
     rv = UA_encodeJson(&s, &UA_TYPES[UA_TYPES_STRING], &ctx.pos, &ctx.end, NULL, NULL);
     
-        // PublisherId
+    // PublisherId
     if(src->publisherIdEnabled) {
         
         rv = writeKey(&ctx, "PublisherId");
@@ -116,8 +187,25 @@ UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src, UA_Byte **bufPos,
         if(rv != UA_STATUSCODE_GOOD)
             return rv;
     }
+    
+    // Payload
+    if(src->networkMessageType == UA_NETWORKMESSAGE_DATASET) {
+        UA_Byte count = 1;
+        rv = writeKey(&ctx, "Messages");
+        encodingJsonStartArray(&ctx);
+        for (UA_Byte i = 0; i < count; i++) {
+            rv = UA_DataSetMessage_encodeJson(&(src->payload.dataSetPayload.dataSetMessages[i]), &ctx.pos, ctx.end);
+            if(rv != UA_STATUSCODE_GOOD)
+                return rv;
+        }
+        encodingJsonEndArray(&ctx);
+    } else {
+        rv = UA_STATUSCODE_BADNOTIMPLEMENTED;
+    }
 
-    encodingJsonFinish(&ctx);
+    encodingJsonEndObject(&ctx);
+    *bufPos = ctx.pos;
+    bufEnd = ctx.end;
     return rv;
 }
 

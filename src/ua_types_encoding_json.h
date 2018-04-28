@@ -36,8 +36,11 @@ typedef struct {
 } Ctx;
     
 status writeKey(Ctx *ctx, const char* key);
-status encodingJsonInit(Ctx *ctx);
-size_t encodingJsonFinish(Ctx *ctx);
+status encodingJsonStartObject(Ctx *ctx);
+size_t encodingJsonEndObject(Ctx *ctx);
+status encodingJsonStartArray(Ctx *ctx);
+size_t encodingJsonEndArray(Ctx *ctx);
+status writeComma(Ctx *ctx);
 
 //typedef UA_StatusCode (*UA_exchangeEncodeBuffer)(void *handle, UA_Byte **bufPos,
 //                                                 const UA_Byte **bufEnd);
