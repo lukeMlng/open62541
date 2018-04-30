@@ -18,6 +18,7 @@ extern "C" {
 
 #include "ua_util.h"
 #include "ua_types_encoding_binary.h"
+#include "ua_types_encoding_json.h"
 #include "ua_types.h"
 
 

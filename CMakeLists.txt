@@ -150,7 +150,7 @@ mark_as_advanced(UA_DEBUG_DUMP_PKGS)
 
 # Build Targets
 option(UA_BUILD_EXAMPLES "Build example servers and clients" ON)
-option(UA_BUILD_UNIT_TESTS "Build the unit tests" OFF)
+option(UA_BUILD_UNIT_TESTS "Build the unit tests" ON)
 option(UA_BUILD_FUZZING "Build the fuzzing executables" OFF)
 mark_as_advanced(UA_BUILD_FUZZING)
 if(UA_BUILD_FUZZING)

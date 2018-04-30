@@ -8,6 +8,7 @@
 #include <float.h>
 #include "ua_types.h"
 #include "ua_types_encoding_binary.h"
+#include "ua_types_encoding_json.h"
 #include "ua_types_generated.h"
 #include "ua_types_generated_handling.h"
 #include "ua_types_generated_encoding_binary.h"
@@ -1451,6 +1452,28 @@ START_TEST(UA_ExtensionObject_encodeDecodeShallWorkOnExtensionObject) {
 }
 END_TEST
 
+
+START_TEST(UA_String_json_encode) {
+    // given
+    UA_String src = UA_STRING("hello");
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 10);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[10];
+    // when
+    UA_StatusCode retval = UA_encodeJson(&src, &UA_TYPES[UA_TYPES_STRING], &bufPos, &bufEnd, NULL, NULL);
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    char* result = "\"hello\"";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf);
+}
+END_TEST
+
+
 static Suite *testSuite_builtin(void) {
     Suite *s = suite_create("Built-in Data Types 62541-6 Table 1");
 
@@ -1523,6 +1546,11 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_copy, UA_LocalizedText_copycstringShallWorkOnInputExample);
     tcase_add_test(tc_copy, UA_DataValue_copyShallWorkOnInputExample);
     suite_add_tcase(s, tc_copy);
+    
+    
+    TCase *tc_json_encode = tcase_create("json_encode");
+    tcase_add_test(tc_json_encode, UA_String_json_encode);
+    suite_add_tcase(s, tc_json_encode);
     return s;
 }
 
