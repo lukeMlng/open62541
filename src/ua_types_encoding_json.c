@@ -21,7 +21,7 @@
 #include "ua_types_generated.h"
 #include "ua_types_generated_handling.h"
 
-//#include "cencode.h"
+#include "../deps/libb64/cencode.h"
 
 
 /**
@@ -812,9 +812,9 @@ ENCODE_JSON(String) {
 
 ENCODE_JSON(ByteString) {
 
-    /*
+    
     //Estimate base64 size, this is a few bytes bigger https://stackoverflow.com/questions/1533113/calculate-the-size-to-a-base-64-encoded-message
-    UA_UInt32 output_size = ((src->length * 4) / 3) + (src->length / 96) + 6;
+    UA_UInt32 output_size = (UA_UInt32)(((src->length * 4) / 3) + (src->length / 96) + 6);
 
     if (ctx->pos + output_size > ctx->end)
         return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
@@ -825,7 +825,7 @@ ENCODE_JSON(ByteString) {
     //keep track of our encoded position 
     char* c = output;
     // store the number of bytes encoded by a single call 
-    int cnt = 0;
+    UA_Int32 cnt = 0;
     // we need an encoder state 
     base64_encodestate s;
 
@@ -833,7 +833,7 @@ ENCODE_JSON(ByteString) {
     // initialise the encoder state
     base64_init_encodestate(&s);
     // gather data from the input and send it to the output
-    cnt = base64_encode_block(src->data, src->length, c, &s);
+    cnt = base64_encode_block((char*)src->data, (int)src->length, (char*)c, &s);
     c += cnt;
     // since we have encoded the entire input string, we know that 
     //   there is no more input data; finalise the encoding 
@@ -845,7 +845,7 @@ ENCODE_JSON(ByteString) {
     WRITE(Quote);
 
     //Calculate size, Lib appends one \n, -1 because of this.
-    size_t actualLength = (c - 1) - output;
+    UA_UInt64 actualLength = (UA_UInt64)((c - 1) - output);
     memcpy(ctx->pos, output, actualLength);
     ctx->pos += actualLength;
 
@@ -853,7 +853,7 @@ ENCODE_JSON(ByteString) {
     output = NULL;
 
     WRITE(Quote);
-    */
+    
    return UA_STATUSCODE_GOOD;
 }
 

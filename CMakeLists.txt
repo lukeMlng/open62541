@@ -369,6 +369,8 @@ set(exported_headers ${PROJECT_BINARY_DIR}/src_generated/ua_config.h
 set(internal_headers ${PROJECT_SOURCE_DIR}/deps/queue.h
                      ${PROJECT_SOURCE_DIR}/deps/pcg_basic.h
                      ${PROJECT_SOURCE_DIR}/deps/libc_time.h
+                     ${PROJECT_SOURCE_DIR}/deps/libb64/cencode.h
+                     ${PROJECT_SOURCE_DIR}/deps/libb64/cdecode.h
                      ${PROJECT_SOURCE_DIR}/src/ua_util.h
                      ${PROJECT_SOURCE_DIR}/src/ua_types_encoding_binary.h
                      ${PROJECT_SOURCE_DIR}/src/ua_types_encoding_json.h #@Luke
@@ -431,7 +433,9 @@ set(lib_sources ${PROJECT_SOURCE_DIR}/src/ua_types.c
 
                 # dependencies
                 ${PROJECT_SOURCE_DIR}/deps/libc_time.c
-                ${PROJECT_SOURCE_DIR}/deps/pcg_basic.c)
+                ${PROJECT_SOURCE_DIR}/deps/pcg_basic.c
+                ${PROJECT_SOURCE_DIR}/deps/libb64/cencode.c)
+                #${PROJECT_SOURCE_DIR}/deps/libb64/cdecode.c)
 
 set(default_plugin_headers ${PROJECT_SOURCE_DIR}/plugins/ua_network_tcp.h
                            ${PROJECT_SOURCE_DIR}/plugins/ua_accesscontrol_default.h
