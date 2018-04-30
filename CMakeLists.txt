@@ -369,6 +369,7 @@ set(exported_headers ${PROJECT_BINARY_DIR}/src_generated/ua_config.h
 set(internal_headers ${PROJECT_SOURCE_DIR}/deps/queue.h
                      ${PROJECT_SOURCE_DIR}/deps/pcg_basic.h
                      ${PROJECT_SOURCE_DIR}/deps/libc_time.h
+                     ${PROJECT_SOURCE_DIR}/deps/jsmn/jsmn.h
                      ${PROJECT_SOURCE_DIR}/deps/libb64/cencode.h
                      ${PROJECT_SOURCE_DIR}/deps/libb64/cdecode.h
                      ${PROJECT_SOURCE_DIR}/src/ua_util.h
@@ -434,6 +435,7 @@ set(lib_sources ${PROJECT_SOURCE_DIR}/src/ua_types.c
                 # dependencies
                 ${PROJECT_SOURCE_DIR}/deps/libc_time.c
                 ${PROJECT_SOURCE_DIR}/deps/pcg_basic.c
+                ${PROJECT_SOURCE_DIR}/deps/jsmn/jsmn.c
                 ${PROJECT_SOURCE_DIR}/deps/libb64/cencode.c)
                 #${PROJECT_SOURCE_DIR}/deps/libb64/cdecode.c)
 
