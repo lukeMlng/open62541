@@ -78,6 +78,7 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_Byte **bufPos,
             return rv;
     }
 
+    
     // TODO: MetaDataVersion
     if(src->header.configVersionMajorVersionEnabled || src->header.configVersionMinorVersionEnabled) {
         rv = writeKey(&ctx, "MetaDataVersion");
@@ -108,12 +109,15 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_Byte **bufPos,
     rv = writeKey(&ctx, "Payload");
     encodingJsonStartArray(&ctx);
     if(src->header.fieldEncoding == UA_FIELDENCODING_VARIANT) {
+        
+        /* TODO: Use non-reversible form */
         for (UA_UInt16 i = 0; i < src->data.deltaFrameData.fieldCount; i++) {
             rv = UA_encodeJson(&(src->data.deltaFrameData.deltaFrameFields[i].fieldValue.value), &UA_TYPES[UA_TYPES_VARIANT], &ctx.pos, &ctx.end, NULL, NULL);
             if(rv != UA_STATUSCODE_GOOD)
                 return rv;
         }
     } else if(src->header.fieldEncoding == UA_FIELDENCODING_RAWDATA) {
+        /* TODO:  */
         return UA_STATUSCODE_BADNOTIMPLEMENTED;
     } else if(src->header.fieldEncoding == UA_FIELDENCODING_DATAVALUE) {
         for (UA_UInt16 i = 0; i < src->data.deltaFrameData.fieldCount; i++) {
@@ -199,6 +203,7 @@ UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src, UA_Byte **bufPos,
             return rv;
     }
     
+    
     // Payload
     if(src->networkMessageType == UA_NETWORKMESSAGE_DATASET) {
         UA_Byte count = 1;
@@ -213,7 +218,7 @@ UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src, UA_Byte **bufPos,
     } else {
         rv = UA_STATUSCODE_BADNOTIMPLEMENTED;
     }
-
+    
     encodingJsonEndObject(&ctx);
     *bufPos = ctx.pos;
     bufEnd = ctx.end;

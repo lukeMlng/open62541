@@ -997,7 +997,7 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
         
         if(writerGroup->config.encodingMimeType == UA_PUBSUB_ENCODING_JSON){
             UA_ByteString buf;
-            size_t msgSize = 200; //WIP, TODO: get Json buffer size!
+            size_t msgSize = 2000; //WIP, TODO: get Json buffer size!
             if(UA_ByteString_allocBuffer(&buf, msgSize) == UA_STATUSCODE_GOOD) {
                 UA_Byte *bufPos = buf.data;
                 memset(bufPos, 0, msgSize);
@@ -1020,6 +1020,10 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
                  *  ]
                  * }
                  */
+                
+                //TODO: How can we calculate the size?
+                size_t len = strlen((char*)buf.data);
+                buf.length = len;
                 UA_LOG_INFO(server->config.logger, UA_LOGCATEGORY_NETWORK, "Send JSON!");
                 connection->channel->send(connection->channel, NULL, &buf);
             }
