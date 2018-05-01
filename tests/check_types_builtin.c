@@ -1452,7 +1452,7 @@ START_TEST(UA_ExtensionObject_encodeDecodeShallWorkOnExtensionObject) {
 }
 END_TEST
 
-
+/*
 START_TEST(UA_String_json_encode) {
     // given
     UA_String src = UA_STRING("hello");
@@ -1465,6 +1465,25 @@ START_TEST(UA_String_json_encode) {
     // when
     UA_StatusCode retval = UA_encodeJson(&src, &UA_TYPES[UA_TYPES_STRING], &bufPos, &bufEnd, NULL, NULL);
     *bufPos = 0;
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    char* result = "\"hello\"";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf);
+}
+END_TEST
+*/
+START_TEST(UA_LocalizedText_json_decode) {
+    // given
+    
+    UA_LocalizedText out;
+    UA_ByteString buf = UA_STRING("{\"Locale\":\"t1\",\"Text\":\"t2\"}");
+
+    //UA_ByteString_allocBuffer(&buf, 10);
+
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_LOCALIZEDTEXT], 0, 0);
     // then
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
     char* result = "\"hello\"";
@@ -1548,9 +1567,13 @@ static Suite *testSuite_builtin(void) {
     suite_add_tcase(s, tc_copy);
     
     
-    TCase *tc_json_encode = tcase_create("json_encode");
-    tcase_add_test(tc_json_encode, UA_String_json_encode);
-    suite_add_tcase(s, tc_json_encode);
+    //TCase *tc_json_encode = tcase_create("json_encode");
+    //tcase_add_test(tc_json_encode, UA_String_json_encode);
+    //suite_add_tcase(s, tc_json_encode);
+    
+    TCase *tc_json_decode = tcase_create("json_decode");
+    tcase_add_test(tc_json_decode, UA_LocalizedText_json_decode);
+    suite_add_tcase(s, tc_json_decode);
     return s;
 }
 

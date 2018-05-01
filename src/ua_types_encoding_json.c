@@ -1787,7 +1787,7 @@ UA_encodeJson(const void *src, const UA_DataType *type,
 }
 
 typedef struct {
-    jsmntok_t *tokenArray;
+    jsmntok_t tokenArray[128];
     UA_Int32 tokenCount;
     UA_UInt16 *index;
 } ParseCtx;
@@ -1799,6 +1799,9 @@ typedef status (*decodeJsonSignature)(void *UA_RESTRICT dst, const UA_DataType *
     TYPE##_decodeJson(UA_##TYPE *UA_RESTRICT dst, const UA_DataType *type, Ctx *UA_RESTRICT ctx, ParseCtx *parseCtx)
 
 #define DECODE_DIRECT(DST, TYPE) TYPE##_decodeJson((UA_##TYPE*)DST, NULL, ctx, parseCtx)
+
+static status 
+decodeFields(Ctx *ctx, ParseCtx *parseCtx, const char* fieldNames[], decodeJsonSignature functions[], const UA_DataType *type, void *UA_RESTRICT dst);
 
 
 static int equalCount = 0;
@@ -1827,6 +1830,57 @@ DECODE_JSON(String) {
     return 1;
 }
 
+DECODE_JSON(LocalizedText) {
+    //size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
+    //const char *start = JSON_STRING + t.start;
+    //char *end = JSON_STRING + t.start + size;
+    //value = malloc(1 + size * sizeof(char));
+    //dst->data = ctx->pos + parseCtx->tokenArray[*parseCtx->index].start;
+    //dst->length = size;
+    
+    const char* fieldNames[] = {"Locale", "Text"};
+    decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) String_decodeJson};
+    decodeFields(ctx, parseCtx, fieldNames, functions, type, dst);
+    
+    
+    //(*parseCtx->index)++; // String is one element
+    //memcpy((char*)*value, JSON_STRING + t.start, size);
+    //*(value + size) = '\0';
+
+    return 1;
+}
+
+static status 
+decodeFields(Ctx *ctx, ParseCtx *parseCtx, const char* fieldNames[], decodeJsonSignature functions[], const UA_DataType *type, void *UA_RESTRICT dst) {
+    size_t objectCount = (size_t)(parseCtx->tokenArray[(*parseCtx->index)].size);
+    
+    (*parseCtx->index)++; //go to first key
+
+    size_t found = 0;
+    size_t currentObjectCout = 0;
+    while (currentObjectCout < objectCount && *parseCtx->index < parseCtx->tokenCount) {
+
+        size_t i;//TODO: consider to jump over already searched tokens
+        for (i = 0; i < objectCount; i++) { //Search for KEY, if found outer loop will be one less. Best case is objectCount if in order!
+            if (jsoneq((char*)ctx->pos, &parseCtx->tokenArray[*parseCtx->index], fieldNames[i]) == 0) {
+                (*parseCtx->index)++; //goto value
+                functions[i](dst, type, ctx, parseCtx);//(&currentKey, parseCtx->tokenArray, t, dst);
+                currentObjectCout++;
+            }
+        }
+
+        if (currentObjectCout == found) {
+            //printf("Search failed %d fields of %d found.\n", found, (int)objectCount);
+            break; //nothing found
+        }
+        found = currentObjectCout;
+       
+    }
+
+    return 1;
+}
+
+
 const decodeJsonSignature decodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
     (decodeJsonSignature)NULL,//DBoolean_decodeBinary,
     (decodeJsonSignature)NULL,//DByte_decodeBinary, /* SByte */
@@ -1848,7 +1902,7 @@ const decodeJsonSignature decodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
     (decodeJsonSignature)NULL,//DExpandedNodeId_decodeBinary,
     (decodeJsonSignature)NULL,//DUInt32_decodeBinary, /* StatusCode */
     (decodeJsonSignature)NULL,//DdecodeBinaryInternal, /* QualifiedName */
-    (decodeJsonSignature)NULL,//DLocalizedText_decodeBinary,
+    (decodeJsonSignature)LocalizedText_decodeJson,
     (decodeJsonSignature)NULL,//DExtensionObject_decodeBinary,
     (decodeJsonSignature)NULL,//DDataValue_decodeBinary,
     (decodeJsonSignature)NULL,//DVariant_decodeBinary,
@@ -1859,34 +1913,7 @@ const decodeJsonSignature decodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
 
 
 
-static status 
-decodeFields(Ctx *ctx, ParseCtx *parseCtx, size_t objectCount, const char* fieldNames[], decodeJsonSignature functions[], const UA_DataType *type, void *UA_RESTRICT dst) {
-    UA_UInt16 currentKey = (*parseCtx->index)++; //go to first key
 
-    size_t found = 0;
-    size_t currentObjectCout = 0;
-    while (currentObjectCout < objectCount && *parseCtx->index < parseCtx->tokenCount) {
-
-        size_t i;//TODO: consider to jump over already searched tokens
-        for (i = 0; i < objectCount; i++) { //Search for KEY, if found outer loop will be one less. Best case is objectCount if in order!
-            if (jsoneq((char*)ctx->pos, &parseCtx->tokenArray[currentKey], fieldNames[i]) == 0) {
-                currentKey++; //goto value
-                functions[i](dst, type, ctx, parseCtx);//(&currentKey, parseCtx->tokenArray, t, dst);
-                currentObjectCout++;
-            }
-        }
-
-        if (currentObjectCout == found) {
-            //printf("Search failed %d fields of %d found.\n", found, (int)objectCount);
-            break; //nothing found
-        }
-        found = currentObjectCout;
-       
-    }
-
-    *parseCtx->index = currentKey;
-    return 1;
-}
 
 
 static status
@@ -1934,12 +1961,11 @@ UA_decodeJson(const UA_ByteString *src, size_t *offset, void *dst,
     ctx.customTypesArraySize = customTypesSize;
     ctx.customTypesArray = customTypes;
 
-    jsmntok_t tokenArray[128]; /* We expect no more than 128 tokens */
     
+    UA_UInt16 tokenIndex = 0;
     ParseCtx parseCtx;
-    parseCtx.tokenArray = tokenArray;
     parseCtx.tokenCount = 0;
-    parseCtx.index = 0;
+    parseCtx.index = &tokenIndex;
 
     jsmn_parser p;
     
@@ -1963,13 +1989,13 @@ UA_decodeJson(const UA_ByteString *src, size_t *offset, void *dst,
     memset(dst, 0, type->memSize); /* Initialize the value */
     status ret = decodeJsonInternal(dst, type, &ctx, &parseCtx);
 
-    if(ret == UA_STATUSCODE_GOOD) {
-        /* Set the new offset */
+    /*if(ret == UA_STATUSCODE_GOOD) {
+        // Set the new offset 
         *offset = (size_t)(ctx.pos - src->data) / sizeof(u8);
     } else {
-        /* Clean up */
+        // Clean up 
         UA_deleteMembers(dst, type);
         memset(dst, 0, type->memSize);
-    }
+    }*/
     return ret;
 }
