@@ -1815,6 +1815,99 @@ static int jsoneq(const char *json, jsmntok_t *tok, const char *s) {
     return -1;
 }
 
+DECODE_JSON(Boolean) {
+    //TODO
+    size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
+    
+    UA_Boolean d = UA_TRUE;
+    if(size == 4){
+        d = UA_TRUE;
+    }else if(size == 5){
+        d = UA_FALSE;
+    }else{
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
+    memcpy(dst, &d, 1);
+    (*parseCtx->index)++; // is one element
+    return 1;
+}
+
+DECODE_JSON(Byte) {
+    //TODO
+    UA_Byte d = 42;
+    memcpy(dst, &d, 1);
+    (*parseCtx->index)++; // is one element
+    return 1;
+}
+
+DECODE_JSON(SByte) {
+    //TODO
+    UA_SByte d = 42;
+    memcpy(dst, &d, 1);
+    (*parseCtx->index)++; // is one element
+    return 1;
+}
+
+DECODE_JSON(UInt16) {
+    //TODO
+    UA_UInt16 d = 42;
+    memcpy(dst, &d, 2);
+    (*parseCtx->index)++; // is one element
+    return 1;
+}
+
+DECODE_JSON(UInt32) {
+    //TODO
+    UA_UInt32 d = 42;
+    memcpy(dst, &d, 4);
+    (*parseCtx->index)++; // is one element
+    return 1;
+}
+
+DECODE_JSON(UInt64) {
+    //TODO
+    UA_UInt64 d = 42;
+    memcpy(dst, &d, 8);
+    (*parseCtx->index)++; // is one element
+    return 1;
+}
+
+DECODE_JSON(Int16) {
+    //TODO
+    UA_Int16 d = 42;
+    memcpy(dst, &d, 2);
+    (*parseCtx->index)++; // is one element
+    return 1;
+}
+
+DECODE_JSON(Int32) {
+    //TODO
+    UA_Int32 d = 42;
+    memcpy(dst, &d, 4);
+    (*parseCtx->index)++; // is one element
+    return 1;
+}
+
+DECODE_JSON(Int64) {
+    //TODO
+    UA_Int64 d = 42;
+    memcpy(dst, &d, 8);
+    (*parseCtx->index)++; // is one element
+    return 1;
+}
+
+DECODE_JSON(Guid) {
+    //TODO
+    UA_Guid d;
+    d.data1 = 0;
+    d.data2 = 0;
+    d.data3 = 0;
+    memcpy(dst, &d, 9);
+    (*parseCtx->index)++; // is one element
+    return 1;
+}
+
 DECODE_JSON(String) {
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
     //const char *start = JSON_STRING + t.start;
@@ -1858,13 +1951,7 @@ DECODE_JSON(DateTime) {
     return 1;
 }
 
-DECODE_JSON(UInt32) {
-    //TODO
-    UA_UInt32 d = 42;
-    memcpy(dst, &d, 2);
-    (*parseCtx->index)++; // Uint32 is one element
-    return 1;
-}
+
 
 static status 
 decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames[], decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type) {
@@ -1903,20 +1990,20 @@ decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames
 
 
 const decodeJsonSignature decodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
-    (decodeJsonSignature)NULL,//DBoolean_decodeBinary,
-    (decodeJsonSignature)NULL,//DByte_decodeBinary, /* SByte */
-    (decodeJsonSignature)NULL,//DByte_decodeBinary,
-    (decodeJsonSignature)NULL,//DUInt16_decodeBinary, /* Int16 */
-    (decodeJsonSignature)NULL,//DUInt16_decodeBinary,
-    (decodeJsonSignature)NULL,//DUInt32_decodeBinary, /* Int32 */
+    (decodeJsonSignature)Boolean_decodeJson,
+    (decodeJsonSignature)SByte_decodeJson, /* SByte */
+    (decodeJsonSignature)Byte_decodeJson,
+    (decodeJsonSignature)Int16_decodeJson, /* Int16 */
+    (decodeJsonSignature)UInt16_decodeJson,
+    (decodeJsonSignature)Int32_decodeJson, /* Int32 */
     (decodeJsonSignature)UInt32_decodeJson,
-    (decodeJsonSignature)NULL,//DUInt64_decodeBinary, /* Int64 */
-    (decodeJsonSignature)NULL,//DUInt64_decodeBinary,
+    (decodeJsonSignature)Int64_decodeJson, /* Int64 */
+    (decodeJsonSignature)UInt64_decodeJson,
     (decodeJsonSignature)NULL,//DFloat_decodeBinary,
     (decodeJsonSignature)NULL,//DDouble_decodeBinary,
     (decodeJsonSignature)String_decodeJson,
     (decodeJsonSignature)DateTime_decodeJson, /* DateTime */
-    (decodeJsonSignature)NULL,//DGuid_decodeBinary,
+    (decodeJsonSignature)Guid_decodeJson,
     (decodeJsonSignature)NULL,//DString_decodeBinary, /* ByteString */
     (decodeJsonSignature)NULL,//DString_decodeBinary, /* XmlElement */
     (decodeJsonSignature)NodeId_decodeJson,

@@ -1509,7 +1509,31 @@ START_TEST(UA_ViewDescription_json_decode) {
     ck_assert_int_eq(471142, out.timestamp);
     //ck_assert_str_eq(id, (char*)out.viewId.identifier.string.data);
     ck_assert_int_eq(42, out.viewVersion);
-    //UA_ByteString_deleteMembers(&buf);
+}
+END_TEST
+
+START_TEST(UA_DataTypeAttributes_json_decode) {
+    // given
+    
+    UA_DataTypeAttributes out;
+    UA_ByteString buf = UA_STRING("{\"specifiedAttributes\":1,"
+            "\"displayName\":{\"Locale\":\"t1\",\"Text\":\"t2\"},"
+            "\"description\":{\"Locale\":\"t3\",\"Text\":\"t4\"},"
+            "\"writeMask\":53,"
+            "\"userWriteMask\":63,"
+            "\"isAbstract\":false}");
+
+    //UA_ByteString_allocBuffer(&buf, 10);
+
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_DATATYPEATTRIBUTES], 0, 0);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    //char* id = "99999";
+    //ck_assert_int_eq(471142, out.timestamp);
+    //ck_assert_str_eq(id, (char*)out.viewId.identifier.string.data);
+    //ck_assert_int_eq(42, out.viewVersion);
 }
 END_TEST
 
@@ -1596,6 +1620,7 @@ static Suite *testSuite_builtin(void) {
     TCase *tc_json_decode = tcase_create("json_decode");
     tcase_add_test(tc_json_decode, UA_LocalizedText_json_decode);
     tcase_add_test(tc_json_decode, UA_ViewDescription_json_decode);
+    tcase_add_test(tc_json_decode, UA_DataTypeAttributes_json_decode);
     suite_add_tcase(s, tc_json_decode);
     return s;
 }
