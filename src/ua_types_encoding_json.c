@@ -1801,7 +1801,7 @@ typedef status (*decodeJsonSignature)(void *UA_RESTRICT dst, const UA_DataType *
 #define DECODE_DIRECT(DST, TYPE) TYPE##_decodeJson((UA_##TYPE*)DST, NULL, ctx, parseCtx)
 
 static status 
-decodeFields(Ctx *ctx, ParseCtx *parseCtx, const char* fieldNames[], decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type);
+decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames[], decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type);
 
 
 static int equalCount = 0;
@@ -1835,7 +1835,7 @@ DECODE_JSON(LocalizedText) {
     void *fieldPointer[] = {&dst->locale, &dst->text};
     decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) String_decodeJson};
     
-    decodeFields(ctx, parseCtx, fieldNames, functions, fieldPointer, type);
+    decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type);
     
     return 1;
 }
@@ -1845,13 +1845,13 @@ DECODE_JSON(NodeId) {
     void *fieldPointer[] = {&dst->identifier.string};
     decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson};
     
-    decodeFields(ctx, parseCtx, fieldNames, functions, fieldPointer, type);
+    decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type);
     
     return 1;
 }
 
 DECODE_JSON(DateTime) {
-    UA_DateTime dt = UA_DateTime_now(); //Dummy, TODO parse!
+    UA_DateTime dt = 471142; //Dummy, TODO parse!
     memcpy(dst, &dt, 4);
     
     (*parseCtx->index)++; // DateTime is one element
@@ -1867,8 +1867,12 @@ DECODE_JSON(UInt32) {
 }
 
 static status 
-decodeFields(Ctx *ctx, ParseCtx *parseCtx, const char* fieldNames[], decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type) {
+decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames[], decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type) {
     size_t objectCount = (size_t)(parseCtx->tokenArray[(*parseCtx->index)].size);
+    
+    if(memberSize != objectCount){
+        return UA_STATUSCODE_BADUNEXPECTEDERROR;
+    }
     
     (*parseCtx->index)++; //go to first key
 
@@ -1881,7 +1885,7 @@ decodeFields(Ctx *ctx, ParseCtx *parseCtx, const char* fieldNames[], decodeJsonS
             if (jsoneq((char*)ctx->pos, &parseCtx->tokenArray[*parseCtx->index], fieldNames[i]) == 0) {
                 (*parseCtx->index)++; //goto value
                 //type->
-                functions[i](fieldPointer[currentObjectCout], type, ctx, parseCtx);//(&currentKey, parseCtx->tokenArray, t, dst);
+                functions[i](fieldPointer[i], type, ctx, parseCtx);//(&currentKey, parseCtx->tokenArray, t, dst);
                 currentObjectCout++;
             }
         }
@@ -1949,7 +1953,7 @@ decodeJsonInternal(void *dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parse
     /* For decode Fields */
     const char* fieldNames[membersSize];
     void *fieldPointer[membersSize];
-    decodeJsonSignature functions[membersSize];;
+    decodeJsonSignature functions[membersSize];
     
     
     for(size_t i = 0; i < membersSize && ret == UA_STATUSCODE_GOOD; ++i) {
@@ -1976,7 +1980,7 @@ decodeJsonInternal(void *dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parse
     }
     
     
-    decodeFields(ctx, parseCtx, fieldNames, functions, fieldPointer, type);
+    decodeFields(ctx, parseCtx, membersSize, fieldNames, functions, fieldPointer, type);
 
     ctx->depth--;
     return ret;

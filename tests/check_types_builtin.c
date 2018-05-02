@@ -1472,7 +1472,7 @@ START_TEST(UA_String_json_encode) {
     UA_ByteString_deleteMembers(&buf);
 }
 END_TEST
-
+*/
 START_TEST(UA_LocalizedText_json_decode) {
     // given
     
@@ -1491,12 +1491,12 @@ START_TEST(UA_LocalizedText_json_decode) {
     UA_ByteString_deleteMembers(&buf);
 }
 END_TEST
-*/
+
 START_TEST(UA_ViewDescription_json_decode) {
     // given
     
     UA_ViewDescription out;
-    UA_ByteString buf = UA_STRING("{\"viewId\":{\"Id\":99999},\"timestamp\":\"1970-15-15T06:56:07Z\",\"viewVersion\":1236}");
+    UA_ByteString buf = UA_STRING("{\"timestamp\":\"1970-15-15T06:56:07Z\",\"viewVersion\":1236,\"viewId\":{\"Id\":99999}}");
 
     //UA_ByteString_allocBuffer(&buf, 10);
 
@@ -1505,9 +1505,11 @@ START_TEST(UA_ViewDescription_json_decode) {
     UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_VIEWDESCRIPTION], 0, 0);
     // then
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
-    char* result = "\"hello\"";
-    ck_assert_str_eq(result, (char*)buf.data);
-    UA_ByteString_deleteMembers(&buf);
+    //char* id = "99999";
+    ck_assert_int_eq(471142, out.timestamp);
+    //ck_assert_str_eq(id, (char*)out.viewId.identifier.string.data);
+    ck_assert_int_eq(42, out.viewVersion);
+    //UA_ByteString_deleteMembers(&buf);
 }
 END_TEST
 
@@ -1592,7 +1594,7 @@ static Suite *testSuite_builtin(void) {
     //suite_add_tcase(s, tc_json_encode);
     
     TCase *tc_json_decode = tcase_create("json_decode");
-    //tcase_add_test(tc_json_decode, UA_LocalizedText_json_decode);
+    tcase_add_test(tc_json_decode, UA_LocalizedText_json_decode);
     tcase_add_test(tc_json_decode, UA_ViewDescription_json_decode);
     suite_add_tcase(s, tc_json_decode);
     return s;
