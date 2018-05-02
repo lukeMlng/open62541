@@ -1970,10 +1970,10 @@ DECODE_JSON(DiagnosticInfo) {
     const char* fieldNames[] = {"SymbolicId", "LocalizedText", "Locale", "AdditionalInfo", "InnerStatusCode", "InnerDiagnosticInfo"};
     
     //TODO Can we check if a inner diag info is needed? Here we allocate a inner Diag indo preeemptive
-    UA_DiagnosticInfo *inner = (UA_DiagnosticInfo*)UA_calloc(1, sizeof(UA_DiagnosticInfo));
+    //UA_DiagnosticInfo *inner = (UA_DiagnosticInfo*)UA_calloc(1, sizeof(UA_DiagnosticInfo));
     
-    void *fieldPointer[] = {&dst->symbolicId, &dst->localizedText, &dst->locale, &dst->additionalInfo, &dst->innerStatusCode, inner};
-    decodeJsonSignature functions[] = {(decodeJsonSignature) Int32_decodeJson, (decodeJsonSignature) Int32_decodeJson,(decodeJsonSignature) Int32_decodeJson,(decodeJsonSignature) String_decodeJson,(decodeJsonSignature) StatusCode_decodeJson, (decodeJsonSignature) DiagnosticInfo_decodeJson};
+    void *fieldPointer[] = {&dst->symbolicId, &dst->localizedText, &dst->locale, &dst->additionalInfo, &dst->innerStatusCode, &dst->innerDiagnosticInfo};
+    decodeJsonSignature functions[] = {(decodeJsonSignature) Int32_decodeJson, (decodeJsonSignature) Int32_decodeJson,(decodeJsonSignature) Int32_decodeJson,(decodeJsonSignature) String_decodeJson,(decodeJsonSignature) StatusCode_decodeJson, (decodeJsonSignature) DiagnosticInfoInner_decodeJson};
     UA_Boolean found[] = {UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE};
     decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, found);
     dst->hasSymbolicId = found[0];
@@ -1983,19 +1983,19 @@ DECODE_JSON(DiagnosticInfo) {
     dst->hasInnerStatusCode = found[4];
     dst->hasInnerDiagnosticInfo = found[5];
     
-    if(dst->hasInnerDiagnosticInfo){
+    /*if(dst->hasInnerDiagnosticInfo){
         dst->innerDiagnosticInfo = inner;
     }else{
         free(inner); //TODO: Free inner if not needed...
-    }
+    }*/
 
     return 1;
 }
 
 status DiagnosticInfoInner_decodeJson(UA_DiagnosticInfo* dst, const UA_DataType* type, Ctx* ctx, ParseCtx* parseCtx){
     UA_DiagnosticInfo *inner = (UA_DiagnosticInfo*)UA_calloc(1, sizeof(UA_DiagnosticInfo));
-    dst = inner;
-    return DiagnosticInfo_decodeJson(dst, type, ctx, parseCtx);
+    memcpy(dst, &inner, 8);
+    return DiagnosticInfo_decodeJson(inner, type, ctx, parseCtx);
 }
 
 static status 
