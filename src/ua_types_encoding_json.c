@@ -1972,7 +1972,7 @@ DECODE_JSON(DiagnosticInfo) {
     //TODO Can we check if a inner diag info is needed? Here we allocate a inner Diag indo preeemptive
     UA_DiagnosticInfo *inner = (UA_DiagnosticInfo*)UA_calloc(1, sizeof(UA_DiagnosticInfo));
     
-    void *fieldPointer[] = {&dst->symbolicId, &dst->localizedText, &dst->locale, &dst->additionalInfo, &dst->innerStatusCode, &inner};
+    void *fieldPointer[] = {&dst->symbolicId, &dst->localizedText, &dst->locale, &dst->additionalInfo, &dst->innerStatusCode, inner};
     decodeJsonSignature functions[] = {(decodeJsonSignature) Int32_decodeJson, (decodeJsonSignature) Int32_decodeJson,(decodeJsonSignature) Int32_decodeJson,(decodeJsonSignature) String_decodeJson,(decodeJsonSignature) StatusCode_decodeJson, (decodeJsonSignature) DiagnosticInfo_decodeJson};
     UA_Boolean found[] = {UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE};
     decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, found);

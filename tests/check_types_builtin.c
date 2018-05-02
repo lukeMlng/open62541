@@ -1550,11 +1550,10 @@ START_TEST(UA_DiagnosticInfo_json_decode) {
     // when
     size_t offset = 0;
     UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_DIAGNOSTICINFO], 0, 0);
-    UA_DiagnosticInfo inner = *out.innerDiagnosticInfo;
+    //UA_DiagnosticInfo inner = *out.innerDiagnosticInfo;
     
     // then
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
-    ck_assert_int_eq(inner.locale, 0);
     //char* id = "99999";
     //ck_assert_int_eq(471142, out.timestamp);
     //ck_assert_str_eq(id, (char*)out.viewId.identifier.string.data);
