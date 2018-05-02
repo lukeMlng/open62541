@@ -1801,7 +1801,7 @@ typedef status (*decodeJsonSignature)(void *UA_RESTRICT dst, const UA_DataType *
 #define DECODE_DIRECT(DST, TYPE) TYPE##_decodeJson((UA_##TYPE*)DST, NULL, ctx, parseCtx)
 
 static status 
-decodeFields(Ctx *ctx, ParseCtx *parseCtx, const char* fieldNames[], decodeJsonSignature functions[], UA_String *fieldPointer[], const UA_DataType *type, void *UA_RESTRICT dst);
+decodeFields(Ctx *ctx, ParseCtx *parseCtx, const char* fieldNames[], decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type);
 
 
 static int equalCount = 0;
@@ -1831,29 +1831,17 @@ DECODE_JSON(String) {
 }
 
 DECODE_JSON(LocalizedText) {
-    //size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
-    //const char *start = JSON_STRING + t.start;
-    //char *end = JSON_STRING + t.start + size;
-    //value = malloc(1 + size * sizeof(char));
-    //dst->data = ctx->pos + parseCtx->tokenArray[*parseCtx->index].start;
-    //dst->length = size;
-    
     const char* fieldNames[] = {"Locale", "Text"};
-    UA_String *fieldPointer[] = {&dst->locale, &dst->text};
+    void *fieldPointer[] = {&dst->locale, &dst->text};
     decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) String_decodeJson};
     
-    decodeFields(ctx, parseCtx, fieldNames, functions, fieldPointer, type, dst);
+    decodeFields(ctx, parseCtx, fieldNames, functions, fieldPointer, type);
     
-    
-    //(*parseCtx->index)++; // String is one element
-    //memcpy((char*)*value, JSON_STRING + t.start, size);
-    //*(value + size) = '\0';
-
     return 1;
 }
 
 static status 
-decodeFields(Ctx *ctx, ParseCtx *parseCtx, const char* fieldNames[], decodeJsonSignature functions[], UA_String *fieldPointer[], const UA_DataType *type, void *UA_RESTRICT dst) {
+decodeFields(Ctx *ctx, ParseCtx *parseCtx, const char* fieldNames[], decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type) {
     size_t objectCount = (size_t)(parseCtx->tokenArray[(*parseCtx->index)].size);
     
     (*parseCtx->index)++; //go to first key
@@ -1930,6 +1918,14 @@ decodeJsonInternal(void *dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parse
     status ret = UA_STATUSCODE_GOOD;
     u8 membersSize = type->membersSize;
     const UA_DataType *typelists[2] = { UA_TYPES, &type[-type->typeIndex] };
+    
+    
+    /* For decode Fields */
+    const char* fieldNames[membersSize];
+    void *fieldPointer[membersSize];
+    decodeJsonSignature functions[membersSize];;
+    
+    
     for(size_t i = 0; i < membersSize && ret == UA_STATUSCODE_GOOD; ++i) {
         const UA_DataTypeMember *member = &type->members[i];
         const UA_DataType *membertype = &typelists[!member->namespaceZero][member->memberTypeIndex];
@@ -1937,7 +1933,12 @@ decodeJsonInternal(void *dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parse
             ptr += member->padding;
             size_t fi = membertype->builtin ? membertype->typeIndex : UA_BUILTIN_TYPES_COUNT;
             size_t memSize = membertype->memSize;
-            ret |= decodeJsonJumpTable[fi]((void *UA_RESTRICT)ptr, membertype, ctx, parseCtx);
+            
+            fieldNames[i] = member->memberName;
+            fieldPointer[i] = (void *)ptr;
+            functions[i] = decodeJsonJumpTable[fi];
+            
+            //ret |= decodeJsonJumpTable[fi]((void *UA_RESTRICT)ptr, membertype, ctx, parseCtx);
             ptr += memSize;
         } else {
             ptr += member->padding;
@@ -1947,6 +1948,9 @@ decodeJsonInternal(void *dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parse
             ptr += sizeof(void*);
         }
     }
+    
+    
+    decodeFields(ctx, parseCtx, fieldNames, functions, fieldPointer, type);
 
     ctx->depth--;
     return ret;
