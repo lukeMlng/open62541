@@ -1840,6 +1840,32 @@ DECODE_JSON(LocalizedText) {
     return 1;
 }
 
+DECODE_JSON(NodeId) {
+    const char* fieldNames[] = {"Id"};
+    void *fieldPointer[] = {&dst->identifier.string};
+    decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson};
+    
+    decodeFields(ctx, parseCtx, fieldNames, functions, fieldPointer, type);
+    
+    return 1;
+}
+
+DECODE_JSON(DateTime) {
+    UA_DateTime dt = UA_DateTime_now(); //Dummy, TODO parse!
+    memcpy(dst, &dt, 4);
+    
+    (*parseCtx->index)++; // DateTime is one element
+    return 1;
+}
+
+DECODE_JSON(UInt32) {
+    //TODO
+    UA_UInt32 d = 42;
+    memcpy(dst, &d, 2);
+    (*parseCtx->index)++; // Uint32 is one element
+    return 1;
+}
+
 static status 
 decodeFields(Ctx *ctx, ParseCtx *parseCtx, const char* fieldNames[], decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type) {
     size_t objectCount = (size_t)(parseCtx->tokenArray[(*parseCtx->index)].size);
@@ -1879,17 +1905,17 @@ const decodeJsonSignature decodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
     (decodeJsonSignature)NULL,//DUInt16_decodeBinary, /* Int16 */
     (decodeJsonSignature)NULL,//DUInt16_decodeBinary,
     (decodeJsonSignature)NULL,//DUInt32_decodeBinary, /* Int32 */
-    (decodeJsonSignature)NULL,//DUInt32_decodeBinary,
+    (decodeJsonSignature)UInt32_decodeJson,
     (decodeJsonSignature)NULL,//DUInt64_decodeBinary, /* Int64 */
     (decodeJsonSignature)NULL,//DUInt64_decodeBinary,
     (decodeJsonSignature)NULL,//DFloat_decodeBinary,
     (decodeJsonSignature)NULL,//DDouble_decodeBinary,
     (decodeJsonSignature)String_decodeJson,
-    (decodeJsonSignature)NULL,//DUInt64_decodeBinary, /* DateTime */
+    (decodeJsonSignature)DateTime_decodeJson, /* DateTime */
     (decodeJsonSignature)NULL,//DGuid_decodeBinary,
     (decodeJsonSignature)NULL,//DString_decodeBinary, /* ByteString */
     (decodeJsonSignature)NULL,//DString_decodeBinary, /* XmlElement */
-    (decodeJsonSignature)NULL,//DNodeId_decodeBinary,
+    (decodeJsonSignature)NodeId_decodeJson,
     (decodeJsonSignature)NULL,//DExpandedNodeId_decodeBinary,
     (decodeJsonSignature)NULL,//DUInt32_decodeBinary, /* StatusCode */
     (decodeJsonSignature)NULL,//DdecodeBinaryInternal, /* QualifiedName */
