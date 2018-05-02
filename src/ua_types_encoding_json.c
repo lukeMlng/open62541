@@ -1958,7 +1958,11 @@ decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames
     size_t objectCount = (size_t)(parseCtx->tokenArray[(*parseCtx->index)].size);
     
     if(memberSize != objectCount){
-        return UA_STATUSCODE_BADUNEXPECTEDERROR;
+        if(memberSize == 1){ // TODO: Experimental, is this assumption correct?
+            return functions[0](fieldPointer[0], type, ctx, parseCtx); //ENCODE DIRECT
+        }else{
+            return UA_STATUSCODE_BADUNEXPECTEDERROR;
+        }
     }
     
     (*parseCtx->index)++; //go to first key
