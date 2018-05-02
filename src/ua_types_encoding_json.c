@@ -1801,7 +1801,7 @@ typedef status (*decodeJsonSignature)(void *UA_RESTRICT dst, const UA_DataType *
 #define DECODE_DIRECT(DST, TYPE) TYPE##_decodeJson((UA_##TYPE*)DST, NULL, ctx, parseCtx)
 
 static status 
-decodeFields(Ctx *ctx, ParseCtx *parseCtx, const char* fieldNames[], decodeJsonSignature functions[], const UA_DataType *type, void *UA_RESTRICT dst);
+decodeFields(Ctx *ctx, ParseCtx *parseCtx, const char* fieldNames[], decodeJsonSignature functions[], UA_String *fieldPointer[], const UA_DataType *type, void *UA_RESTRICT dst);
 
 
 static int equalCount = 0;
@@ -1839,8 +1839,10 @@ DECODE_JSON(LocalizedText) {
     //dst->length = size;
     
     const char* fieldNames[] = {"Locale", "Text"};
+    UA_String *fieldPointer[] = {&dst->locale, &dst->text};
     decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) String_decodeJson};
-    decodeFields(ctx, parseCtx, fieldNames, functions, type, dst);
+    
+    decodeFields(ctx, parseCtx, fieldNames, functions, fieldPointer, type, dst);
     
     
     //(*parseCtx->index)++; // String is one element
@@ -1851,7 +1853,7 @@ DECODE_JSON(LocalizedText) {
 }
 
 static status 
-decodeFields(Ctx *ctx, ParseCtx *parseCtx, const char* fieldNames[], decodeJsonSignature functions[], const UA_DataType *type, void *UA_RESTRICT dst) {
+decodeFields(Ctx *ctx, ParseCtx *parseCtx, const char* fieldNames[], decodeJsonSignature functions[], UA_String *fieldPointer[], const UA_DataType *type, void *UA_RESTRICT dst) {
     size_t objectCount = (size_t)(parseCtx->tokenArray[(*parseCtx->index)].size);
     
     (*parseCtx->index)++; //go to first key
@@ -1864,7 +1866,8 @@ decodeFields(Ctx *ctx, ParseCtx *parseCtx, const char* fieldNames[], decodeJsonS
         for (i = 0; i < objectCount; i++) { //Search for KEY, if found outer loop will be one less. Best case is objectCount if in order!
             if (jsoneq((char*)ctx->pos, &parseCtx->tokenArray[*parseCtx->index], fieldNames[i]) == 0) {
                 (*parseCtx->index)++; //goto value
-                functions[i](dst, type, ctx, parseCtx);//(&currentKey, parseCtx->tokenArray, t, dst);
+                //type->
+                functions[i](fieldPointer[currentObjectCout], type, ctx, parseCtx);//(&currentKey, parseCtx->tokenArray, t, dst);
                 currentObjectCout++;
             }
         }
