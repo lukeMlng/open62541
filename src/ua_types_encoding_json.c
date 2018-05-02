@@ -1801,7 +1801,7 @@ typedef status (*decodeJsonSignature)(void *UA_RESTRICT dst, const UA_DataType *
 #define DECODE_DIRECT(DST, TYPE) TYPE##_decodeJson((UA_##TYPE*)DST, NULL, ctx, parseCtx)
 
 static status 
-decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames[], decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type);
+decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames[], decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type, UA_Boolean found[]);
 
 
 static int equalCount = 0;
@@ -1928,7 +1928,7 @@ DECODE_JSON(LocalizedText) {
     void *fieldPointer[] = {&dst->locale, &dst->text};
     decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) String_decodeJson};
     
-    decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type);
+    decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, NULL);
     
     return 1;
 }
@@ -1938,7 +1938,7 @@ DECODE_JSON(NodeId) {
     void *fieldPointer[] = {&dst->identifier.string};
     decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson};
     
-    decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type);
+    decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, NULL);
     
     return 1;
 }
@@ -1951,29 +1951,78 @@ DECODE_JSON(DateTime) {
     return 1;
 }
 
+DECODE_JSON(StatusCode) {
+    //const char* fieldNames[] = {"Code", "Symbol"};
+    //void *fieldPointer[] = {&dst, &dst->text};
+    //decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) String_decodeJson};
+    //dst
+    //decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type);
+    UA_Int32 d = 11111;
+    memcpy(dst, &d, 4);
+    (*parseCtx->index)++;
+    return 1;
+}
 
+status DiagnosticInfoInner_decodeJson(UA_DiagnosticInfo* dst, const UA_DataType* type, Ctx* ctx, ParseCtx* parseCtx);
+
+DECODE_JSON(DiagnosticInfo) {
+    
+    const char* fieldNames[] = {"SymbolicId", "LocalizedText", "Locale", "AdditionalInfo", "InnerStatusCode", "InnerDiagnosticInfo"};
+    
+    //TODO Can we check if a inner diag info is needed? Here we allocate a inner Diag indo preeemptive
+    UA_DiagnosticInfo *inner = (UA_DiagnosticInfo*)UA_calloc(1, sizeof(UA_DiagnosticInfo));
+    
+    void *fieldPointer[] = {&dst->symbolicId, &dst->localizedText, &dst->locale, &dst->additionalInfo, &dst->innerStatusCode, &inner};
+    decodeJsonSignature functions[] = {(decodeJsonSignature) Int32_decodeJson, (decodeJsonSignature) Int32_decodeJson,(decodeJsonSignature) Int32_decodeJson,(decodeJsonSignature) String_decodeJson,(decodeJsonSignature) StatusCode_decodeJson, (decodeJsonSignature) DiagnosticInfo_decodeJson};
+    UA_Boolean found[] = {UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE};
+    decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, found);
+    dst->hasSymbolicId = found[0];
+    dst->hasLocalizedText = found[1];
+    dst->hasLocale = found[2];
+    dst->hasAdditionalInfo = found[3];
+    dst->hasInnerStatusCode = found[4];
+    dst->hasInnerDiagnosticInfo = found[5];
+    
+    if(dst->hasInnerDiagnosticInfo){
+        dst->innerDiagnosticInfo = inner;
+    }else{
+        free(inner); //TODO: Free inner if not needed...
+    }
+
+    return 1;
+}
+
+status DiagnosticInfoInner_decodeJson(UA_DiagnosticInfo* dst, const UA_DataType* type, Ctx* ctx, ParseCtx* parseCtx){
+    UA_DiagnosticInfo *inner = (UA_DiagnosticInfo*)UA_calloc(1, sizeof(UA_DiagnosticInfo));
+    dst = inner;
+    return DiagnosticInfo_decodeJson(dst, type, ctx, parseCtx);
+}
 
 static status 
-decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames[], decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type) {
+decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames[], decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type, UA_Boolean found[]) {
     size_t objectCount = (size_t)(parseCtx->tokenArray[(*parseCtx->index)].size);
     
-    if(memberSize != objectCount){
-        if(memberSize == 1){ // TODO: Experimental, is this assumption correct?
+    if(memberSize == 1){ // TODO: Experimental, is this assumption correct?
+        if(*fieldNames[0] == 0){ //No MemberName
             return functions[0](fieldPointer[0], type, ctx, parseCtx); //ENCODE DIRECT
-        }else{
-            return UA_STATUSCODE_BADUNEXPECTEDERROR;
         }
+    }else if(memberSize == 0){
+        return UA_STATUSCODE_BADENCODINGERROR;
     }
     
     (*parseCtx->index)++; //go to first key
 
-    size_t found = 0;
+    size_t foundCount = 0;
     size_t currentObjectCout = 0;
     while (currentObjectCout < objectCount && *parseCtx->index < parseCtx->tokenCount) {
 
         size_t i;//TODO: consider to jump over already searched tokens
-        for (i = 0; i < objectCount; i++) { //Search for KEY, if found outer loop will be one less. Best case is objectCount if in order!
+        for (i = 0; i < memberSize; i++) { //Search for KEY, if found outer loop will be one less. Best case is objectCount if in order!
             if (jsoneq((char*)ctx->pos, &parseCtx->tokenArray[*parseCtx->index], fieldNames[i]) == 0) {
+                if(found != NULL){
+                    found[i] = UA_TRUE;
+                }
+                
                 (*parseCtx->index)++; //goto value
                 //type->
                 functions[i](fieldPointer[i], type, ctx, parseCtx);//(&currentKey, parseCtx->tokenArray, t, dst);
@@ -1981,11 +2030,11 @@ decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames
             }
         }
 
-        if (currentObjectCout == found) {
+        if (currentObjectCout == foundCount) {
             //printf("Search failed %d fields of %d found.\n", found, (int)objectCount);
             break; //nothing found
         }
-        found = currentObjectCout;
+        foundCount = currentObjectCout;
        
     }
 
@@ -2012,13 +2061,13 @@ const decodeJsonSignature decodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
     (decodeJsonSignature)NULL,//DString_decodeBinary, /* XmlElement */
     (decodeJsonSignature)NodeId_decodeJson,
     (decodeJsonSignature)NULL,//DExpandedNodeId_decodeBinary,
-    (decodeJsonSignature)NULL,//DUInt32_decodeBinary, /* StatusCode */
+    (decodeJsonSignature)StatusCode_decodeJson, /* StatusCode */
     (decodeJsonSignature)NULL,//DdecodeBinaryInternal, /* QualifiedName */
     (decodeJsonSignature)LocalizedText_decodeJson,
     (decodeJsonSignature)NULL,//DExtensionObject_decodeBinary,
     (decodeJsonSignature)NULL,//DDataValue_decodeBinary,
     (decodeJsonSignature)NULL,//DVariant_decodeBinary,
-    (decodeJsonSignature)NULL,//DiagnosticInfo_decodeBinary,
+    (decodeJsonSignature)DiagnosticInfo_decodeJson,
     (decodeJsonSignature)NULL//DdecodeBinaryInternal
 };
 
@@ -2071,7 +2120,7 @@ decodeJsonInternal(void *dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parse
     }
     
     
-    decodeFields(ctx, parseCtx, membersSize, fieldNames, functions, fieldPointer, type);
+    decodeFields(ctx, parseCtx, membersSize, fieldNames, functions, fieldPointer, type, NULL);
 
     ctx->depth--;
     return ret;
