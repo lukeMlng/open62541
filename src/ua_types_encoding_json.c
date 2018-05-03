@@ -1932,45 +1932,44 @@ DECODE_JSON(Guid) {
     if(size != 36){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
-    UA_Guid d;
     char *buf = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
     
-    d.data1 |= (UA_Byte)(hex2int(buf[0]) << 28);
-    d.data1 |= (UA_Byte)(hex2int(buf[1]) << 24);
-    d.data1 |= (UA_Byte)(hex2int(buf[2]) << 20);
-    d.data1 |= (UA_Byte)(hex2int(buf[3]) << 16);
-    d.data1 |= (UA_Byte)(hex2int(buf[4]) << 12);
-    d.data1 |= (UA_Byte)(hex2int(buf[5]) << 8);
-    d.data1 |= (UA_Byte)(hex2int(buf[6]) << 4);
-    d.data1 |= (UA_Byte)(hex2int(buf[7]) << 0);
+    dst->data1 |= (UA_Byte)(hex2int(buf[0]) << 28);
+    dst->data1 |= (UA_Byte)(hex2int(buf[1]) << 24);
+    dst->data1 |= (UA_Byte)(hex2int(buf[2]) << 20);
+    dst->data1 |= (UA_Byte)(hex2int(buf[3]) << 16);
+    dst->data1 |= (UA_Byte)(hex2int(buf[4]) << 12);
+    dst->data1 |= (UA_Byte)(hex2int(buf[5]) << 8);
+    dst->data1 |= (UA_Byte)(hex2int(buf[6]) << 4);
+    dst->data1 |= (UA_Byte)(hex2int(buf[7]) << 0);
     // index 8 should be '-'
-    d.data2 |= (UA_UInt16)(hex2int(buf[9]) << 12);
-    d.data2 |= (UA_UInt16)(hex2int(buf[10]) << 8);
-    d.data2 |= (UA_UInt16)(hex2int(buf[11]) << 4);
-    d.data2 |= (UA_UInt16)(hex2int(buf[12]) << 0);
+    dst->data2 |= (UA_UInt16)(hex2int(buf[9]) << 12);
+    dst->data2 |= (UA_UInt16)(hex2int(buf[10]) << 8);
+    dst->data2 |= (UA_UInt16)(hex2int(buf[11]) << 4);
+    dst->data2 |= (UA_UInt16)(hex2int(buf[12]) << 0);
     // index 13 should be '-'
-    d.data3 |= (UA_UInt16)(hex2int(buf[14]) << 12);
-    d.data3 |= (UA_UInt16)(hex2int(buf[15]) << 8);
-    d.data3 |= (UA_UInt16)(hex2int(buf[16]) << 4);
-    d.data3 |= (UA_UInt16)(hex2int(buf[17]) << 0);
+    dst->data3 |= (UA_UInt16)(hex2int(buf[14]) << 12);
+    dst->data3 |= (UA_UInt16)(hex2int(buf[15]) << 8);
+    dst->data3 |= (UA_UInt16)(hex2int(buf[16]) << 4);
+    dst->data3 |= (UA_UInt16)(hex2int(buf[17]) << 0);
     // index 18 should be '-'
-    d.data4[0] |= (UA_Byte)(hex2int(buf[19]) << 4);
-    d.data4[0] |= (UA_Byte)(hex2int(buf[20]) << 0);
-    d.data4[1] |= (UA_Byte)(hex2int(buf[21]) << 4);
-    d.data4[1] |= (UA_Byte)(hex2int(buf[22]) << 0);
+    dst->data4[0] |= (UA_Byte)(hex2int(buf[19]) << 4);
+    dst->data4[0] |= (UA_Byte)(hex2int(buf[20]) << 0);
+    dst->data4[1] |= (UA_Byte)(hex2int(buf[21]) << 4);
+    dst->data4[1] |= (UA_Byte)(hex2int(buf[22]) << 0);
     // index 23 should be '-'
-    d.data4[2] |= (UA_Byte)(hex2int(buf[24]) << 4);
-    d.data4[2] |= (UA_Byte)(hex2int(buf[25]) << 0);
-    d.data4[3] |= (UA_Byte)(hex2int(buf[26]) << 4);
-    d.data4[3] |= (UA_Byte)(hex2int(buf[27]) << 0);
-    d.data4[4] |= (UA_Byte)(hex2int(buf[28]) << 4);
-    d.data4[4] |= (UA_Byte)(hex2int(buf[29]) << 0);
-    d.data4[5] |= (UA_Byte)(hex2int(buf[30]) << 4);
-    d.data4[5] |= (UA_Byte)(hex2int(buf[31]) << 0);
-    d.data4[6] |= (UA_Byte)(hex2int(buf[32]) << 4);
-    d.data4[6] |= (UA_Byte)(hex2int(buf[33]) << 0);
-    d.data4[7] |= (UA_Byte)(hex2int(buf[34]) << 4);
-    d.data4[7] |= (UA_Byte)(hex2int(buf[35]) << 0);
+    dst->data4[2] |= (UA_Byte)(hex2int(buf[24]) << 4);
+    dst->data4[2] |= (UA_Byte)(hex2int(buf[25]) << 0);
+    dst->data4[3] |= (UA_Byte)(hex2int(buf[26]) << 4);
+    dst->data4[3] |= (UA_Byte)(hex2int(buf[27]) << 0);
+    dst->data4[4] |= (UA_Byte)(hex2int(buf[28]) << 4);
+    dst->data4[4] |= (UA_Byte)(hex2int(buf[29]) << 0);
+    dst->data4[5] |= (UA_Byte)(hex2int(buf[30]) << 4);
+    dst->data4[5] |= (UA_Byte)(hex2int(buf[31]) << 0);
+    dst->data4[6] |= (UA_Byte)(hex2int(buf[32]) << 4);
+    dst->data4[6] |= (UA_Byte)(hex2int(buf[33]) << 0);
+    dst->data4[7] |= (UA_Byte)(hex2int(buf[34]) << 4);
+    dst->data4[7] |= (UA_Byte)(hex2int(buf[35]) << 0);
   
     if(moveToken)
         (*parseCtx->index)++; // is one element
@@ -2002,11 +2001,13 @@ DECODE_JSON(LocalizedText) {
     return 1;
 }
 
-status searchObjectForKey(UA_String search, Ctx *ctx, ParseCtx *parseCtx, UA_UInt16 *resultIndex);
-status searchObjectForKeyRec(char* s, Ctx *ctx, ParseCtx *parseCtx, UA_UInt16 *resultIndex, UA_UInt16 depth);
+status searchObjectForKey(UA_String search, Ctx *ctx, ParseCtx *parseCtx, size_t *resultIndex);
+status searchObjectForKeyRec(char* s, Ctx *ctx, ParseCtx *parseCtx, size_t *resultIndex, UA_UInt16 depth);
 
-status searchObjectForKeyRec(char* s, Ctx *ctx, ParseCtx *parseCtx, UA_UInt16 *resultIndex, UA_UInt16 depth){
-     
+status searchObjectForKeyRec(char* s, Ctx *ctx, ParseCtx *parseCtx, size_t *resultIndex, UA_UInt16 depth){
+    
+    UA_StatusCode ret = UA_STATUSCODE_BADDECODINGERROR;
+    
     if(parseCtx->tokenArray[(*parseCtx->index)].type == JSMN_OBJECT){
         size_t objectCount = (size_t)(parseCtx->tokenArray[(*parseCtx->index)].size);
         
@@ -2018,12 +2019,13 @@ status searchObjectForKeyRec(char* s, Ctx *ctx, ParseCtx *parseCtx, UA_UInt16 *r
                     //found
                     (*parseCtx->index)++;
                     *resultIndex = *parseCtx->index;
+                    ret = UA_STATUSCODE_GOOD;
                     break;
                 }
             }
                
             (*parseCtx->index)++; //value
-            if(parseCtx->tokenArray[(*parseCtx->index)].type == JSMN_OBJECT){
+            if(parseCtx->tokenArray[(*parseCtx->index)].type == JSMN_OBJECT){ //TODO: ARRAY!
                searchObjectForKeyRec( s, ctx, parseCtx, resultIndex, (UA_UInt16)(depth + 1));
             }else{
                 //Only Primitive or string
@@ -2032,10 +2034,10 @@ status searchObjectForKeyRec(char* s, Ctx *ctx, ParseCtx *parseCtx, UA_UInt16 *r
             
         }
     }
-    return UA_STATUSCODE_GOOD;
+    return ret;
 }
 
-status searchObjectForKey(UA_String search, Ctx *ctx, ParseCtx *parseCtx, UA_UInt16 *resultIndex){
+status searchObjectForKey(UA_String search, Ctx *ctx, ParseCtx *parseCtx, size_t *resultIndex){
     
     //save index for later restore
     UA_UInt16 oldIndex = *parseCtx->index;
@@ -2054,22 +2056,36 @@ status searchObjectForKey(UA_String search, Ctx *ctx, ParseCtx *parseCtx, UA_UIn
 
 DECODE_JSON(NodeId) {
     
-    UA_UInt16 searchResult;
+    size_t searchResult = 0;
     UA_String searchKey = UA_STRING("IdType");
+    //status searchStatus = 
+            
     searchObjectForKey(searchKey, ctx, parseCtx, &searchResult);
     
-    UA_String nodeIdtype;
-    UA_String result;
-    const char* fieldNames[] = {"IdType", "Id"};
-    void *fieldPointer[] = {&nodeIdtype, &result};
-    decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) String_decodeJson};
-    UA_Boolean found[] = {UA_FALSE, UA_FALSE};
+    //If non found the type is UINT
+    //if(searchStatus != UA_STATUSCODE_GOOD){
+    //    return searchStatus;
+    //}
     
-    
-    
-    decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, found);
-    
-    
+    if(searchResult != 0){
+        
+        size_t size = (size_t)(parseCtx->tokenArray[searchResult].end - parseCtx->tokenArray[searchResult].start);
+        if(size < 1){
+            return UA_STATUSCODE_BADDECODINGERROR;
+        }
+
+        char *idType = (char*)(ctx->pos + parseCtx->tokenArray[searchResult].start);
+
+        const char* fieldNames[] = {"Id", "IdType"};
+
+        UA_String dummy;
+        if(idType[0] == '2'){
+            void *fieldPointer[] = {&dst->identifier.guid, &dummy};
+            decodeJsonSignature functions[] = {(decodeJsonSignature) Guid_decodeJson, (decodeJsonSignature) String_decodeJson};
+            UA_Boolean found[] = {UA_FALSE, UA_FALSE};
+            decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, found);
+        }
+    }
     
     return 1;
 }

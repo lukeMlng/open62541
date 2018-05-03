@@ -1496,7 +1496,7 @@ START_TEST(UA_ViewDescription_json_decode) {
     // given
     
     UA_ViewDescription out;
-    UA_ByteString buf = UA_STRING("{\"timestamp\":\"1970-15-15T06:56:07Z\",\"viewVersion\":1236,\"viewId\":{\"wrong\":{\"wrong\":{\"w\":\"k\",\"w\":\"k\"}},\"Id\":\"152CA78D-6003-027C-F3BF-BB7BEEFEEFBE\",\"IdType\":2}}");
+    UA_ByteString buf = UA_STRING("{\"timestamp\":\"1970-15-15T06:56:07Z\",\"viewVersion\":1236,\"viewId\":{\"Id\":\"152CA78D-6003-027C-F3BF-BB7BEEFEEFBE\",\"IdType\":2}}");
 
     //UA_ByteString_allocBuffer(&buf, 10);
 
