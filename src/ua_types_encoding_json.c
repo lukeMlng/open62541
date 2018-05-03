@@ -1793,12 +1793,12 @@ typedef struct {
 } ParseCtx;
 
 typedef status (*decodeJsonSignature)(void *UA_RESTRICT dst, const UA_DataType *type,
-                                        Ctx *UA_RESTRICT ctx, ParseCtx *parseCtx);
+                                        Ctx *UA_RESTRICT ctx, ParseCtx *parseCtx, UA_Boolean moveToken);
 
 #define DECODE_JSON(TYPE) static status \
-    TYPE##_decodeJson(UA_##TYPE *UA_RESTRICT dst, const UA_DataType *type, Ctx *UA_RESTRICT ctx, ParseCtx *parseCtx)
+    TYPE##_decodeJson(UA_##TYPE *UA_RESTRICT dst, const UA_DataType *type, Ctx *UA_RESTRICT ctx, ParseCtx *parseCtx, UA_Boolean moveToken)
 
-#define DECODE_DIRECT(DST, TYPE) TYPE##_decodeJson((UA_##TYPE*)DST, NULL, ctx, parseCtx)
+#define DECODE_DIRECT(DST, TYPE) TYPE##_decodeJson((UA_##TYPE*)DST, NULL, ctx, parseCtx, UA_FALSE)
 
 static status 
 decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames[], decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type, UA_Boolean found[]);
@@ -1829,7 +1829,9 @@ DECODE_JSON(Boolean) {
     }
     
     memcpy(dst, &d, 1);
-    (*parseCtx->index)++; // is one element
+    
+    if(moveToken)
+        (*parseCtx->index)++; // is one element
     return 1;
 }
 
@@ -1837,7 +1839,9 @@ DECODE_JSON(Byte) {
     //TODO
     UA_Byte d = 42;
     memcpy(dst, &d, 1);
-    (*parseCtx->index)++; // is one element
+    
+    if(moveToken)
+        (*parseCtx->index)++; // is one element
     return 1;
 }
 
@@ -1845,7 +1849,9 @@ DECODE_JSON(SByte) {
     //TODO
     UA_SByte d = 42;
     memcpy(dst, &d, 1);
-    (*parseCtx->index)++; // is one element
+    
+    if(moveToken)
+        (*parseCtx->index)++; // is one element
     return 1;
 }
 
@@ -1853,7 +1859,9 @@ DECODE_JSON(UInt16) {
     //TODO
     UA_UInt16 d = 42;
     memcpy(dst, &d, 2);
-    (*parseCtx->index)++; // is one element
+    
+    if(moveToken)
+        (*parseCtx->index)++; // is one element
     return 1;
 }
 
@@ -1861,7 +1869,9 @@ DECODE_JSON(UInt32) {
     //TODO
     UA_UInt32 d = 42;
     memcpy(dst, &d, 4);
-    (*parseCtx->index)++; // is one element
+    
+    if(moveToken)
+        (*parseCtx->index)++; // is one element
     return 1;
 }
 
@@ -1869,7 +1879,9 @@ DECODE_JSON(UInt64) {
     //TODO
     UA_UInt64 d = 42;
     memcpy(dst, &d, 8);
-    (*parseCtx->index)++; // is one element
+    
+    if(moveToken)
+        (*parseCtx->index)++; // is one element
     return 1;
 }
 
@@ -1877,7 +1889,9 @@ DECODE_JSON(Int16) {
     //TODO
     UA_Int16 d = 42;
     memcpy(dst, &d, 2);
-    (*parseCtx->index)++; // is one element
+    
+    if(moveToken)
+        (*parseCtx->index)++; // is one element
     return 1;
 }
 
@@ -1885,7 +1899,9 @@ DECODE_JSON(Int32) {
     //TODO
     UA_Int32 d = 42;
     memcpy(dst, &d, 4);
-    (*parseCtx->index)++; // is one element
+    
+    if(moveToken)
+        (*parseCtx->index)++; // is one element
     return 1;
 }
 
@@ -1893,18 +1909,71 @@ DECODE_JSON(Int64) {
     //TODO
     UA_Int64 d = 42;
     memcpy(dst, &d, 8);
-    (*parseCtx->index)++; // is one element
+    
+    if(moveToken)
+        (*parseCtx->index)++; // is one element
     return 1;
+}
+UA_UInt32 hex2int(char c);
+UA_UInt32 hex2int(char ch)
+{
+    if (ch >= '0' && ch <= '9')
+        return (UA_UInt32)(ch - '0');
+    if (ch >= 'A' && ch <= 'F')
+        return (UA_UInt32)(ch - 'A' + 10);
+    if (ch >= 'a' && ch <= 'f')
+        return (UA_UInt32)(ch - 'a' + 10);
+    return 0;
 }
 
 DECODE_JSON(Guid) {
     //TODO
+    size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
+    if(size != 36){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
     UA_Guid d;
-    d.data1 = 0;
-    d.data2 = 0;
-    d.data3 = 0;
-    memcpy(dst, &d, 9);
-    (*parseCtx->index)++; // is one element
+    char *buf = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
+    
+    d.data1 |= (UA_Byte)(hex2int(buf[0]) << 28);
+    d.data1 |= (UA_Byte)(hex2int(buf[1]) << 24);
+    d.data1 |= (UA_Byte)(hex2int(buf[2]) << 20);
+    d.data1 |= (UA_Byte)(hex2int(buf[3]) << 16);
+    d.data1 |= (UA_Byte)(hex2int(buf[4]) << 12);
+    d.data1 |= (UA_Byte)(hex2int(buf[5]) << 8);
+    d.data1 |= (UA_Byte)(hex2int(buf[6]) << 4);
+    d.data1 |= (UA_Byte)(hex2int(buf[7]) << 0);
+    // index 8 should be '-'
+    d.data2 |= (UA_UInt16)(hex2int(buf[9]) << 12);
+    d.data2 |= (UA_UInt16)(hex2int(buf[10]) << 8);
+    d.data2 |= (UA_UInt16)(hex2int(buf[11]) << 4);
+    d.data2 |= (UA_UInt16)(hex2int(buf[12]) << 0);
+    // index 13 should be '-'
+    d.data3 |= (UA_UInt16)(hex2int(buf[14]) << 12);
+    d.data3 |= (UA_UInt16)(hex2int(buf[15]) << 8);
+    d.data3 |= (UA_UInt16)(hex2int(buf[16]) << 4);
+    d.data3 |= (UA_UInt16)(hex2int(buf[17]) << 0);
+    // index 18 should be '-'
+    d.data4[0] |= (UA_Byte)(hex2int(buf[19]) << 4);
+    d.data4[0] |= (UA_Byte)(hex2int(buf[20]) << 0);
+    d.data4[1] |= (UA_Byte)(hex2int(buf[21]) << 4);
+    d.data4[1] |= (UA_Byte)(hex2int(buf[22]) << 0);
+    // index 23 should be '-'
+    d.data4[2] |= (UA_Byte)(hex2int(buf[24]) << 4);
+    d.data4[2] |= (UA_Byte)(hex2int(buf[25]) << 0);
+    d.data4[3] |= (UA_Byte)(hex2int(buf[26]) << 4);
+    d.data4[3] |= (UA_Byte)(hex2int(buf[27]) << 0);
+    d.data4[4] |= (UA_Byte)(hex2int(buf[28]) << 4);
+    d.data4[4] |= (UA_Byte)(hex2int(buf[29]) << 0);
+    d.data4[5] |= (UA_Byte)(hex2int(buf[30]) << 4);
+    d.data4[5] |= (UA_Byte)(hex2int(buf[31]) << 0);
+    d.data4[6] |= (UA_Byte)(hex2int(buf[32]) << 4);
+    d.data4[6] |= (UA_Byte)(hex2int(buf[33]) << 0);
+    d.data4[7] |= (UA_Byte)(hex2int(buf[34]) << 4);
+    d.data4[7] |= (UA_Byte)(hex2int(buf[35]) << 0);
+  
+    if(moveToken)
+        (*parseCtx->index)++; // is one element
     return 1;
 }
 
@@ -1916,9 +1985,9 @@ DECODE_JSON(String) {
     dst->data = ctx->pos + parseCtx->tokenArray[*parseCtx->index].start;
     dst->length = size;
 
-    (*parseCtx->index)++; // String is one element
-    //memcpy((char*)*value, JSON_STRING + t.start, size);
-    //*(value + size) = '\0';
+    
+    if(moveToken)
+        (*parseCtx->index)++; // String is one element
 
     return 1;
 }
@@ -1933,12 +2002,74 @@ DECODE_JSON(LocalizedText) {
     return 1;
 }
 
-DECODE_JSON(NodeId) {
-    const char* fieldNames[] = {"Id"};
-    void *fieldPointer[] = {&dst->identifier.string};
-    decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson};
+status searchObjectForKey(UA_String search, Ctx *ctx, ParseCtx *parseCtx, UA_UInt16 *resultIndex);
+status searchObjectForKeyRec(char* s, Ctx *ctx, ParseCtx *parseCtx, UA_UInt16 *resultIndex, UA_UInt16 depth);
+
+status searchObjectForKeyRec(char* s, Ctx *ctx, ParseCtx *parseCtx, UA_UInt16 *resultIndex, UA_UInt16 depth){
+     
+    if(parseCtx->tokenArray[(*parseCtx->index)].type == JSMN_OBJECT){
+        size_t objectCount = (size_t)(parseCtx->tokenArray[(*parseCtx->index)].size);
+        
+        (*parseCtx->index)++; //Object to first Key
+        size_t i;
+        for (i = 0; i < objectCount; i++) {
+            if(depth == 0){ // we search only on first layer
+                if (jsoneq((char*)ctx->pos, &parseCtx->tokenArray[*parseCtx->index], s) == 0) {
+                    //found
+                    (*parseCtx->index)++;
+                    *resultIndex = *parseCtx->index;
+                    break;
+                }
+            }
+               
+            (*parseCtx->index)++; //value
+            if(parseCtx->tokenArray[(*parseCtx->index)].type == JSMN_OBJECT){
+               searchObjectForKeyRec( s, ctx, parseCtx, resultIndex, (UA_UInt16)(depth + 1));
+            }else{
+                //Only Primitive or string
+                (*parseCtx->index)++;
+            }
+            
+        }
+    }
+    return UA_STATUSCODE_GOOD;
+}
+
+status searchObjectForKey(UA_String search, Ctx *ctx, ParseCtx *parseCtx, UA_UInt16 *resultIndex){
     
-    decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, NULL);
+    //save index for later restore
+    UA_UInt16 oldIndex = *parseCtx->index;
+    
+    char s[search.length + 1];
+    memcpy(&s, search.data, search.length);
+    s[search.length] = '\0';
+    
+    UA_UInt16 depth = 0;
+    searchObjectForKeyRec( s, ctx, parseCtx, resultIndex, depth);
+    //Restore index
+    *parseCtx->index = oldIndex;
+    
+    return UA_STATUSCODE_GOOD;
+}
+
+DECODE_JSON(NodeId) {
+    
+    UA_UInt16 searchResult;
+    UA_String searchKey = UA_STRING("IdType");
+    searchObjectForKey(searchKey, ctx, parseCtx, &searchResult);
+    
+    UA_String nodeIdtype;
+    UA_String result;
+    const char* fieldNames[] = {"IdType", "Id"};
+    void *fieldPointer[] = {&nodeIdtype, &result};
+    decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) String_decodeJson};
+    UA_Boolean found[] = {UA_FALSE, UA_FALSE};
+    
+    
+    
+    decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, found);
+    
+    
     
     return 1;
 }
@@ -1947,7 +2078,8 @@ DECODE_JSON(DateTime) {
     UA_DateTime dt = 471142; //Dummy, TODO parse!
     memcpy(dst, &dt, 4);
     
-    (*parseCtx->index)++; // DateTime is one element
+    if(moveToken)
+        (*parseCtx->index)++; // DateTime is one element
     return 1;
 }
 
@@ -1959,7 +2091,9 @@ DECODE_JSON(StatusCode) {
     //decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type);
     UA_Int32 d = 11111;
     memcpy(dst, &d, 4);
-    (*parseCtx->index)++;
+    
+    if(moveToken)
+        (*parseCtx->index)++;
     return 1;
 }
 
@@ -1994,8 +2128,8 @@ DECODE_JSON(DiagnosticInfo) {
 
 status DiagnosticInfoInner_decodeJson(UA_DiagnosticInfo* dst, const UA_DataType* type, Ctx* ctx, ParseCtx* parseCtx){
     UA_DiagnosticInfo *inner = (UA_DiagnosticInfo*)UA_calloc(1, sizeof(UA_DiagnosticInfo));
-    memcpy(dst, &inner, 8);
-    return DiagnosticInfo_decodeJson(inner, type, ctx, parseCtx);
+    memcpy(dst, &inner, sizeof(UA_DiagnosticInfo*)); //Copy new Pointer do dest
+    return DiagnosticInfo_decodeJson(inner, type, ctx, parseCtx, UA_TRUE);
 }
 
 static status 
@@ -2004,7 +2138,7 @@ decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames
     
     if(memberSize == 1){ // TODO: Experimental, is this assumption correct?
         if(*fieldNames[0] == 0){ //No MemberName
-            return functions[0](fieldPointer[0], type, ctx, parseCtx); //ENCODE DIRECT
+            return functions[0](fieldPointer[0], type, ctx, parseCtx, UA_TRUE); //ENCODE DIRECT
         }
     }else if(memberSize == 0){
         return UA_STATUSCODE_BADENCODINGERROR;
@@ -2025,7 +2159,7 @@ decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames
                 
                 (*parseCtx->index)++; //goto value
                 //type->
-                functions[i](fieldPointer[i], type, ctx, parseCtx);//(&currentKey, parseCtx->tokenArray, t, dst);
+                functions[i](fieldPointer[i], type, ctx, parseCtx, UA_TRUE);//Move Token True
                 currentObjectCout++;
             }
         }
