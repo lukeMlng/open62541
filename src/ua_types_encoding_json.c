@@ -1911,13 +1911,17 @@ DECODE_JSON(Byte) {
 }
 
 DECODE_JSON(SByte) {
-    //TODO
-    UA_SByte d = 42;
+    UA_Int64 d = 0;
+    
+    size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
+    char* data = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
+    UA_atoiSigned(data, size, &d);
+    
     memcpy(dst, &d, 1);
     
     if(moveToken)
         (*parseCtx->index)++; // is one element
-    return 1;
+    return UA_STATUSCODE_GOOD;
 }
 
 DECODE_JSON(UInt16) {
@@ -2191,9 +2195,10 @@ DECODE_JSON(StatusCode) {
     //decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) String_decodeJson};
     //dst
     //decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type);
-    UA_Int32 d = 11111;
+    UA_UInt32 d;
+    DECODE_DIRECT(&d, UInt32);
     memcpy(dst, &d, 4);
-    
+
     if(moveToken)
         (*parseCtx->index)++;
     return 1;
