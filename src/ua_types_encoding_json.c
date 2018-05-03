@@ -2224,8 +2224,11 @@ DECODE_JSON(Variant) {
             return UA_STATUSCODE_BADDECODINGERROR;
         }
 
-        //char *idType = (char*)(ctx->pos + parseCtx->tokenArray[searchResult].start);
-        const UA_DataType *BodyType = &UA_TYPES[0];
+        UA_UInt64 idTypeDecoded;
+        char *idTypeEncoded = (char*)(ctx->pos + parseCtx->tokenArray[searchResult].start);
+        UA_atoi(idTypeEncoded, size, &idTypeDecoded);
+        
+        const UA_DataType *BodyType = &UA_TYPES[idTypeDecoded];
         
         //memcpy(dst, &inner, sizeof(UA_DiagnosticInfo*)); //Copy new Pointer do dest
         
@@ -2243,6 +2246,42 @@ DECODE_JSON(Variant) {
         decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, BodyType, found);
         //}
     }
+    
+    return 1;
+}
+
+DECODE_JSON(ExtensionObject) {
+    
+    /*size_t searchResult = 0;
+    UA_String searchKey = UA_STRING("Encoding");
+    searchObjectForKey(searchKey, ctx, parseCtx, &searchResult);
+    
+    
+    if(searchResult != 0){
+        
+        size_t size = (size_t)(parseCtx->tokenArray[searchResult].end - parseCtx->tokenArray[searchResult].start);
+        if(size < 1){
+            return UA_STATUSCODE_BADDECODINGERROR;
+        }
+
+        //char *idType = (char*)(ctx->pos + parseCtx->tokenArray[searchResult].start);
+        const UA_DataType *BodyType = &UA_TYPES[0];
+        
+        //memcpy(dst, &inner, sizeof(UA_DiagnosticInfo*)); //Copy new Pointer do dest
+        
+        void* bodyPointer = UA_new(BodyType);
+        memcpy(&dst->data, &bodyPointer, sizeof(void*)); //Copy new Pointer do dest
+        dst->type = BodyType;
+        
+        const char* fieldNames[] = {"Type", "Body"};
+
+        UA_String dummy;
+        //if(idType[0] == '2'){
+        void *fieldPointer[] = {&dummy, bodyPointer};
+        decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) decodeJsonInternal};
+        UA_Boolean found[] = {UA_FALSE, UA_FALSE};
+        decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, BodyType, found);
+    }*/
     
     return 1;
 }
@@ -2348,11 +2387,11 @@ const decodeJsonSignature decodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
     (decodeJsonSignature)StatusCode_decodeJson, /* StatusCode */
     (decodeJsonSignature)NULL,//DdecodeBinaryInternal, /* QualifiedName */
     (decodeJsonSignature)LocalizedText_decodeJson,
-    (decodeJsonSignature)NULL,//DExtensionObject_decodeBinary,
+    (decodeJsonSignature)ExtensionObject_decodeJson,
     (decodeJsonSignature)NULL,//DDataValue_decodeBinary,
     (decodeJsonSignature)Variant_decodeJson,
     (decodeJsonSignature)DiagnosticInfo_decodeJson,
-    (decodeJsonSignature)NULL//DdecodeBinaryInternal
+    (decodeJsonSignature)decodeJsonInternal
 };
 
 
