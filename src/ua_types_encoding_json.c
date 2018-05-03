@@ -1785,6 +1785,63 @@ UA_encodeJson(const void *src, const UA_DataType *type,
     *bufEnd = ctx.end;
     return ret;
 }
+/* -----------------------------------------DECODE---------------------------------------------------*/
+
+status UA_atoi(const char input[], size_t size, UA_UInt64 *result);
+
+status UA_atoi(const char input[], size_t size, UA_UInt64 *result){
+    if(size < 1){   
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
+    UA_UInt64 number = 0;
+    UA_Boolean neg = (input[0] == '-');
+    size_t i = neg ? 1 : 0;
+    while ( i < size) {
+        if ( input[i] >= '0' && input[i] <= '9' )
+        {
+          number *= 10;
+          number = (number + (UA_UInt64)(input[i] - '0'));
+          i++;
+        }else{
+            return UA_STATUSCODE_BADDECODINGERROR;
+        }
+    }
+    //if (neg){
+    //   number *= -1;
+    //}
+    
+    *result = number;
+    return UA_STATUSCODE_GOOD;
+   }
+
+status UA_atoiSigned(const char input[], size_t size, UA_Int64 *result);
+
+status UA_atoiSigned(const char input[], size_t size, UA_Int64 *result){
+    if(size < 1){   
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
+    UA_Int64 number = 0;
+    UA_Boolean neg = (input[0] == '-');
+    size_t i = neg ? 1 : 0;
+    while ( i < size) {
+        if ( input[i] >= '0' && input[i] <= '9' )
+        {
+          number *= 10;
+          number = (number + (input[i] - '0'));
+          i++;
+        }else{
+            return UA_STATUSCODE_BADDECODINGERROR;
+        }
+    }
+    if (neg){
+       number *= -1;
+    }
+    
+    *result = number;
+    return UA_STATUSCODE_GOOD;
+   }
 
 typedef struct {
     jsmntok_t tokenArray[128];
@@ -1840,13 +1897,17 @@ DECODE_JSON(Boolean) {
 }
 
 DECODE_JSON(Byte) {
-    //TODO
-    UA_Byte d = 42;
+    UA_UInt64 d = 0;
+    
+    size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
+    char* data = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
+    UA_atoi(data, size, &d);
+    
     memcpy(dst, &d, 1);
     
     if(moveToken)
         (*parseCtx->index)++; // is one element
-    return 1;
+    return UA_STATUSCODE_GOOD;
 }
 
 DECODE_JSON(SByte) {
@@ -1860,63 +1921,88 @@ DECODE_JSON(SByte) {
 }
 
 DECODE_JSON(UInt16) {
-    //TODO
-    UA_UInt16 d = 42;
+    UA_UInt64 d = 0;
+    
+    size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
+    char* data = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
+    UA_atoi(data, size, &d);
+    
     memcpy(dst, &d, 2);
     
     if(moveToken)
         (*parseCtx->index)++; // is one element
-    return 1;
+    return UA_STATUSCODE_GOOD;
 }
 
 DECODE_JSON(UInt32) {
     //TODO
-    UA_UInt32 d = 42;
+    UA_UInt64 d = 0;
+   
+    size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
+    char* data = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
+    UA_atoi(data, size, &d);
+    
     memcpy(dst, &d, 4);
     
     if(moveToken)
         (*parseCtx->index)++; // is one element
-    return 1;
+    return UA_STATUSCODE_GOOD;
 }
 
 DECODE_JSON(UInt64) {
-    //TODO
-    UA_UInt64 d = 42;
+    UA_UInt64 d = 0;
+    
+    size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
+    char* data = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
+    UA_atoi(data, size, &d);
+    
     memcpy(dst, &d, 8);
     
     if(moveToken)
         (*parseCtx->index)++; // is one element
-    return 1;
+    return UA_STATUSCODE_GOOD;
 }
 
 DECODE_JSON(Int16) {
-    //TODO
-    UA_Int16 d = 42;
+    UA_Int64 d = 0;
+    
+    size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
+    char* data = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
+    UA_atoiSigned(data, size, &d);
+    
     memcpy(dst, &d, 2);
     
     if(moveToken)
         (*parseCtx->index)++; // is one element
-    return 1;
+    return UA_STATUSCODE_GOOD;
 }
 
 DECODE_JSON(Int32) {
-    //TODO
-    UA_Int32 d = 42;
+    UA_Int64 d = 0;
+    
+    size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
+    char* data = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
+    UA_atoiSigned(data, size, &d);
+    
     memcpy(dst, &d, 4);
     
     if(moveToken)
         (*parseCtx->index)++; // is one element
-    return 1;
+    return UA_STATUSCODE_GOOD;
 }
 
 DECODE_JSON(Int64) {
-    //TODO
-    UA_Int64 d = 42;
+    UA_Int64 d = 0;
+    
+    size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
+    char* data = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
+    UA_atoiSigned(data, size, &d);
+    
     memcpy(dst, &d, 8);
     
     if(moveToken)
         (*parseCtx->index)++; // is one element
-    return 1;
+    return UA_STATUSCODE_GOOD;
 }
 UA_UInt32 hex2int(char c);
 UA_UInt32 hex2int(char ch)
@@ -1982,13 +2068,9 @@ DECODE_JSON(Guid) {
 
 DECODE_JSON(String) {
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
-    //const char *start = JSON_STRING + t.start;
-    //char *end = JSON_STRING + t.start + size;
-    //value = malloc(1 + size * sizeof(char));
     dst->data = ctx->pos + parseCtx->tokenArray[*parseCtx->index].start;
     dst->length = size;
 
-    
     if(moveToken)
         (*parseCtx->index)++; // String is one element
 
