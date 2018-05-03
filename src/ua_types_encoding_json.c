@@ -1804,6 +1804,10 @@ static status
 decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames[], decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type, UA_Boolean found[]);
 
 
+static status
+decodeJsonInternal(void *dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parseCtx, UA_Boolean moveToken);
+
+
 static int equalCount = 0;
 static int jsoneq(const char *json, jsmntok_t *tok, const char *s) {
 
@@ -2113,6 +2117,49 @@ DECODE_JSON(StatusCode) {
     return 1;
 }
 
+DECODE_JSON(Variant) {
+    
+    size_t searchResult = 0;
+    UA_String searchKey = UA_STRING("Type");
+    //status searchStatus = 
+            
+    searchObjectForKey(searchKey, ctx, parseCtx, &searchResult);
+    
+    //If non found the type is UINT
+    //if(searchStatus != UA_STATUSCODE_GOOD){
+    //    return searchStatus;
+    //}
+    
+    if(searchResult != 0){
+        
+        size_t size = (size_t)(parseCtx->tokenArray[searchResult].end - parseCtx->tokenArray[searchResult].start);
+        if(size < 1){
+            return UA_STATUSCODE_BADDECODINGERROR;
+        }
+
+        //char *idType = (char*)(ctx->pos + parseCtx->tokenArray[searchResult].start);
+        const UA_DataType *BodyType = &UA_TYPES[0];
+        
+        //memcpy(dst, &inner, sizeof(UA_DiagnosticInfo*)); //Copy new Pointer do dest
+        
+        void* bodyPointer = UA_new(BodyType);
+        memcpy(&dst->data, &bodyPointer, sizeof(void*)); //Copy new Pointer do dest
+        dst->type = BodyType;
+        
+        const char* fieldNames[] = {"Type", "Body"};
+
+        UA_String dummy;
+        //if(idType[0] == '2'){
+        void *fieldPointer[] = {&dummy, bodyPointer};
+        decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) decodeJsonInternal};
+        UA_Boolean found[] = {UA_FALSE, UA_FALSE};
+        decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, BodyType, found);
+        //}
+    }
+    
+    return 1;
+}
+
 status DiagnosticInfoInner_decodeJson(UA_DiagnosticInfo* dst, const UA_DataType* type, Ctx* ctx, ParseCtx* parseCtx);
 
 DECODE_JSON(DiagnosticInfo) {
@@ -2216,7 +2263,7 @@ const decodeJsonSignature decodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
     (decodeJsonSignature)LocalizedText_decodeJson,
     (decodeJsonSignature)NULL,//DExtensionObject_decodeBinary,
     (decodeJsonSignature)NULL,//DDataValue_decodeBinary,
-    (decodeJsonSignature)NULL,//DVariant_decodeBinary,
+    (decodeJsonSignature)Variant_decodeJson,
     (decodeJsonSignature)DiagnosticInfo_decodeJson,
     (decodeJsonSignature)NULL//DdecodeBinaryInternal
 };
@@ -2228,7 +2275,7 @@ const decodeJsonSignature decodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
 
 
 static status
-decodeJsonInternal(void *dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parseCtx) {
+decodeJsonInternal(void *dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parseCtx, UA_Boolean moveToken) {
     /* Check the recursion limit */
     if(ctx->depth > UA_ENCODING_MAX_RECURSION)
         return UA_STATUSCODE_BADENCODINGERROR;
@@ -2314,7 +2361,7 @@ UA_decodeJson(const UA_ByteString *src, size_t *offset, void *dst,
     
     /* Decode */
     memset(dst, 0, type->memSize); /* Initialize the value */
-    status ret = decodeJsonInternal(dst, type, &ctx, &parseCtx);
+    status ret = decodeJsonInternal(dst, type, &ctx, &parseCtx, UA_TRUE);
 
     /*if(ret == UA_STATUSCODE_GOOD) {
         // Set the new offset 
