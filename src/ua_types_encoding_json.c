@@ -2110,7 +2110,7 @@ status searchObjectForKeyRec(char* s, Ctx *ctx, ParseCtx *parseCtx, size_t *resu
             if(depth == 0){ // we search only on first layer
                 if (jsoneq((char*)ctx->pos, &parseCtx->tokenArray[*parseCtx->index], s) == 0) {
                     //found
-                    (*parseCtx->index)++;
+                    (*parseCtx->index)++; //We give back a pointer to the value of the searched key!
                     *resultIndex = *parseCtx->index;
                     ret = UA_STATUSCODE_GOOD;
                     break;
@@ -2120,17 +2120,37 @@ status searchObjectForKeyRec(char* s, Ctx *ctx, ParseCtx *parseCtx, size_t *resu
             (*parseCtx->index)++; //value
             if(parseCtx->tokenArray[(*parseCtx->index)].type == JSMN_OBJECT){ //TODO: ARRAY!
                searchObjectForKeyRec( s, ctx, parseCtx, resultIndex, (UA_UInt16)(depth + 1));
+            }else if(parseCtx->tokenArray[(*parseCtx->index)].type == JSMN_ARRAY){
+               searchObjectForKeyRec( s, ctx, parseCtx, resultIndex, (UA_UInt16)(depth + 1));
             }else{
                 //Only Primitive or string
                 (*parseCtx->index)++;
             }
             
         }
+    }else if(parseCtx->tokenArray[(*parseCtx->index)].type == JSMN_ARRAY){
+        size_t arraySize = (size_t)(parseCtx->tokenArray[(*parseCtx->index)].size);
+        
+        (*parseCtx->index)++; //Object to first element
+        size_t i;
+        for (i = 0; i < arraySize; i++) {
+            if(parseCtx->tokenArray[(*parseCtx->index)].type == JSMN_OBJECT){
+               searchObjectForKeyRec( s, ctx, parseCtx, resultIndex, (UA_UInt16)(depth + 1));
+            }else if(parseCtx->tokenArray[(*parseCtx->index)].type == JSMN_ARRAY){
+               searchObjectForKeyRec( s, ctx, parseCtx, resultIndex, (UA_UInt16)(depth + 1));
+            }else{
+                //Only Primitive or string
+                (*parseCtx->index)++;
+            }
+        }
+        
     }
     return ret;
 }
 
 status lookAheadForKey(UA_String search, Ctx *ctx, ParseCtx *parseCtx, size_t *resultIndex){
+    
+    //DEBUG: (char*)(&ctx->pos[parseCtx->tokenArray[*parseCtx->index].start])
     
     //save index for later restore
     UA_UInt16 oldIndex = *parseCtx->index;
@@ -2207,6 +2227,12 @@ DECODE_JSON(StatusCode) {
     return UA_STATUSCODE_GOOD;
 }
 
+static status
+VariantDimension_decodeJson(void *UA_RESTRICT dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parseCtx, UA_Boolean moveToken) {
+    const UA_DataType *dimType = &UA_TYPES[UA_TYPES_UINT32];
+    return Array_decodeJson(dst, dimType, ctx, parseCtx, moveToken);
+}
+
 DECODE_JSON(Variant) {
     
     size_t searchResultType = 0;
@@ -2214,7 +2240,7 @@ DECODE_JSON(Variant) {
  
     lookAheadForKey(searchKeyType, ctx, parseCtx, &searchResultType);
     
-    //If non found the type is UINT
+    //If non found we cannot decode
     //if(searchStatus != UA_STATUSCODE_GOOD){
     //    return searchStatus;
     //}
@@ -2222,59 +2248,90 @@ DECODE_JSON(Variant) {
     //TODO: Better way of not found condition.
     if(searchResultType != 0){
         
-        /* Does the variant contain an array? */
-        UA_Boolean isArray = UA_FALSE;
-        
-        //We have to get the type of body, if array!
-        size_t searchResultBody = 0;
-        UA_String searchKeyBody = UA_STRING("Body");
- 
-        lookAheadForKey(searchKeyBody, ctx, parseCtx, &searchResultBody);
-        if(searchResultBody != 0){
-            jsmntok_t bodyToken = parseCtx->tokenArray[searchResultBody];
-            if(bodyToken.type == JSMN_ARRAY){
-                isArray = UA_TRUE;
-            }
-        }
-        
         
         size_t size = (size_t)(parseCtx->tokenArray[searchResultType].end - parseCtx->tokenArray[searchResultType].start);
         if(size < 1){
             return UA_STATUSCODE_BADDECODINGERROR;
         }
+        
+        /* Does the variant contain an array? */
+        UA_Boolean isArray = UA_FALSE;
+        size_t arraySize = 0;
+        
+        UA_Boolean hasDimension = UA_FALSE;
+        size_t dimensionSize = 0;
+        
+        //Is the Body an Array?
+        size_t searchResultBody = 0;
+        UA_String searchKeyBody = UA_STRING("Body");
+        lookAheadForKey(searchKeyBody, ctx, parseCtx, &searchResultBody);
+        if(searchResultBody != 0){
+            jsmntok_t bodyToken = parseCtx->tokenArray[searchResultBody];
+            if(bodyToken.type == JSMN_ARRAY){
+                isArray = UA_TRUE;
+                
+                arraySize = (size_t)parseCtx->tokenArray[searchResultBody].size;
+                dst->arrayLength = arraySize;
+            }
+        }
+        
+        //Has the variant dimension?
+        size_t searchResultDim = 0;
+        UA_String searchKeyDim = UA_STRING("Dimension");
+        lookAheadForKey(searchKeyDim, ctx, parseCtx, &searchResultDim);
+        if(searchResultDim != 0){
+            hasDimension = UA_TRUE;
+            dimensionSize = (size_t)parseCtx->tokenArray[searchResultDim].size;
+            
+            dst->arrayDimensionsSize = dimensionSize;
+        }
+        
 
+        //Parse the type
         UA_UInt64 idTypeDecoded;
         char *idTypeEncoded = (char*)(ctx->pos + parseCtx->tokenArray[searchResultType].start);
         UA_atoi(idTypeEncoded, size, &idTypeDecoded);
         
-        
+        //Set the type
         const UA_DataType *BodyType = &UA_TYPES[idTypeDecoded];
         dst->type = BodyType;
         
-        //memcpy(dst, &inner, sizeof(UA_DiagnosticInfo*)); //Copy new Pointer do dest
         if(!isArray){
+            
+            //Allocate Memory for Body
             void* bodyPointer = UA_new(BodyType);
             memcpy(&dst->data, &bodyPointer, sizeof(void*)); //Copy new Pointer do dest
             
-
             const char* fieldNames[] = {"Type", "Body"};
-
             UA_String dummy;
-            //if(idType[0] == '2'){
             void *fieldPointer[] = {&dummy, bodyPointer};
             decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) decodeJsonInternal};
             UA_Boolean found[] = {UA_FALSE, UA_FALSE};
+
             decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, BodyType, found);
+            
+           
         }else{
             
-            const char* fieldNames[] = {"Type", "Body"};
+            if(!hasDimension){
+                const char* fieldNames[] = {"Type", "Body"};
 
-            UA_String dummy;
-            //if(idType[0] == '2'){
-            void *fieldPointer[] = {&dummy, &dst->data};
-            decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) Array_decodeJson};
-            UA_Boolean found[] = {UA_FALSE, UA_FALSE};
-            decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, BodyType, found);
+                UA_String dummy;
+                //if(idType[0] == '2'){
+                void *fieldPointer[] = {&dummy, &dst->data};
+                decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) Array_decodeJson};
+                UA_Boolean found[] = {UA_FALSE, UA_FALSE};
+                decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, BodyType, found);
+            }else{
+                const char* fieldNames[] = {"Type", "Body", "Dimension"};
+                UA_String dummy;
+                void *fieldPointer[] = {&dummy, &dst->data, &dst->arrayDimensions};
+                decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) Array_decodeJson, (decodeJsonSignature) VariantDimension_decodeJson};
+                UA_Boolean found[] = {UA_FALSE, UA_FALSE, UA_FALSE};
+
+                decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, BodyType, found);
+            }
+            
         }
         
         //}

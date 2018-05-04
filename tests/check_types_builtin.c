@@ -1590,7 +1590,7 @@ START_TEST(UA_VariantStringArray_json_decode) {
     
     UA_Variant out;
     UA_Variant_init(&out);
-    UA_ByteString buf = UA_STRING("{\"Type\":11,\"Body\":[\"eins\",\"zwei\"]}");
+    UA_ByteString buf = UA_STRING("{\"Type\":11,\"Body\":[\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\"],\"Dimension\":[2,4]}");
     //UA_ByteString buf = UA_STRING("{\"SymbolicId\":13,\"LocalizedText\":14,\"Locale\":12,\"AdditionalInfo\":\"additionalInfo\",\"InnerStatusCode\":2155216896}");
     //UA_ByteString_allocBuffer(&buf, 10);
 
