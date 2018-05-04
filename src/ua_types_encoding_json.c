@@ -2333,9 +2333,38 @@ DECODE_JSON(Variant) {
             }
             
         }
-        
-        //}
     }
+    
+    return UA_STATUSCODE_GOOD;
+}
+
+DECODE_JSON(DataValue) {
+    const char* fieldNames[] = {"Value", "Status", "SourceTimestamp", "SourcePicoseconds", "ServerTimestamp", "ServerPicoseconds"};
+    
+    void *fieldPointer[] = {
+        &dst->value, 
+        &dst->status, 
+        &dst->sourceTimestamp, 
+        &dst->sourcePicoseconds, 
+        &dst->serverTimestamp, 
+        &dst->serverPicoseconds};
+    
+    decodeJsonSignature functions[] = {
+        (decodeJsonSignature) Variant_decodeJson, 
+        (decodeJsonSignature) StatusCode_decodeJson,
+        (decodeJsonSignature) DateTime_decodeJson,
+        (decodeJsonSignature) UInt16_decodeJson,
+        (decodeJsonSignature) DateTime_decodeJson,
+        (decodeJsonSignature) UInt16_decodeJson};
+    
+    UA_Boolean found[] = {UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE};
+    decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, found);
+    dst->hasValue = found[0];
+    dst->hasStatus = found[1];
+    dst->hasSourceTimestamp = found[2];
+    dst->hasSourcePicoseconds = found[3];
+    dst->hasServerTimestamp = found[4];
+    dst->hasServerPicoseconds = found[5];
     
     return UA_STATUSCODE_GOOD;
 }
@@ -2480,7 +2509,7 @@ const decodeJsonSignature decodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
     (decodeJsonSignature)NULL,//DdecodeBinaryInternal, /* QualifiedName */
     (decodeJsonSignature)LocalizedText_decodeJson,
     (decodeJsonSignature)ExtensionObject_decodeJson,
-    (decodeJsonSignature)NULL,//DDataValue_decodeBinary,
+    (decodeJsonSignature)DataValue_decodeJson,
     (decodeJsonSignature)Variant_decodeJson,
     (decodeJsonSignature)DiagnosticInfo_decodeJson,
     (decodeJsonSignature)decodeJsonInternal

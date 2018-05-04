@@ -1472,7 +1472,7 @@ START_TEST(UA_String_json_encode) {
     UA_ByteString_deleteMembers(&buf);
 }
 END_TEST
-*/
+
 START_TEST(UA_LocalizedText_json_decode) {
     // given
     
@@ -1610,8 +1610,24 @@ START_TEST(UA_VariantStringArray_json_decode) {
     //ck_assert_int_eq(42, out.viewVersion);
 }
 END_TEST
+*/
+START_TEST(UA_DataValue_json_decode) {
+    // given
+    
+    UA_DataValue out;
+    UA_DataValue_init(&out);
+    UA_ByteString buf = UA_STRING("{\"Value\":{\"Type\":0,\"Body\":true},\"Status\":2153250816,\"SourceTimestamp\":\"1970-15-15T06:56:07Z\",\"SourcePicoseconds\":0,\"ServerTimestamp\":\"1970-15-15T06:56:07Z\",\"ServerPicoseconds\":0}");
 
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_DATAVALUE], 0, 0);
+    //UA_DiagnosticInfo inner = *out.innerDiagnosticInfo;
 
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+}
+END_TEST
+         
 static Suite *testSuite_builtin(void) {
     Suite *s = suite_create("Built-in Data Types 62541-6 Table 1");
 
@@ -1691,12 +1707,13 @@ static Suite *testSuite_builtin(void) {
     //suite_add_tcase(s, tc_json_encode);
     
     TCase *tc_json_decode = tcase_create("json_decode");
-    tcase_add_test(tc_json_decode, UA_LocalizedText_json_decode);
-    tcase_add_test(tc_json_decode, UA_ViewDescription_json_decode);
-    tcase_add_test(tc_json_decode, UA_DataTypeAttributes_json_decode);
-    tcase_add_test(tc_json_decode, UA_DiagnosticInfo_json_decode);
-    tcase_add_test(tc_json_decode, UA_VariantBool_json_decode);
-    tcase_add_test(tc_json_decode, UA_VariantStringArray_json_decode);
+    //tcase_add_test(tc_json_decode, UA_LocalizedText_json_decode);
+    //tcase_add_test(tc_json_decode, UA_ViewDescription_json_decode);
+    //tcase_add_test(tc_json_decode, UA_DataTypeAttributes_json_decode);
+    //tcase_add_test(tc_json_decode, UA_DiagnosticInfo_json_decode);
+    //tcase_add_test(tc_json_decode, UA_VariantBool_json_decode);
+    //tcase_add_test(tc_json_decode, UA_VariantStringArray_json_decode);
+    tcase_add_test(tc_json_decode, UA_DataValue_json_decode);
     suite_add_tcase(s, tc_json_decode);
     return s;
 }
