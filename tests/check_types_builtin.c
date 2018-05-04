@@ -1585,6 +1585,33 @@ START_TEST(UA_VariantBool_json_decode) {
 }
 END_TEST
 
+START_TEST(UA_VariantStringArray_json_decode) {
+    // given
+    
+    UA_Variant out;
+    UA_Variant_init(&out);
+    UA_ByteString buf = UA_STRING("{\"Type\":11,\"Body\":[\"eins\",\"zwei\"]}");
+    //UA_ByteString buf = UA_STRING("{\"SymbolicId\":13,\"LocalizedText\":14,\"Locale\":12,\"AdditionalInfo\":\"additionalInfo\",\"InnerStatusCode\":2155216896}");
+    //UA_ByteString_allocBuffer(&buf, 10);
+
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_VARIANT], 0, 0);
+    //UA_DiagnosticInfo inner = *out.innerDiagnosticInfo;
+    
+    UA_String *testArray;
+    testArray = (UA_String*)(out.data);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    ck_assert_str_eq((char*)testArray[0].data, "asdf");
+    //char* id = "99999";
+    //ck_assert_int_eq(471142, out.timestamp);
+    //ck_assert_str_eq(id, (char*)out.viewId.identifier.string.data);
+    //ck_assert_int_eq(42, out.viewVersion);
+}
+END_TEST
+
+
 static Suite *testSuite_builtin(void) {
     Suite *s = suite_create("Built-in Data Types 62541-6 Table 1");
 
@@ -1669,6 +1696,7 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_decode, UA_DataTypeAttributes_json_decode);
     tcase_add_test(tc_json_decode, UA_DiagnosticInfo_json_decode);
     tcase_add_test(tc_json_decode, UA_VariantBool_json_decode);
+    tcase_add_test(tc_json_decode, UA_VariantStringArray_json_decode);
     suite_add_tcase(s, tc_json_decode);
     return s;
 }
