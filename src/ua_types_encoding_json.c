@@ -23,6 +23,7 @@
 
 #include "../deps/libb64/cencode.h"
 #include "../deps/jsmn/jsmn.h"
+#include "libc_time.h"
 
 
 /**
@@ -2204,8 +2205,68 @@ DECODE_JSON(NodeId) {
 }
 
 DECODE_JSON(DateTime) {
-    UA_DateTime dt = 471142; //Dummy, TODO parse!
-    memcpy(dst, &dt, 4);
+    
+    size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
+    //UA_String str;
+    const char *input = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
+    //str.length = size;
+    
+    //DateTime  ISO 8601:2004 is 20 Characters
+    if(size != 20){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
+    struct mytm dts;
+    memset(&dts, 0, sizeof(dts));
+    
+    //UA_DateTimeStruct dts;
+    //memset(&dts, 0, sizeof(UA_DateTimeStruct));
+    
+    UA_UInt64 year;
+    UA_atoi(&input[0], 4, &year);
+    dts.tm_hour = (UA_UInt16)year;
+    
+    UA_UInt64 month;
+    UA_atoi(&input[5], 2, &month);
+    dts.tm_mon = (UA_UInt16)month;
+    
+    UA_UInt64 day;
+    UA_atoi(&input[8], 2, &day);
+    dts.tm_mday = (UA_UInt16)day;
+    
+    UA_UInt64 hour;
+    UA_atoi(&input[11], 2, &hour);
+    dts.tm_hour = (UA_UInt16)hour;
+    
+    UA_UInt64 min;
+    UA_atoi(&input[14], 2, &min);
+    dts.tm_min = (UA_UInt16)min;
+    
+    UA_UInt64 sec;
+    UA_atoi(&input[17], 2, &sec);
+    dts.tm_sec = (UA_UInt16)sec;
+    
+    
+    //(date - UA_DATETIME_UNIX_EPOCH) / UA_DATETIME_SEC;
+    long long sinceunix = __tm_to_secs(&dts);
+    
+    //TODO: correct?
+    UA_DateTime dt = (sinceunix + UA_DATETIME_UNIX_EPOCH) * UA_DATETIME_SEC;
+    memcpy(dst, &dt, 8);
+    /*
+    //printNumber(tSt.year, str.data, 4);
+    str.data[4] = '-';
+    printNumber(tSt.day, &str.data[5], 2);
+    str.data[7] = '-';
+    printNumber(tSt.day, &str.data[8], 2);
+    str.data[10] = 'T';
+    printNumber(tSt.hour, &str.data[11], 2);
+    str.data[13] = ':';
+    printNumber(tSt.min, &str.data[14], 2);
+    str.data[16] = ':';
+    printNumber(tSt.sec, &str.data[17], 2);
+    str.data[19] = 'Z';
+    */
     
     if(moveToken)
         (*parseCtx->index)++; // DateTime is one element
@@ -2482,8 +2543,6 @@ decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames
 
     return UA_STATUSCODE_GOOD;
 }
-
-
 
 
 const decodeJsonSignature decodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
