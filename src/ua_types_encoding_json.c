@@ -1172,9 +1172,7 @@ ENCODE_JSON(QualifiedName) {
 
     WRITE(ObjStart);
     writeKey(ctx, "Name");
-    ret |= WRITE(Quote);
     ret |= ENCODE_DIRECT(&src->name, String);
-    ret |= WRITE(Quote);
 
     if (useReversibleForm) {
         if (src->namespaceIndex != 0) {
