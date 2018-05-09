@@ -967,7 +967,7 @@ UA_DateTime_toJSON(UA_DateTime t) {
     UA_DateTimeStruct tSt = UA_DateTime_toStruct(t);
     printNumber(tSt.year, str.data, 4);
     str.data[4] = '-';
-    printNumber(tSt.day, &str.data[5], 2);
+    printNumber(tSt.month, &str.data[5], 2);
     str.data[7] = '-';
     printNumber(tSt.day, &str.data[8], 2);
     str.data[10] = 'T';
