@@ -2091,6 +2091,16 @@ DECODE_JSON(LocalizedText) {
     return UA_STATUSCODE_GOOD;
 }
 
+DECODE_JSON(QualifiedName) {
+    const char* fieldNames[] = {"Name", "Uri"};
+    void *fieldPointer[] = {&dst->name, &dst->namespaceIndex};
+    decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) UInt16_decodeJson};
+    
+    decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, NULL);
+    
+    return UA_STATUSCODE_GOOD;
+}
+
 status lookAheadForKey(UA_String search, Ctx *ctx, ParseCtx *parseCtx, size_t *resultIndex);
 status searchObjectForKeyRec(char* s, Ctx *ctx, ParseCtx *parseCtx, size_t *resultIndex, UA_UInt16 depth);
 
@@ -2561,7 +2571,7 @@ const decodeJsonSignature decodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
     (decodeJsonSignature)NodeId_decodeJson,
     (decodeJsonSignature)NULL,//DExpandedNodeId_decodeBinary,
     (decodeJsonSignature)StatusCode_decodeJson, /* StatusCode */
-    (decodeJsonSignature)NULL,//DdecodeBinaryInternal, /* QualifiedName */
+    (decodeJsonSignature)QualifiedName_decodeJson, /* QualifiedName */
     (decodeJsonSignature)LocalizedText_decodeJson,
     (decodeJsonSignature)ExtensionObject_decodeJson,
     (decodeJsonSignature)DataValue_decodeJson,

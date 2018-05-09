@@ -2677,6 +2677,21 @@ START_TEST(UA_Guid_json_decode) {
 }
 END_TEST
 
+START_TEST(UA_QualifiedName_json_decode) {
+    // given
+    UA_QualifiedName out;
+    UA_ByteString buf = UA_STRING("{\"Name\":\"derName\",\"Uri\":1}");
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_QUALIFIEDNAME], 0, 0);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    ck_assert_int_eq(out.name.data[1], 'e');
+    ck_assert_int_eq(out.name.data[6], 'e');
+    ck_assert_int_eq(out.namespaceIndex, 1);
+}
+END_TEST
+
 START_TEST(UA_LocalizedText_json_decode) {
     // given
     UA_LocalizedText out;
@@ -2941,6 +2956,7 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_decode, UA_UInt64_json_decode);
     tcase_add_test(tc_json_decode, UA_String_json_decode);
     tcase_add_test(tc_json_decode, UA_Guid_json_decode);
+    tcase_add_test(tc_json_decode, UA_QualifiedName_json_decode);
     tcase_add_test(tc_json_decode, UA_LocalizedText_json_decode);
     tcase_add_test(tc_json_decode, UA_ViewDescription_json_decode);
     tcase_add_test(tc_json_decode, UA_DataTypeAttributes_json_decode);
