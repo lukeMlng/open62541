@@ -22,6 +22,7 @@
 #include "ua_types_generated_handling.h"
 
 #include "../deps/libb64/cencode.h"
+#include "../deps/libb64/cdecode.h"
 #include "../deps/jsmn/jsmn.h"
 #include "libc_time.h"
 
@@ -822,6 +823,9 @@ ENCODE_JSON(ByteString) {
 
     //set up a destination buffer large enough to hold the encoded data
     char* output = (char*) malloc(output_size);
+    if(!output){
+        return UA_STATUSCODE_BADENCODINGERROR;
+    }
     //keep track of our encoded position 
     char* c = output;
     // store the number of bytes encoded by a single call 
@@ -2081,6 +2085,51 @@ DECODE_JSON(String) {
     return UA_STATUSCODE_GOOD;
 }
 
+DECODE_JSON(ByteString) {
+    int size = (parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
+    const char* input = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
+    //dst->length = size;
+
+    //estimate size
+    UA_UInt32 outputsize = (UA_UInt32)(size * 3 / 4);
+    
+    /* set up a destination buffer large enough to hold the encoded data */
+    char* output = (char*)malloc(outputsize);
+    if(!output){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    /* keep track of our decoded position */
+    char* c = output;
+    /* store the number of bytes decoded by a single call */
+    int cnt = 0;
+    /* we need a decoder state */
+    base64_decodestate s;
+
+    /*---------- START DECODING ----------*/
+    /* initialise the decoder state */
+    base64_init_decodestate(&s);
+    /* decode the input data */
+    cnt = base64_decode_block(input, size, c, &s);
+    c += cnt;
+    /* note: there is no base64_decode_blockend! */
+    /*---------- STOP DECODING  ----------*/
+
+    
+    UA_UInt64 actualLength = (UA_UInt64)(c - output);
+    
+    char* dstData = (char*)malloc(actualLength);
+    memcpy(dstData, output, actualLength);
+    dst->data = (u8*)dstData;
+    dst->length = actualLength;
+
+    free(output);
+    
+    if(moveToken)
+        (*parseCtx->index)++; // String is one element
+
+    return UA_STATUSCODE_GOOD;
+}
+
 DECODE_JSON(LocalizedText) {
     const char* fieldNames[] = {"Locale", "Text"};
     void *fieldPointer[] = {&dst->locale, &dst->text};
@@ -2566,7 +2615,7 @@ const decodeJsonSignature decodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
     (decodeJsonSignature)String_decodeJson,
     (decodeJsonSignature)DateTime_decodeJson, /* DateTime */
     (decodeJsonSignature)Guid_decodeJson,
-    (decodeJsonSignature)NULL,//DString_decodeBinary, /* ByteString */
+    (decodeJsonSignature)ByteString_decodeJson, /* ByteString */
     (decodeJsonSignature)NULL,//DString_decodeBinary, /* XmlElement */
     (decodeJsonSignature)NodeId_decodeJson,
     (decodeJsonSignature)NULL,//DExpandedNodeId_decodeBinary,

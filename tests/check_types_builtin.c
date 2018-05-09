@@ -2654,6 +2654,27 @@ START_TEST(UA_String_json_decode) {
 }
 END_TEST
 
+START_TEST(UA_ByteString_json_decode) {
+    // given
+    UA_ByteString out;
+    UA_ByteString buf = UA_STRING("YXNkZmFzZGY=");
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_BYTESTRING], 0, 0);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    ck_assert_int_eq(out.length, 8);
+    ck_assert_int_eq(out.data[0], 'a');
+    ck_assert_int_eq(out.data[1], 's');
+    ck_assert_int_eq(out.data[2], 'd');
+    ck_assert_int_eq(out.data[3], 'f');
+    ck_assert_int_eq(out.data[4], 'a');
+    ck_assert_int_eq(out.data[5], 's');
+    ck_assert_int_eq(out.data[6], 'd');
+    ck_assert_int_eq(out.data[7], 'f');
+}
+END_TEST
+
 START_TEST(UA_Guid_json_decode) {
     // given
     UA_Guid out;
@@ -2955,6 +2976,7 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_decode, UA_UInt32_json_decode);
     tcase_add_test(tc_json_decode, UA_UInt64_json_decode);
     tcase_add_test(tc_json_decode, UA_String_json_decode);
+    tcase_add_test(tc_json_decode, UA_ByteString_json_decode);
     tcase_add_test(tc_json_decode, UA_Guid_json_decode);
     tcase_add_test(tc_json_decode, UA_QualifiedName_json_decode);
     tcase_add_test(tc_json_decode, UA_LocalizedText_json_decode);

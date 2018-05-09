@@ -436,8 +436,8 @@ set(lib_sources ${PROJECT_SOURCE_DIR}/src/ua_types.c
                 ${PROJECT_SOURCE_DIR}/deps/libc_time.c
                 ${PROJECT_SOURCE_DIR}/deps/pcg_basic.c
                 ${PROJECT_SOURCE_DIR}/deps/jsmn/jsmn.c
-                ${PROJECT_SOURCE_DIR}/deps/libb64/cencode.c)
-                #${PROJECT_SOURCE_DIR}/deps/libb64/cdecode.c)
+                ${PROJECT_SOURCE_DIR}/deps/libb64/cencode.c
+                ${PROJECT_SOURCE_DIR}/deps/libb64/cdecode.c)
 
 set(default_plugin_headers ${PROJECT_SOURCE_DIR}/plugins/ua_network_tcp.h
                            ${PROJECT_SOURCE_DIR}/plugins/ua_accesscontrol_default.h
