@@ -2697,6 +2697,16 @@ UA_decodeJson(const UA_ByteString *src, size_t *offset, void *dst,
     /* Assume the top-level element is an object */
     if (parseCtx.tokenCount < 1 || parseCtx.tokenArray[0].type != JSMN_OBJECT) {
         //printf("Object expected\n");
+        
+        if(parseCtx.tokenCount == 1){
+            if(parseCtx.tokenArray[0].type == JSMN_PRIMITIVE || parseCtx.tokenArray[0].type == JSMN_STRING){
+                            /* Decode */
+               memset(dst, 0, type->memSize); /* Initialize the value */
+               status ret = decodeJsonInternal(dst, type, &ctx, &parseCtx, UA_TRUE);
+               return ret;
+            }
+        }
+        
         return UA_STATUSCODE_BADDECODINGERROR;
     }
 

@@ -2587,6 +2587,96 @@ END_TEST
  * */
 
 /* ---------------------------DECODE-------------------------------------*/
+
+START_TEST(UA_UInt16_json_decode) {
+    // given
+    UA_UInt16 out;
+    UA_ByteString buf = UA_STRING("65535");
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_UINT16], 0, 0);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    ck_assert_int_eq(out, 65535);
+}
+END_TEST
+
+START_TEST(UA_UInt32_json_decode) {
+    // given
+    UA_UInt32 out;
+    UA_ByteString buf = UA_STRING("4294967295");
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_UINT32], 0, 0);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    ck_assert_int_eq(out, 4294967295);
+}
+END_TEST
+
+START_TEST(UA_UInt64_json_decode) {
+    // given
+    UA_UInt64 out;
+    UA_ByteString buf = UA_STRING("18446744073709551615");
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_UINT64], 0, 0);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    //Compare 64bit with check?
+    ck_assert_int_eq(((u8*)(&out))[0], 0xFF);
+    ck_assert_int_eq(((u8*)(&out))[1], 0xFF);
+    ck_assert_int_eq(((u8*)(&out))[2], 0xFF);
+    ck_assert_int_eq(((u8*)(&out))[3], 0xFF);
+    ck_assert_int_eq(((u8*)(&out))[4], 0xFF);
+    ck_assert_int_eq(((u8*)(&out))[5], 0xFF);
+    ck_assert_int_eq(((u8*)(&out))[6], 0xFF);
+    ck_assert_int_eq(((u8*)(&out))[7], 0xFF);
+}
+END_TEST
+
+START_TEST(UA_String_json_decode) {
+    // given
+    UA_String out;
+    UA_ByteString buf = UA_STRING("abcdef");
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_STRING], 0, 0);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    ck_assert_int_eq(out.length, 6);
+    ck_assert_int_eq(out.data[0], 'a');
+    ck_assert_int_eq(out.data[1], 'b');
+    ck_assert_int_eq(out.data[2], 'c');
+    ck_assert_int_eq(out.data[3], 'd');
+    ck_assert_int_eq(out.data[4], 'e');
+    ck_assert_int_eq(out.data[5], 'f');
+}
+END_TEST
+
+START_TEST(UA_Guid_json_decode) {
+    // given
+    UA_Guid out;
+    UA_ByteString buf = UA_STRING("00000001-0002-0003-0405-060708090A0B");
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_GUID], 0, 0);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    ck_assert_int_eq(out.data1, 1);
+    ck_assert_int_eq(out.data2, 2);
+    ck_assert_int_eq(out.data3, 3);
+    ck_assert_int_eq(out.data4[0], 4);
+    ck_assert_int_eq(out.data4[1], 5);
+    ck_assert_int_eq(out.data4[2], 6);
+    ck_assert_int_eq(out.data4[3], 7);
+    ck_assert_int_eq(out.data4[4], 8);
+    ck_assert_int_eq(out.data4[5], 9);
+    ck_assert_int_eq(out.data4[6], 10);
+    ck_assert_int_eq(out.data4[7], 11);
+}
+END_TEST
+
 START_TEST(UA_LocalizedText_json_decode) {
     // given
     UA_LocalizedText out;
@@ -2846,6 +2936,11 @@ static Suite *testSuite_builtin(void) {
     suite_add_tcase(s, tc_json_encode);
     
     TCase *tc_json_decode = tcase_create("json_decode");
+    tcase_add_test(tc_json_decode, UA_UInt16_json_decode);
+    tcase_add_test(tc_json_decode, UA_UInt32_json_decode);
+    tcase_add_test(tc_json_decode, UA_UInt64_json_decode);
+    tcase_add_test(tc_json_decode, UA_String_json_decode);
+    tcase_add_test(tc_json_decode, UA_Guid_json_decode);
     tcase_add_test(tc_json_decode, UA_LocalizedText_json_decode);
     tcase_add_test(tc_json_decode, UA_ViewDescription_json_decode);
     tcase_add_test(tc_json_decode, UA_DataTypeAttributes_json_decode);
