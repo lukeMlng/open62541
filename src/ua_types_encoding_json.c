@@ -2236,6 +2236,7 @@ DECODE_JSON(NodeId) {
     //    return searchStatus;
     //}
     
+    UA_String dummy;
     if(searchResult != 0){
         
         size_t size = (size_t)(parseCtx->tokenArray[searchResult].end - parseCtx->tokenArray[searchResult].start);
@@ -2247,16 +2248,34 @@ DECODE_JSON(NodeId) {
 
         const char* fieldNames[] = {"Id", "IdType"};
 
-        UA_String dummy;
+        
         if(idType[0] == '2'){
+            dst->identifierType = UA_NODEIDTYPE_GUID;
             void *fieldPointer[] = {&dst->identifier.guid, &dummy};
             decodeJsonSignature functions[] = {(decodeJsonSignature) Guid_decodeJson, (decodeJsonSignature) String_decodeJson};
             UA_Boolean found[] = {UA_FALSE, UA_FALSE};
-            decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, found);
+            return decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, found);
+        }else if(idType[0] == '1'){
+            dst->identifierType = UA_NODEIDTYPE_STRING;
+            void *fieldPointer[] = {&dst->identifier.string, &dummy};
+            decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) String_decodeJson};
+            UA_Boolean found[] = {UA_FALSE, UA_FALSE};
+            return decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, found);
+        }else if(idType[0] == '3'){
+            dst->identifierType = UA_NODEIDTYPE_BYTESTRING;
+            void *fieldPointer[] = {&dst->identifier.byteString, &dummy};
+            decodeJsonSignature functions[] = {(decodeJsonSignature) ByteString_decodeJson, (decodeJsonSignature) String_decodeJson};
+            UA_Boolean found[] = {UA_FALSE, UA_FALSE};
+            return decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, found);
         }
     }
     
-    return UA_STATUSCODE_GOOD;
+    const char* fieldNames[] = {"Id"};
+    //No IdType give, Id is encoded as Number
+    void *fieldPointer[] = {&dst->identifier.numeric, &dummy};
+    decodeJsonSignature functions[] = {(decodeJsonSignature) UInt32_decodeJson, (decodeJsonSignature) String_decodeJson};
+    UA_Boolean found[] = {UA_FALSE, UA_FALSE};
+    return decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, found);
 }
 
 DECODE_JSON(DateTime) {
@@ -2712,6 +2731,9 @@ decodeJsonInternal(void *dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parse
             ptr += member->padding;
            // size_t *length = (size_t*)ptr;
             ptr += sizeof(size_t);
+            fieldNames[i] = member->memberName;
+            fieldPointer[i] = (void *)ptr;
+            functions[i] = Array_decodeJson;
             //ret |= Array_decodeBinary((void *UA_RESTRICT *UA_RESTRICT)ptr, length, membertype, ctx);
             ptr += sizeof(void*);
         }

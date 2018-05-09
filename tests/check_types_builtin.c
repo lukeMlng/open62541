@@ -2730,15 +2730,30 @@ END_TEST
 START_TEST(UA_ViewDescription_json_decode) {
     // given
     UA_ViewDescription out;
-    UA_ByteString buf = UA_STRING("{\"Timestamp\":\"1970-15-15T06:56:07Z\",\"ViewVersion\":1236,\"ViewId\":{\"Id\":\"152CA78D-6003-027C-F3BF-BB7BEEFEEFBE\",\"IdType\":2}}");
+    UA_ByteString buf = UA_STRING("{\"Timestamp\":\"1970-15-15T06:56:07Z\",\"ViewVersion\":1236,\"ViewId\":{\"Id\":\"00000009-0002-027C-F3BF-BB7BEEFEEFBE\",\"IdType\":2}}");
     // when
     size_t offset = 0;
     UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_VIEWDESCRIPTION], 0, 0);
     // then
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
     ck_assert_int_eq(out.viewVersion, 1236);
-    ck_assert_int_eq(out.viewId.identifierType, UA_NODEIDTYPE_NUMERIC);
-    ck_assert_int_eq(out.timestamp, 0); //TODO
+    ck_assert_int_eq(out.viewId.identifierType, UA_NODEIDTYPE_GUID);
+    ck_assert_int_eq(out.timestamp, -3338387664815760000); //TODO
+    ck_assert_int_eq(out.viewId.identifier.guid.data1, 9);
+    ck_assert_int_eq(out.viewId.identifier.guid.data2, 2);
+}
+END_TEST
+
+START_TEST(UA_NodeId_Nummeric_json_decode) {
+    // given
+    UA_NodeId out;
+    UA_ByteString buf = UA_STRING("{\"Id\":42}");
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_NODEID], 0, 0);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    ck_assert_int_eq(out.identifier.numeric, 42);
 }
 END_TEST
 
@@ -2981,6 +2996,7 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_decode, UA_QualifiedName_json_decode);
     tcase_add_test(tc_json_decode, UA_LocalizedText_json_decode);
     tcase_add_test(tc_json_decode, UA_ViewDescription_json_decode);
+    tcase_add_test(tc_json_decode, UA_NodeId_Nummeric_json_decode); 
     tcase_add_test(tc_json_decode, UA_DataTypeAttributes_json_decode);
     tcase_add_test(tc_json_decode, UA_DiagnosticInfo_json_decode);
     tcase_add_test(tc_json_decode, UA_VariantBool_json_decode);
