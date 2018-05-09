@@ -323,14 +323,12 @@ UA_UInt16 itoaUnsigned(UA_UInt64 value, char* buffer, UA_Byte base) {
     return i;
 }
 
-//From http://graphics.stanford.edu/~seander/bithacks.html#IntegerAbs
-
 UA_UInt64 UA_abs(UA_Int64 v) {
-    UA_UInt64 r;
-    UA_Int64 const mask = v >> (sizeof(int) * 8 - 1);
-
-    r = (UA_UInt64)((v + mask) ^ mask);
-    return r;
+    if(v < 0){
+        return (UA_UInt64)-v;
+    }
+    
+    return (UA_UInt64)v;
 }
 
 //http://www.techiedelight.com/implement-itoa-function-in-c/
@@ -1665,7 +1663,7 @@ const encodeJsonSignature encodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
     (encodeJsonSignature) String_encodeJson,
     (encodeJsonSignature) DateTime_encodeJson, /* DateTime */
     (encodeJsonSignature) Guid_encodeJson,
-    (encodeJsonSignature) String_encodeJson, /* ByteString */
+    (encodeJsonSignature) ByteString_encodeJson, /* ByteString */
     (encodeJsonSignature) String_encodeJson, /* XmlElement */
     (encodeJsonSignature) NodeId_encodeJson,
     (encodeJsonSignature) ExpandedNodeId_encodeJson,
@@ -2693,13 +2691,13 @@ UA_decodeJson(const UA_ByteString *src, size_t *offset, void *dst,
     
     if (parseCtx.tokenCount < 0) {
         //printf("Failed to parse JSON: %d\n", tokenCount);
-        return 1;
+        return UA_STATUSCODE_BADDECODINGERROR;
     }
 
     /* Assume the top-level element is an object */
     if (parseCtx.tokenCount < 1 || parseCtx.tokenArray[0].type != JSMN_OBJECT) {
         //printf("Object expected\n");
-        return 1;
+        return UA_STATUSCODE_BADDECODINGERROR;
     }
 
     

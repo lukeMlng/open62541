@@ -1945,7 +1945,7 @@ START_TEST(UA_QualName_json_encode) {
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "";
+    char* result = "{\"Name\":\"derName\",\"Uri\":1}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf);
 }
@@ -2589,65 +2589,55 @@ END_TEST
 /* ---------------------------DECODE-------------------------------------*/
 START_TEST(UA_LocalizedText_json_decode) {
     // given
-    
     UA_LocalizedText out;
     UA_ByteString buf = UA_STRING("{\"Locale\":\"t1\",\"Text\":\"t2\"}");
-
-    //UA_ByteString_allocBuffer(&buf, 10);
-
     // when
     size_t offset = 0;
     UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_LOCALIZEDTEXT], 0, 0);
     // then
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
-    //char* result = "\"hello\"";
-    //ck_assert_str_eq(result, (char*)buf.data);
-    //UA_ByteString_deleteMembers(&buf);
+    ck_assert_int_eq(out.locale.data[1], '1');
+    ck_assert_int_eq(out.text.data[1], '2');
 }
 END_TEST
 
 START_TEST(UA_ViewDescription_json_decode) {
     // given
-    
     UA_ViewDescription out;
-    UA_ByteString buf = UA_STRING("{\"timestamp\":\"1970-15-15T06:56:07Z\",\"viewVersion\":1236,\"viewId\":{\"Id\":\"152CA78D-6003-027C-F3BF-BB7BEEFEEFBE\",\"IdType\":2}}");
-
-    //UA_ByteString_allocBuffer(&buf, 10);
-
+    UA_ByteString buf = UA_STRING("{\"Timestamp\":\"1970-15-15T06:56:07Z\",\"ViewVersion\":1236,\"ViewId\":{\"Id\":\"152CA78D-6003-027C-F3BF-BB7BEEFEEFBE\",\"IdType\":2}}");
     // when
     size_t offset = 0;
     UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_VIEWDESCRIPTION], 0, 0);
     // then
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
-    //char* id = "99999";
-    //ck_assert_int_eq(471142, out.timestamp);
-    //ck_assert_str_eq(id, (char*)out.viewId.identifier.string.data);
-    //ck_assert_int_eq(42, out.viewVersion);
+    ck_assert_int_eq(out.viewVersion, 1236);
+    ck_assert_int_eq(out.viewId.identifierType, UA_NODEIDTYPE_NUMERIC);
+    ck_assert_int_eq(out.timestamp, 0); //TODO
 }
 END_TEST
 
 START_TEST(UA_DataTypeAttributes_json_decode) {
     // given
-    
     UA_DataTypeAttributes out;
-    UA_ByteString buf = UA_STRING("{\"specifiedAttributes\":1,"
-            "\"displayName\":{\"Locale\":\"t1\",\"Text\":\"t2\"},"
-            "\"description\":{\"Locale\":\"t3\",\"Text\":\"t4\"},"
-            "\"writeMask\":53,"
-            "\"userWriteMask\":63,"
-            "\"isAbstract\":false}");
-
-    //UA_ByteString_allocBuffer(&buf, 10);
-
+    UA_ByteString buf = UA_STRING("{\"SpecifiedAttributes\":1,"
+            "\"DisplayName\":{\"Locale\":\"t1\",\"Text\":\"t2\"},"
+            "\"Description\":{\"Locale\":\"t3\",\"Text\":\"t4\"},"
+            "\"WriteMask\":53,"
+            "\"UserWriteMask\":63,"
+            "\"IsAbstract\":false}");
     // when
     size_t offset = 0;
     UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_DATATYPEATTRIBUTES], 0, 0);
     // then
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
-    //char* id = "99999";
-    //ck_assert_int_eq(471142, out.timestamp);
-    //ck_assert_str_eq(id, (char*)out.viewId.identifier.string.data);
-    //ck_assert_int_eq(42, out.viewVersion);
+    ck_assert_int_eq(out.isAbstract, 0);
+    ck_assert_int_eq(out.writeMask, 53);
+    ck_assert_int_eq(out.userWriteMask, 63);
+    ck_assert_int_eq(out.specifiedAttributes, 1);
+    ck_assert_int_eq(out.displayName.locale.data[1], '1');
+    ck_assert_int_eq(out.displayName.text.data[1], '2');
+    ck_assert_int_eq(out.description.locale.data[1], '3');
+    ck_assert_int_eq(out.description.text.data[1], '4');
 }
 END_TEST
 
@@ -2657,21 +2647,23 @@ START_TEST(UA_DiagnosticInfo_json_decode) {
     
     UA_DiagnosticInfo out;
     out.innerDiagnosticInfo = NULL;
-    UA_ByteString buf = UA_STRING("{\"SymbolicId\":13,\"LocalizedText\":14,\"Locale\":12,\"AdditionalInfo\":\"additionalInfo\",\"InnerStatusCode\":2155216896,\"InnerDiagnosticInfo\":{\"AdditionalInfo\":\"INNER ADDITION INFO\"}}");
-    //UA_ByteString buf = UA_STRING("{\"SymbolicId\":13,\"LocalizedText\":14,\"Locale\":12,\"AdditionalInfo\":\"additionalInfo\",\"InnerStatusCode\":2155216896}");
-    //UA_ByteString_allocBuffer(&buf, 10);
-
+    UA_ByteString buf = UA_STRING("{\"SymbolicId\":13,"
+            "\"LocalizedText\":14,"
+            "\"Locale\":12,"
+            "\"AdditionalInfo\":\"additionalInfo\","
+            "\"InnerStatusCode\":2155216896,"
+            "\"InnerDiagnosticInfo\":{\"AdditionalInfo\":\"INNER ADDITION INFO\"}}");
     // when
     size_t offset = 0;
     UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_DIAGNOSTICINFO], 0, 0);
-    //UA_DiagnosticInfo inner = *out.innerDiagnosticInfo;
-    
     // then
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
-    //char* id = "99999";
-    //ck_assert_int_eq(471142, out.timestamp);
-    //ck_assert_str_eq(id, (char*)out.viewId.identifier.string.data);
-    //ck_assert_int_eq(42, out.viewVersion);
+    ck_assert_int_eq(out.locale, 12);
+    ck_assert_int_eq(out.symbolicId, 13);
+    ck_assert_int_eq(out.localizedText, 14);
+    ck_assert_int_eq(out.innerStatusCode, 2155216896);
+    ck_assert_int_eq(out.additionalInfo.length, 14);
+    ck_assert_int_eq(out.innerDiagnosticInfo->additionalInfo.length, 19);
 }
 END_TEST
 
@@ -2679,23 +2671,15 @@ END_TEST
 
 START_TEST(UA_VariantBool_json_decode) {
     // given
-    
     UA_Variant out;
     UA_ByteString buf = UA_STRING("{\"Type\":0,\"Body\":false}");
-    //UA_ByteString buf = UA_STRING("{\"SymbolicId\":13,\"LocalizedText\":14,\"Locale\":12,\"AdditionalInfo\":\"additionalInfo\",\"InnerStatusCode\":2155216896}");
-    //UA_ByteString_allocBuffer(&buf, 10);
-
     // when
     size_t offset = 0;
     UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_VARIANT], 0, 0);
-    //UA_DiagnosticInfo inner = *out.innerDiagnosticInfo;
-    
     // then
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
-    //char* id = "99999";
-    //ck_assert_int_eq(471142, out.timestamp);
-    //ck_assert_str_eq(id, (char*)out.viewId.identifier.string.data);
-    //ck_assert_int_eq(42, out.viewVersion);
+    ck_assert_int_eq(out.type->typeIndex, 0);
+    ck_assert_uint_eq(*((UA_Boolean*)out.data), 0);
 }
 END_TEST
 
@@ -2706,22 +2690,28 @@ START_TEST(UA_VariantStringArray_json_decode) {
     UA_Variant_init(&out);
     UA_ByteString buf = UA_STRING("{\"Type\":11,\"Body\":[\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\"],\"Dimension\":[2,4]}");
     //UA_ByteString buf = UA_STRING("{\"SymbolicId\":13,\"LocalizedText\":14,\"Locale\":12,\"AdditionalInfo\":\"additionalInfo\",\"InnerStatusCode\":2155216896}");
-    //UA_ByteString_allocBuffer(&buf, 10);
 
     // when
     size_t offset = 0;
     UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_VARIANT], 0, 0);
-    //UA_DiagnosticInfo inner = *out.innerDiagnosticInfo;
-    
-    //UA_String *testArray;
-    //testArray = (UA_String*)(out.data);
+
+    UA_String *testArray;
+    testArray = (UA_String*)(out.data);
     // then
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
-    //ck_assert_str_eq((char*)testArray[0].data, "asdf");
-    //char* id = "99999";
-    //ck_assert_int_eq(471142, out.timestamp);
-    //ck_assert_str_eq(id, (char*)out.viewId.identifier.string.data);
-    //ck_assert_int_eq(42, out.viewVersion);
+    ck_assert_int_eq((char)testArray[0].data[0], '1');
+    ck_assert_int_eq((char)testArray[1].data[0], '2');
+    ck_assert_int_eq((char)testArray[2].data[0], '3');
+    ck_assert_int_eq((char)testArray[3].data[0], '4');
+    ck_assert_int_eq((char)testArray[4].data[0], '5');
+    ck_assert_int_eq((char)testArray[5].data[0], '6');
+    ck_assert_int_eq((char)testArray[6].data[0], '7');
+    ck_assert_int_eq((char)testArray[7].data[0], '8');
+    ck_assert_int_eq(out.arrayDimensionsSize, 2);
+    ck_assert_int_eq(out.arrayDimensions[0], 2);
+    ck_assert_int_eq(out.arrayDimensions[1], 4);
+    ck_assert_int_eq(out.arrayLength, 8);
+    ck_assert_int_eq(out.type->typeIndex, 11);
 }
 END_TEST
 
@@ -2730,7 +2720,7 @@ START_TEST(UA_DataValue_json_decode) {
     
     UA_DataValue out;
     UA_DataValue_init(&out);
-    UA_ByteString buf = UA_STRING("{\"Value\":{\"Type\":0,\"Body\":true},\"Status\":2153250816},\"SourceTimestamp\":\"1970-15-15T06:56:07Z\",\"SourcePicoseconds\":0,\"ServerTimestamp\":\"1970-15-15T06:56:07Z\",\"ServerPicoseconds\":0}");
+    UA_ByteString buf = UA_STRING("{\"Value\":{\"Type\":0,\"Body\":true},\"Status\":2153250816,\"SourceTimestamp\":\"1970-15-15T06:56:07Z\",\"SourcePicoseconds\":0,\"ServerTimestamp\":\"1970-15-15T06:56:07Z\",\"ServerPicoseconds\":0}");
 
     // when
     size_t offset = 0;
