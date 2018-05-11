@@ -2225,6 +2225,9 @@ status lookAheadForKey(UA_String search, Ctx *ctx, ParseCtx *parseCtx, size_t *r
 
 DECODE_JSON(NodeId) {
     
+    //TODO: Decode
+    dst->namespaceIndex = 0;
+    
     size_t searchResult = 0;
     UA_String searchKey = UA_STRING("IdType");
     //status searchStatus = 
@@ -2474,39 +2477,107 @@ DECODE_JSON(DataValue) {
     return UA_STATUSCODE_GOOD;
 }
 
-DECODE_JSON(ExtensionObject) {
-    
-    /*size_t searchResult = 0;
-    UA_String searchKey = UA_STRING("Encoding");
-    searchObjectForKey(searchKey, ctx, parseCtx, &searchResult);
-    
-    
-    if(searchResult != 0){
-        
-        size_t size = (size_t)(parseCtx->tokenArray[searchResult].end - parseCtx->tokenArray[searchResult].start);
-        if(size < 1){
-            return UA_STATUSCODE_BADDECODINGERROR;
+/* The binary encoding has a different nodeid from the data type. So it is not
+ * possible to reuse UA_findDataType */
+static const UA_DataType *
+UA_findDataTypeByBinaryInternal(const UA_NodeId *typeId, Ctx *ctx) {
+    /* We only store a numeric identifier for the encoding nodeid of data types */
+    if(typeId->identifierType != UA_NODEIDTYPE_NUMERIC)
+        return NULL;
+
+    /* Always look in built-in types first
+     * (may contain data types from all namespaces) */
+    for(size_t i = 0; i < UA_TYPES_COUNT; ++i) {
+        if(UA_TYPES[i].binaryEncodingId == typeId->identifier.numeric &&
+           UA_TYPES[i].typeId.namespaceIndex == typeId->namespaceIndex)
+            return &UA_TYPES[i];
+    }
+
+    /* When other namespace look in custom types, too */
+    if(typeId->namespaceIndex != 0) {
+        for(size_t i = 0; i < ctx->customTypesArraySize; ++i) {
+            if(ctx->customTypesArray[i].binaryEncodingId == typeId->identifier.numeric &&
+               ctx->customTypesArray[i].typeId.namespaceIndex == typeId->namespaceIndex)
+                return &ctx->customTypesArray[i];
         }
+    }
 
-        //char *idType = (char*)(ctx->pos + parseCtx->tokenArray[searchResult].start);
-        const UA_DataType *BodyType = &UA_TYPES[0];
-        
-        //memcpy(dst, &inner, sizeof(UA_DiagnosticInfo*)); //Copy new Pointer do dest
-        
-        void* bodyPointer = UA_new(BodyType);
-        memcpy(&dst->data, &bodyPointer, sizeof(void*)); //Copy new Pointer do dest
-        dst->type = BodyType;
-        
-        const char* fieldNames[] = {"Type", "Body"};
+    return NULL;
+}
 
-        UA_String dummy;
-        //if(idType[0] == '2'){
-        void *fieldPointer[] = {&dummy, bodyPointer};
-        decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) decodeJsonInternal};
-        UA_Boolean found[] = {UA_FALSE, UA_FALSE};
-        decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, BodyType, found);
-    }*/
+DECODE_JSON(ExtensionObject) {
+    status ret = UA_STATUSCODE_GOOD;
+            
+    UA_NodeId typeId;
+    UA_NodeId_init(&typeId);
     
+    size_t searchTypeIdResult = 0;
+    UA_String searchTypeIdKey = UA_STRING("TypeId");
+    lookAheadForKey(searchTypeIdKey, ctx, parseCtx, &searchTypeIdResult);
+    
+    if(searchTypeIdResult != 0){
+        //for restore
+        UA_UInt16 index = *parseCtx->index;
+        *parseCtx->index = (UA_UInt16)searchTypeIdResult;
+        NodeId_decodeJson(&typeId, &UA_TYPES[UA_TYPES_NODEID], ctx, parseCtx, UA_TRUE);
+        //restore
+        *parseCtx->index = index;
+        const UA_DataType *typeOfBody = UA_findDataTypeByBinaryInternal(&typeId, ctx);
+        if(!type){
+            return UA_STATUSCODE_BADNOTIMPLEMENTED;
+        }
+ 
+        dst->content.decoded.type = typeOfBody;
+        
+        size_t searchEncodingResult = 0;
+        UA_String searchEncodingKey = UA_STRING("Encoding");
+        lookAheadForKey(searchEncodingKey, ctx, parseCtx, &searchEncodingResult);
+
+        //if encoding not found, must be json object
+        if(searchEncodingResult == 0){
+            dst->encoding = UA_EXTENSIONOBJECT_DECODED;
+            const char* fieldNames[] = {"TypeId", "Body"};
+
+            dst->content.decoded.data = UA_new(type);
+            if(!dst->content.decoded.data)
+                return UA_STATUSCODE_BADOUTOFMEMORY;
+            
+            UA_NodeId typeId_dummy;
+            void *fieldPointer[] = {
+                &typeId_dummy, 
+                dst->content.decoded.data
+            };
+
+            decodeJsonSignature functions[] = {
+                (decodeJsonSignature) NodeId_decodeJson, 
+                (decodeJsonSignature) decodeJsonInternal};
+
+            return decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, typeOfBody, NULL);
+        }else{
+            //Parse the type
+            UA_UInt64 encoding = 0;
+            char *extObjEncoding = (char*)(ctx->pos + parseCtx->tokenArray[searchEncodingResult].start);
+            size_t size = (size_t)(parseCtx->tokenArray[searchEncodingResult].end - parseCtx->tokenArray[searchEncodingResult].start);
+            UA_atoi(extObjEncoding, size, &encoding);
+
+            if(encoding == UA_EXTENSIONOBJECT_ENCODED_NOBODY) {
+                dst->encoding = (UA_ExtensionObjectEncoding)encoding;
+                dst->content.encoded.typeId = typeId; /* move to dst */
+                dst->content.encoded.body = UA_BYTESTRING_NULL;
+            } else if(encoding == UA_EXTENSIONOBJECT_ENCODED_XML) {
+                dst->encoding = (UA_ExtensionObjectEncoding)encoding;
+                dst->content.encoded.typeId = typeId; /* move to dst */
+                //ret = DECODE_DIRECT(&dst->content.encoded.body, String); /* ByteString */
+                if(ret != UA_STATUSCODE_GOOD)
+                    UA_NodeId_deleteMembers(&dst->content.encoded.typeId);
+            } else {
+                UA_NodeId_deleteMembers(&typeId);
+                ret = UA_STATUSCODE_BADDECODINGERROR;
+            }
+        }
+    }else{
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
     return UA_STATUSCODE_BADNOTIMPLEMENTED;
 }
 
