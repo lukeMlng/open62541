@@ -43,9 +43,16 @@
 
 #define UA_ENCODING_MAX_RECURSION 20
 
+typedef struct {
+    jsmntok_t tokenArray[128];
+    UA_Int32 tokenCount;
+    UA_UInt16 *index;
+} ParseCtx;
 
 typedef status(*encodeJsonSignature)(const void *UA_RESTRICT src, const UA_DataType *type,
         Ctx *UA_RESTRICT ctx);
+typedef status (*decodeJsonSignature)(void *UA_RESTRICT dst, const UA_DataType *type,
+                                        Ctx *UA_RESTRICT ctx, ParseCtx *parseCtx, UA_Boolean moveToken);
 
 
 #define ENCODE_JSON(TYPE) static status \
@@ -54,11 +61,8 @@ typedef status(*encodeJsonSignature)(const void *UA_RESTRICT src, const UA_DataT
 #define ENCODE_DIRECT(SRC, TYPE) TYPE##_encodeJson((const UA_##TYPE*)SRC, NULL, ctx)
 
 
-/* Jumptables for de-/encoding and computing the buffer length. The methods in
- * the decoding jumptable do not all clean up their allocated memory when an
- * error occurs. So a final _deleteMembers needs to be called before returning
- * to the user. */
 extern const encodeJsonSignature encodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1];
+extern const decodeJsonSignature decodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1];
 
 static status encodeJsonInternal(const void *src, const UA_DataType *type, Ctx *ctx);
 
@@ -1844,14 +1848,6 @@ status UA_atoiSigned(const char input[], size_t size, UA_Int64 *result){
     return UA_STATUSCODE_GOOD;
    }
 
-typedef struct {
-    jsmntok_t tokenArray[128];
-    UA_Int32 tokenCount;
-    UA_UInt16 *index;
-} ParseCtx;
-
-typedef status (*decodeJsonSignature)(void *UA_RESTRICT dst, const UA_DataType *type,
-                                        Ctx *UA_RESTRICT ctx, ParseCtx *parseCtx, UA_Boolean moveToken);
 
 #define DECODE_JSON(TYPE) static status \
     TYPE##_decodeJson(UA_##TYPE *UA_RESTRICT dst, const UA_DataType *type, Ctx *UA_RESTRICT ctx, ParseCtx *parseCtx, UA_Boolean moveToken)
@@ -2515,7 +2511,10 @@ DECODE_JSON(ExtensionObject) {
     UA_String searchTypeIdKey = UA_STRING("TypeId");
     lookAheadForKey(searchTypeIdKey, ctx, parseCtx, &searchTypeIdResult);
     
+    //Check if Type Found, if not abort.
     if(searchTypeIdResult != 0){
+        
+        /* parse the nodeid */
         //for restore
         UA_UInt16 index = *parseCtx->index;
         *parseCtx->index = (UA_UInt16)searchTypeIdResult;
@@ -2526,7 +2525,8 @@ DECODE_JSON(ExtensionObject) {
         if(!type){
             return UA_STATUSCODE_BADNOTIMPLEMENTED;
         }
- 
+        
+        //Set Found Type
         dst->content.decoded.type = typeOfBody;
         
         size_t searchEncodingResult = 0;
@@ -2548,9 +2548,10 @@ DECODE_JSON(ExtensionObject) {
                 dst->content.decoded.data
             };
 
+            size_t decode_index = type->builtin ? type->typeIndex : UA_BUILTIN_TYPES_COUNT;
             decodeJsonSignature functions[] = {
                 (decodeJsonSignature) NodeId_decodeJson, 
-                (decodeJsonSignature) decodeJsonInternal};
+                decodeJsonJumpTable[decode_index]};
 
             return decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, typeOfBody, NULL);
         }else{
