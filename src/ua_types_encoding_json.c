@@ -2504,15 +2504,22 @@ UA_findDataTypeByBinaryInternal(const UA_NodeId *typeId, Ctx *ctx) {
 DECODE_JSON(ExtensionObject) {
     status ret = UA_STATUSCODE_GOOD;
             
-    UA_NodeId typeId;
-    UA_NodeId_init(&typeId);
+    //Search for Encoding
+    size_t searchEncodingResult = 0;
+    UA_String searchEncodingKey = UA_STRING("Encoding");
+    lookAheadForKey(searchEncodingKey, ctx, parseCtx, &searchEncodingResult);
     
-    size_t searchTypeIdResult = 0;
-    UA_String searchTypeIdKey = UA_STRING("TypeId");
-    lookAheadForKey(searchTypeIdKey, ctx, parseCtx, &searchTypeIdResult);
-    
-    //Check if Type Found, if not abort.
-    if(searchTypeIdResult != 0){
+    //If no encoding found it is Structure encoding
+    if(searchEncodingResult == 0){
+        
+        dst->encoding = UA_EXTENSIONOBJECT_DECODED;
+        
+        UA_NodeId typeId;
+        UA_NodeId_init(&typeId);
+
+        size_t searchTypeIdResult = 0;
+        UA_String searchTypeIdKey = UA_STRING("TypeId");
+        lookAheadForKey(searchTypeIdKey, ctx, parseCtx, &searchTypeIdResult);  
         
         /* parse the nodeid */
         //for restore
@@ -2522,20 +2529,16 @@ DECODE_JSON(ExtensionObject) {
         //restore
         *parseCtx->index = index;
         const UA_DataType *typeOfBody = UA_findDataTypeByBinaryInternal(&typeId, ctx);
-        if(!type){
+        if(!typeOfBody){
             return UA_STATUSCODE_BADNOTIMPLEMENTED;
         }
         
         //Set Found Type
         dst->content.decoded.type = typeOfBody;
         
-        size_t searchEncodingResult = 0;
-        UA_String searchEncodingKey = UA_STRING("Encoding");
-        lookAheadForKey(searchEncodingKey, ctx, parseCtx, &searchEncodingResult);
-
-        //if encoding not found, must be json object
-        if(searchEncodingResult == 0){
-            dst->encoding = UA_EXTENSIONOBJECT_DECODED;
+        
+        if( searchTypeIdResult != 0){
+            
             const char* fieldNames[] = {"TypeId", "Body"};
 
             dst->content.decoded.data = UA_new(type);
@@ -2548,36 +2551,50 @@ DECODE_JSON(ExtensionObject) {
                 dst->content.decoded.data
             };
 
-            size_t decode_index = type->builtin ? type->typeIndex : UA_BUILTIN_TYPES_COUNT;
+            size_t decode_index = typeOfBody->builtin ? typeOfBody->typeIndex : UA_BUILTIN_TYPES_COUNT;
             decodeJsonSignature functions[] = {
                 (decodeJsonSignature) NodeId_decodeJson, 
                 decodeJsonJumpTable[decode_index]};
 
             return decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, typeOfBody, NULL);
         }else{
-            //Parse the type
-            UA_UInt64 encoding = 0;
-            char *extObjEncoding = (char*)(ctx->pos + parseCtx->tokenArray[searchEncodingResult].start);
-            size_t size = (size_t)(parseCtx->tokenArray[searchEncodingResult].end - parseCtx->tokenArray[searchEncodingResult].start);
-            UA_atoi(extObjEncoding, size, &encoding);
-
-            if(encoding == UA_EXTENSIONOBJECT_ENCODED_NOBODY) {
-                dst->encoding = (UA_ExtensionObjectEncoding)encoding;
-                dst->content.encoded.typeId = typeId; /* move to dst */
-                dst->content.encoded.body = UA_BYTESTRING_NULL;
-            } else if(encoding == UA_EXTENSIONOBJECT_ENCODED_XML) {
-                dst->encoding = (UA_ExtensionObjectEncoding)encoding;
-                dst->content.encoded.typeId = typeId; /* move to dst */
-                //ret = DECODE_DIRECT(&dst->content.encoded.body, String); /* ByteString */
-                if(ret != UA_STATUSCODE_GOOD)
-                    UA_NodeId_deleteMembers(&dst->content.encoded.typeId);
-            } else {
-                UA_NodeId_deleteMembers(&typeId);
-                ret = UA_STATUSCODE_BADDECODINGERROR;
-            }
+            ret = UA_STATUSCODE_BADDECODINGERROR;
         }
     }else{
-        return UA_STATUSCODE_BADDECODINGERROR;
+        //Parse the encoding
+        UA_UInt64 encoding = 0;
+        char *extObjEncoding = (char*)(ctx->pos + parseCtx->tokenArray[searchEncodingResult].start);
+        size_t size = (size_t)(parseCtx->tokenArray[searchEncodingResult].end - parseCtx->tokenArray[searchEncodingResult].start);
+        UA_atoi(extObjEncoding, size, &encoding);
+
+        if(encoding == 1) {
+            dst->encoding = UA_EXTENSIONOBJECT_ENCODED_BYTESTRING;
+            
+            const char* fieldNames[] = {"Encoding", "Body", "TypeId"};
+            
+            UA_UInt16 encodingTypeJson;
+            void *fieldPointer[] = {
+                &encodingTypeJson, 
+                &dst->content.encoded.body, 
+                &dst->content.encoded.typeId
+            };
+
+            decodeJsonSignature functions[] = {
+                (decodeJsonSignature) UInt16_decodeJson,
+                (decodeJsonSignature) ByteString_decodeJson, 
+                (decodeJsonSignature) NodeId_decodeJson};
+            
+            return decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, NULL);
+        } else if(encoding == UA_EXTENSIONOBJECT_ENCODED_XML) {
+            //dst->encoding = (UA_ExtensionObjectEncoding)encoding;
+            //dst->content.encoded.typeId = typeId; /* move to dst */
+            //ret = DECODE_DIRECT(&dst->content.encoded.body, String); /* ByteString */
+            if(ret != UA_STATUSCODE_GOOD)
+                UA_NodeId_deleteMembers(&dst->content.encoded.typeId);
+        } else {
+            //UA_NodeId_deleteMembers(&typeId);
+            ret = UA_STATUSCODE_BADDECODINGERROR;
+        }
     }
     return UA_STATUSCODE_BADNOTIMPLEMENTED;
 }
