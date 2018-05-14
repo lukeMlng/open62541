@@ -1043,7 +1043,6 @@ NodeId_encodeJsonWithEncodingMask(UA_NodeId const *src, u8 encoding, Ctx *ctx) {
             ret |= ENCODE_DIRECT(&typeNumber, UInt16);
             /* Id */
             ret |= writeKey(ctx, "Id");
-            //TODO: ByteSTring
             ret |= ENCODE_DIRECT(&src->identifier.byteString, ByteString);
 
             break;
@@ -1305,7 +1304,6 @@ ENCODE_JSON(ExtensionObject) {
     if (typeId.identifierType != UA_NODEIDTYPE_NUMERIC)
         return UA_STATUSCODE_BADENCODINGERROR;
     typeId.identifier.numeric = src->content.decoded.type->binaryEncodingId;
-
 
     if (useReversibleForm) {
 
@@ -1859,6 +1857,15 @@ static jsmntype_t getJsmnType(const ParseCtx *parseCtx){
     return parseCtx->tokenArray[*parseCtx->index].type;
 }
 
+static UA_Boolean isJsonNull(const Ctx *ctx, const ParseCtx *parseCtx){
+    if(parseCtx->tokenArray[*parseCtx->index].type != JSMN_PRIMITIVE){
+        return false;
+    }
+    char* elem = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
+    return (elem[0] == 'n' && elem[0] == 'u' && elem[0] == 'l' && elem[0] == 'l');
+}
+
+
 static int equalCount = 0;
 static int jsoneq(const char *json, jsmntok_t *tok, const char *s) {
 
@@ -1871,7 +1878,6 @@ static int jsoneq(const char *json, jsmntok_t *tok, const char *s) {
 }
 
 DECODE_JSON(Boolean) {
-    //TODO
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
     
     UA_Boolean d = UA_TRUE;
@@ -1933,7 +1939,6 @@ DECODE_JSON(UInt16) {
 }
 
 DECODE_JSON(UInt32) {
-    //TODO
     UA_UInt64 d = 0;
    
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
@@ -1990,7 +1995,6 @@ DECODE_JSON(Int32) {
 }
 
 DECODE_JSON(Int64) {
-    
     UA_Int64 d = 0;
     
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
@@ -2115,7 +2119,6 @@ DECODE_JSON(ByteString) {
     c += cnt;
     /* note: there is no base64_decode_blockend! */
     /*---------- STOP DECODING  ----------*/
-
     
     UA_UInt64 actualLength = (UA_UInt64)(c - output);
     
@@ -2213,7 +2216,6 @@ status searchObjectForKeyRec(char* s, Ctx *ctx, ParseCtx *parseCtx, size_t *resu
 }
 
 status lookAheadForKey(UA_String search, Ctx *ctx, ParseCtx *parseCtx, size_t *resultIndex){
-    
     //DEBUG: (char*)(&ctx->pos[parseCtx->tokenArray[*parseCtx->index].start])
     
     //save index for later restore
@@ -2249,14 +2251,12 @@ DECODE_JSON(NodeId) {
         hasNamespace = UA_TRUE;
     }
     
-    
     size_t searchResult = 0;
     UA_String searchKey = UA_STRING("IdType");
     //status searchStatus = 
             
     lookAheadForKey(searchKey, ctx, parseCtx, &searchResult);
 
-    
     //If non found the type is UINT
     //if(searchStatus != UA_STATUSCODE_GOOD){
     //    return searchStatus;
@@ -2357,11 +2357,7 @@ DECODE_JSON(DateTime) {
 }
 
 DECODE_JSON(StatusCode) {
-    //const char* fieldNames[] = {"Code", "Symbol"};
-    //void *fieldPointer[] = {&dst, &dst->text};
-    //decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) String_decodeJson};
-    //dst
-    //decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type);
+    //TODO: Switch to UInt32?
     UA_UInt32 d;
     DECODE_DIRECT(&d, UInt32);
     memcpy(dst, &d, 4);
@@ -2540,11 +2536,14 @@ UA_findDataTypeByBinaryInternal(const UA_NodeId *typeId, Ctx *ctx) {
 }
 
 DECODE_JSON(ExtensionObject) {
+    if(isJsonNull(ctx, parseCtx)){
+        /* 
+        * TODO:
+        * If the Body is empty, the ExtensionObject is NULL and is omitted or encoded as a JSON null.
+        */   
+        return UA_STATUSCODE_BADNOTIMPLEMENTED;
+    }
     
-    /* 
-     * TODO:
-     * If the Body is empty, the ExtensionObject is NULL and is omitted or encoded as a JSON null.
-     */   
     if(getJsmnType(parseCtx) != JSMN_OBJECT){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
