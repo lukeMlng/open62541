@@ -24,6 +24,8 @@
 #include "../deps/libb64/cencode.h"
 #include "../deps/libb64/cdecode.h"
 #include "../deps/jsmn/jsmn.h"
+#include "../deps/musl/floatscan.h"
+
 #include "libc_time.h"
 
 
@@ -542,10 +544,10 @@ ENCODE_JSON(Int64) {
 /************************/
 
 #if UA_BINARY_OVERLAYABLE_FLOAT
-#define Float_encodeJson UInt32_encodeJson
-#define Float_decodeJson UInt32_decodeJson
-#define Double_encodeJson UInt64_encodeJson
-#define Double_decodeJson UInt64_decodeJson
+//#define Float_encodeJson UInt32_encodeJson
+//#define Float_decodeJson UInt32_decodeJson
+//#define Double_encodeJson UInt64_encodeJson
+//#define Double_decodeJson UInt64_decodeJson
 #else
 
 #include <math.h>
@@ -1653,8 +1655,8 @@ const encodeJsonSignature encodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
     (encodeJsonSignature) UInt32_encodeJson,
     (encodeJsonSignature) Int64_encodeJson, /* Int64 */
     (encodeJsonSignature) UInt64_encodeJson,
-    (encodeJsonSignature) Float_encodeJson,
-    (encodeJsonSignature) Double_encodeJson,
+    (encodeJsonSignature) NULL,//Float_encodeJson,
+    (encodeJsonSignature) NULL,//Double_encodeJson,
     (encodeJsonSignature) String_encodeJson,
     (encodeJsonSignature) DateTime_encodeJson, /* DateTime */
     (encodeJsonSignature) Guid_encodeJson,
@@ -1663,7 +1665,7 @@ const encodeJsonSignature encodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
     (encodeJsonSignature) NodeId_encodeJson,
     (encodeJsonSignature) ExpandedNodeId_encodeJson,
     (encodeJsonSignature) StatusCode_encodeJson, /* StatusCode */
-    (encodeJsonSignature) QualifiedName_encodeJson, /* QualifiedName TODO warum hier encodeJsonInternal?*/
+    (encodeJsonSignature) QualifiedName_encodeJson, /* QualifiedName */
     (encodeJsonSignature) LocalizedText_encodeJson,
     (encodeJsonSignature) ExtensionObject_encodeJson,
     (encodeJsonSignature) DataValue_encodeJson,
@@ -2016,6 +2018,38 @@ UA_UInt32 hex2int(char ch)
         return (UA_UInt32)(ch - 'A' + 10);
     if (ch >= 'a' && ch <= 'f')
         return (UA_UInt32)(ch - 'a' + 10);
+    return 0;
+}
+
+DECODE_JSON(Float){
+    UA_Float d = 0;
+    
+    size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
+    char* data = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
+    
+    char string[size+1];
+    memset(string, 0, size+1);
+    memcpy(string, data, size);
+    
+    //TODO, Parameter, prec
+    d = (UA_Float)__floatscan(string, 0, 0);
+    memcpy(dst, &d, 4);
+    return 0;
+}
+
+DECODE_JSON(Double){
+    UA_Double d = 0;
+    
+    size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
+    char* data = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
+    
+    char string[size+1];
+    memset(string, 0, size+1);
+    memcpy(string, data, size);
+    
+    //TODO, Parameter, prec one or two for double?
+    d = (UA_Double)__floatscan(string, 2, 0);
+    memcpy(dst, &d, 8);
     return 0;
 }
 
@@ -2847,8 +2881,8 @@ const decodeJsonSignature decodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
     (decodeJsonSignature)UInt32_decodeJson,
     (decodeJsonSignature)Int64_decodeJson, /* Int64 */
     (decodeJsonSignature)UInt64_decodeJson,
-    (decodeJsonSignature)NULL,//DFloat_decodeBinary,
-    (decodeJsonSignature)NULL,//DDouble_decodeBinary,
+    (decodeJsonSignature)Float_decodeJson,
+    (decodeJsonSignature)Double_decodeJson,
     (decodeJsonSignature)String_decodeJson,
     (decodeJsonSignature)DateTime_decodeJson, /* DateTime */
     (decodeJsonSignature)Guid_decodeJson,
