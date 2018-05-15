@@ -2233,148 +2233,24 @@ status lookAheadForKey(UA_String search, Ctx *ctx, ParseCtx *parseCtx, size_t *r
     return UA_STATUSCODE_GOOD;
 }
 
-DECODE_JSON(NodeId) {
-    
-    if(getJsmnType(parseCtx) != JSMN_OBJECT){
-        return UA_STATUSCODE_BADDECODINGERROR;
-    }
-    
-    UA_Boolean hasNamespace = UA_FALSE;
-    size_t searchResultNamespace = 0;
-    UA_String searchKeyNamespace = UA_STRING("Namespace");
-            
-    lookAheadForKey(searchKeyNamespace, ctx, parseCtx, &searchResultNamespace);
-    
-    if(searchResultNamespace == 0){
-        dst->namespaceIndex = 0;
-    } else{
-        hasNamespace = UA_TRUE;
-    }
-    
-    size_t searchResult = 0;
-    UA_String searchKey = UA_STRING("IdType");
-    //status searchStatus = 
-            
-    lookAheadForKey(searchKey, ctx, parseCtx, &searchResult);
 
-    //If non found the type is UINT
-    //if(searchStatus != UA_STATUSCODE_GOOD){
-    //    return searchStatus;
-    //}
+static status prepareDecodeNodeIdJson(UA_NodeId *dst, Ctx *ctx, ParseCtx *parseCtx, u8 *fieldCount, const char* fieldNames[], decodeJsonSignature *functions, void* fieldPointer[]){
     
-    UA_String dummy;
-    if(searchResult != 0){
-        
-        size_t size = (size_t)(parseCtx->tokenArray[searchResult].end - parseCtx->tokenArray[searchResult].start);
-        if(size < 1){
-            return UA_STATUSCODE_BADDECODINGERROR;
-        }
-
-        char *idType = (char*)(ctx->pos + parseCtx->tokenArray[searchResult].start);
-
-        const char* fieldNames[] = {"Id", "IdType", "Namespace"};
-        u8 fieldCount = sizeof(fieldNames)/ sizeof(fieldNames[0]);
-        if(!hasNamespace){
-            //If no namespace, fieldcount to 2
-            fieldCount--;
-        }
-        
-        void *fieldPointer[] = {NULL, &dummy, &dst->namespaceIndex};
-        decodeJsonSignature functions[] = {NULL, (decodeJsonSignature) String_decodeJson, (decodeJsonSignature) UInt16_decodeJson};
-        if(idType[0] == '2'){
-            dst->identifierType = UA_NODEIDTYPE_GUID;
-            fieldPointer[0] = &dst->identifier.guid;
-            functions[0] = (decodeJsonSignature) Guid_decodeJson;
-        }else if(idType[0] == '1'){
-            dst->identifierType = UA_NODEIDTYPE_STRING;
-            fieldPointer[0] = &dst->identifier.string;
-            functions[0] = (decodeJsonSignature) String_decodeJson;
-        }else if(idType[0] == '3'){
-            dst->identifierType = UA_NODEIDTYPE_BYTESTRING;
-            fieldPointer[0] = &dst->identifier.byteString;
-            functions[0] = (decodeJsonSignature) ByteString_decodeJson;
-        }else{
-            return UA_STATUSCODE_BADDECODINGERROR;
-        }
-        
-        return decodeFields(ctx, parseCtx, fieldCount, fieldNames, functions, fieldPointer, type, NULL);
-    }else{
-        const char* fieldNames[] = {"Id", "Namespace"};
-        u8 fieldCount = sizeof(fieldNames)/ sizeof(fieldNames[0]);
-        if(!hasNamespace){
-            //If no namespace, fieldcount to 1
-            fieldCount--;
-        }
-        
-        //No IdType give, Id is encoded as Number
-        dst->identifierType = UA_NODEIDTYPE_NUMERIC;
-        void *fieldPointer[] = {&dst->identifier.numeric, &dst->namespaceIndex};
-        decodeJsonSignature functions[] = {(decodeJsonSignature) UInt32_decodeJson, (decodeJsonSignature) UInt16_decodeJson};
-        return decodeFields(ctx, parseCtx, fieldCount, fieldNames, functions, fieldPointer, type, NULL);
-    }
-}
-
-
-
-DECODE_JSON(ExpandedNodeId) {
+    /* possible keys */
+    char* idString = "Id";
+    char* idTypeString = "IdType";
     
-    if(getJsmnType(parseCtx) != JSMN_OBJECT){
-        return UA_STATUSCODE_BADDECODINGERROR;
-    }
+       /* Id must alway be present */
+    fieldNames[*fieldCount] = idString;
     
-    UA_Boolean hasNamespace = UA_FALSE;
-    size_t searchResultNamespace = 0;
-    UA_String searchKeyNamespace = UA_STRING("Namespace");
-            
-    lookAheadForKey(searchKeyNamespace, ctx, parseCtx, &searchResultNamespace);
-    
-    if(searchResultNamespace == 0){
-        dst->serverIndex = 0;
-    } else{
-        hasNamespace = UA_TRUE;
-    }
-    
-    UA_Boolean hasServerUri = UA_FALSE;
-    size_t searchResultServerUri = 0;
-    UA_String searchKeyServerUri = UA_STRING("ServerUri");
-            
-    lookAheadForKey(searchKeyServerUri, ctx, parseCtx, &searchResultServerUri);
-    
-    if(searchResultNamespace == 0){
-        //TODO: Lookup
-        dst->namespaceUri = UA_STRING(""); 
-    } else{
-        hasServerUri = UA_TRUE;
-    }
-    
+    /* IdType */
     UA_Boolean hasIdType = UA_FALSE;
     size_t searchResult = 0;
-    UA_String searchKey = UA_STRING("IdType");
-    //status searchStatus = 
-            
+    UA_String searchKey = UA_STRING("IdType"); 
     lookAheadForKey(searchKey, ctx, parseCtx, &searchResult);
     if(searchResult != 0){
          hasIdType = UA_TRUE;
     }
-    
-    
-    /* Keep track over number of keys present, incremented if key found */
-    u8 fieldCount = 0;
-    
-    /* possible keys */
-    char* idString = "Id";
-    char* namespaceString = "Namespace";
-    char* serverUriString = "ServerUri";
-    char* idTypeString = "IdType";
-    
-    /* Setup fields, max 4 keys */
-    const char* fieldNames[4];
-    decodeJsonSignature functions[4];
-    void *fieldPointer[4];
-    
-    
-    /* Id must alway be present */
-    fieldNames[fieldCount] = idString;
     
     
     if(hasIdType){
@@ -2387,40 +2263,127 @@ DECODE_JSON(ExpandedNodeId) {
         char *idType = (char*)(ctx->pos + parseCtx->tokenArray[searchResult].start);
       
         if(idType[0] == '2'){
-            dst->nodeId.identifierType = UA_NODEIDTYPE_GUID;
-            fieldPointer[fieldCount] = &dst->nodeId.identifier.guid;
-            functions[fieldCount] = (decodeJsonSignature) Guid_decodeJson;
+            dst->identifierType = UA_NODEIDTYPE_GUID;
+            fieldPointer[*fieldCount] = &dst->identifier.guid;
+            functions[*fieldCount] = (decodeJsonSignature) Guid_decodeJson;
         }else if(idType[0] == '1'){
-            dst->nodeId.identifierType = UA_NODEIDTYPE_STRING;
-            fieldPointer[fieldCount] = &dst->nodeId.identifier.string;
-            functions[fieldCount] = (decodeJsonSignature) String_decodeJson;
+            dst->identifierType = UA_NODEIDTYPE_STRING;
+            fieldPointer[*fieldCount] = &dst->identifier.string;
+            functions[*fieldCount] = (decodeJsonSignature) String_decodeJson;
         }else if(idType[0] == '3'){
-            dst->nodeId.identifierType = UA_NODEIDTYPE_BYTESTRING;
-            fieldPointer[fieldCount] = &dst->nodeId.identifier.byteString;
-            functions[fieldCount] = (decodeJsonSignature) ByteString_decodeJson;
+            dst->identifierType = UA_NODEIDTYPE_BYTESTRING;
+            fieldPointer[*fieldCount] = &dst->identifier.byteString;
+            functions[*fieldCount] = (decodeJsonSignature) ByteString_decodeJson;
         }else{
             return UA_STATUSCODE_BADDECODINGERROR;
         }
         
         //Id alway present
-        fieldCount++;
+        (*fieldCount)++;
         
         //IdType is parsed again so its token is stepped over. TODO other solution? 
-        UA_String dummy;
-        fieldNames[fieldCount] = idTypeString;
-        fieldPointer[fieldCount] = &dummy;
-        functions[fieldCount] = (decodeJsonSignature) String_decodeJson;
+        //UA_String dummy;
+        fieldNames[*fieldCount] = idTypeString;
+        fieldPointer[*fieldCount] = NULL;
+        functions[*fieldCount] = NULL;
         
         //IdType
-        fieldCount++;
+        (*fieldCount)++;
     }else{
-        dst->nodeId.identifierType = UA_NODEIDTYPE_NUMERIC;
-        fieldPointer[fieldCount] = &dst->nodeId.identifier.numeric;
-        functions[fieldCount] = (decodeJsonSignature) UInt32_decodeJson;
+        dst->identifierType = UA_NODEIDTYPE_NUMERIC;
+        fieldPointer[*fieldCount] = &dst->identifier.numeric;
+        functions[*fieldCount] = (decodeJsonSignature) UInt32_decodeJson;
         
         //Id alway present
-        fieldCount++;    
+       (*fieldCount)++;  
     }
+    
+    return 0;
+}
+
+
+DECODE_JSON(NodeId) {
+    
+    if(getJsmnType(parseCtx) != JSMN_OBJECT){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
+    /* NameSpace */
+    char* namespaceString = "Namespace";
+    UA_Boolean hasNamespace = UA_FALSE;
+    size_t searchResultNamespace = 0;
+    UA_String searchKeyNamespace = UA_STRING(namespaceString);    
+    lookAheadForKey(searchKeyNamespace, ctx, parseCtx, &searchResultNamespace);
+    if(searchResultNamespace == 0){
+        dst->namespaceIndex = 0;
+    } else{
+        hasNamespace = UA_TRUE;
+    }
+    
+    /* Setup fields, max 3 keys */
+    const char* fieldNames[3];
+    decodeJsonSignature functions[3];
+    void *fieldPointer[3];
+    
+    /* Keep track over number of keys present, incremented if key found */
+    u8 fieldCount = 0;
+    
+    prepareDecodeNodeIdJson(dst, ctx, parseCtx, &fieldCount, fieldNames, functions, fieldPointer);
+    
+    if(hasNamespace){
+      fieldNames[fieldCount] = namespaceString;
+      fieldPointer[fieldCount] = &dst->namespaceIndex;
+      functions[fieldCount] = (decodeJsonSignature) UInt16_decodeJson;
+      fieldCount++;  
+    }
+    
+    status ret = decodeFields(ctx, parseCtx, fieldCount, fieldNames, functions, fieldPointer, type, NULL);
+    return ret;
+}
+
+DECODE_JSON(ExpandedNodeId) {
+    if(getJsmnType(parseCtx) != JSMN_OBJECT){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
+    /* possible keys */
+    //char* idString = "Id";
+    char* namespaceString = "Namespace";
+    char* serverUriString = "ServerUri";
+    //char* idTypeString = "IdType";
+    
+    /* Keep track over number of keys present, incremented if key found */
+    u8 fieldCount = 0;
+    
+    /* ServerUri */
+    UA_Boolean hasServerUri = UA_FALSE;
+    size_t searchResultServerUri = 0;
+    UA_String searchKeyServerUri = UA_STRING("ServerUri");   
+    lookAheadForKey(searchKeyServerUri, ctx, parseCtx, &searchResultServerUri);
+    if(searchResultServerUri == 0){
+        //TODO: Lookup
+        dst->namespaceUri = UA_STRING(""); 
+    } else{
+        hasServerUri = UA_TRUE;
+    }
+    
+    /* NameSpace */
+    UA_Boolean hasNamespace = UA_FALSE;
+    size_t searchResultNamespace = 0;
+    UA_String searchKeyNamespace = UA_STRING("Namespace");    
+    lookAheadForKey(searchKeyNamespace, ctx, parseCtx, &searchResultNamespace);
+    if(searchResultNamespace == 0){
+        dst->serverIndex = 0;
+    } else{
+        hasNamespace = UA_TRUE;
+    }
+    
+    /* Setup fields, max 4 keys */
+    const char* fieldNames[4];
+    decodeJsonSignature functions[4];
+    void *fieldPointer[4];
+    
+    prepareDecodeNodeIdJson(&dst->nodeId, ctx, parseCtx, &fieldCount, fieldNames, functions, fieldPointer);
     
     if(hasNamespace){
         fieldNames[fieldCount] = namespaceString;
@@ -2856,8 +2819,13 @@ decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames
                 }
                 
                 (*parseCtx->index)++; //goto value
-                //type->
-                functions[i](fieldPointer[i], type, ctx, parseCtx, UA_TRUE);//Move Token True
+                if(functions[i] != NULL){
+                    functions[i](fieldPointer[i], type, ctx, parseCtx, UA_TRUE);//Move Token True
+                }else{
+                    //TODO overstep single value, this will not work if object or array
+                    (*parseCtx->index)++;
+                }
+                
                 currentObjectCout++;
             }
         }
