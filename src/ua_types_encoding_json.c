@@ -25,6 +25,7 @@
 #include "../deps/libb64/cdecode.h"
 #include "../deps/jsmn/jsmn.h"
 #include "../deps/musl/floatscan.h"
+#include "../deps/musl/vfprintf.h"
 
 #include "libc_time.h"
 
@@ -536,6 +537,22 @@ ENCODE_JSON(Int64) {
     UA_encode32(*src, ctx->pos);
 #endif
     ctx->pos += digits;
+    return UA_STATUSCODE_GOOD;
+}
+
+ENCODE_JSON(Double) {
+
+    char buffer[256];
+    memset(buffer, 0, 256);
+    fmt_fp(buffer, *src, 0, -1, 0, 'f');
+    size_t len = strlen(buffer);
+
+    if (ctx->pos + len > ctx->end)
+        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
+
+    memcpy(ctx->pos, buffer, len);
+
+    ctx->pos += (len);
     return UA_STATUSCODE_GOOD;
 }
 
@@ -1656,7 +1673,7 @@ const encodeJsonSignature encodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
     (encodeJsonSignature) Int64_encodeJson, /* Int64 */
     (encodeJsonSignature) UInt64_encodeJson,
     (encodeJsonSignature) NULL,//Float_encodeJson,
-    (encodeJsonSignature) NULL,//Double_encodeJson,
+    (encodeJsonSignature) Double_encodeJson,
     (encodeJsonSignature) String_encodeJson,
     (encodeJsonSignature) DateTime_encodeJson, /* DateTime */
     (encodeJsonSignature) Guid_encodeJson,

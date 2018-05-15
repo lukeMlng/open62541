@@ -1669,6 +1669,29 @@ START_TEST(UA_Int64_NegNumber_json_encode) {
 }
 END_TEST
 
+START_TEST(UA_Double_json_encode) {
+    UA_Double src = 1.1234;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_DOUBLE];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson(&src, type, &bufPos, &bufEnd, NULL, NULL);
+
+    *bufPos = 0;
+    
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "1.1234";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf);
+}
+END_TEST
+
 START_TEST(UA_LocText_json_encode) {
 
       UA_LocalizedText *src = UA_LocalizedText_new();
@@ -3235,6 +3258,9 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_encode, UA_Int16_NegNumber_json_encode);
     tcase_add_test(tc_json_encode, UA_Int32_NegNumber_json_encode);
     tcase_add_test(tc_json_encode, UA_Int64_NegNumber_json_encode);
+    
+    
+    
     tcase_add_test(tc_json_encode, UA_LocText_json_encode);
     tcase_add_test(tc_json_encode, UA_Guid_json_encode);
     tcase_add_test(tc_json_encode, UA_DateTime_json_encode);
@@ -3262,6 +3288,8 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_encode, UA_Variant_Array_String_json_encode);
     tcase_add_test(tc_json_encode, UA_Variant_Matrix_UInt16_json_encode);
     //tcase_add_test(tc_json_encode, UA_Variant_Matrix_String_NonReversible_json_encode);
+    
+    tcase_add_test(tc_json_encode, UA_Double_json_encode);
     suite_add_tcase(s, tc_json_encode);
     
     TCase *tc_json_decode = tcase_create("json_decode");

@@ -373,7 +373,7 @@ set(internal_headers ${PROJECT_SOURCE_DIR}/deps/queue.h
                      ${PROJECT_SOURCE_DIR}/deps/libb64/cencode.h
                      ${PROJECT_SOURCE_DIR}/deps/libb64/cdecode.h
                      ${PROJECT_SOURCE_DIR}/deps/musl/floatscan.h
-                     #${PROJECT_SOURCE_DIR}/deps/musl/vfprintf.h
+                     ${PROJECT_SOURCE_DIR}/deps/musl/vfprintf.h
                      ${PROJECT_SOURCE_DIR}/src/ua_util.h
                      ${PROJECT_SOURCE_DIR}/src/ua_types_encoding_binary.h
                      ${PROJECT_SOURCE_DIR}/src/ua_types_encoding_json.h #@Luke
@@ -439,7 +439,7 @@ set(lib_sources ${PROJECT_SOURCE_DIR}/src/ua_types.c
                 ${PROJECT_SOURCE_DIR}/deps/pcg_basic.c
                 ${PROJECT_SOURCE_DIR}/deps/jsmn/jsmn.c
                 ${PROJECT_SOURCE_DIR}/deps/musl/floatscan.c
-                #${PROJECT_SOURCE_DIR}/deps/musl/vfprintf.c
+                ${PROJECT_SOURCE_DIR}/deps/musl/vfprintf.c
                 ${PROJECT_SOURCE_DIR}/deps/libb64/cencode.c
                 ${PROJECT_SOURCE_DIR}/deps/libb64/cdecode.c)
 
