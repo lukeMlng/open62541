@@ -2281,8 +2281,6 @@ static status prepareDecodeNodeIdJson(UA_NodeId *dst, Ctx *ctx, ParseCtx *parseC
         //Id alway present
         (*fieldCount)++;
         
-        //IdType is parsed again so its token is stepped over. TODO other solution? 
-        //UA_String dummy;
         fieldNames[*fieldCount] = idTypeString;
         fieldPointer[*fieldCount] = NULL;
         functions[*fieldCount] = NULL;
@@ -2543,9 +2541,8 @@ DECODE_JSON(Variant) {
             memcpy(&dst->data, &bodyPointer, sizeof(void*)); //Copy new Pointer do dest
             
             const char* fieldNames[] = {"Type", "Body"};
-            UA_String dummy;
-            void *fieldPointer[] = {&dummy, bodyPointer};
-            decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) decodeJsonInternal};
+            void *fieldPointer[] = {NULL, bodyPointer};
+            decodeJsonSignature functions[] = {NULL, (decodeJsonSignature) decodeJsonInternal};
             UA_Boolean found[] = {UA_FALSE, UA_FALSE};
 
             decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, BodyType, found);
@@ -2555,17 +2552,14 @@ DECODE_JSON(Variant) {
             if(!hasDimension){
                 const char* fieldNames[] = {"Type", "Body"};
 
-                UA_String dummy;
-                //if(idType[0] == '2'){
-                void *fieldPointer[] = {&dummy, &dst->data};
-                decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) Array_decodeJson};
+                void *fieldPointer[] = {NULL, &dst->data};
+                decodeJsonSignature functions[] = {NULL, (decodeJsonSignature) Array_decodeJson};
                 UA_Boolean found[] = {UA_FALSE, UA_FALSE};
                 decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, BodyType, found);
             }else{
                 const char* fieldNames[] = {"Type", "Body", "Dimension"};
-                UA_String dummy;
-                void *fieldPointer[] = {&dummy, &dst->data, &dst->arrayDimensions};
-                decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) Array_decodeJson, (decodeJsonSignature) VariantDimension_decodeJson};
+                void *fieldPointer[] = {NULL, &dst->data, &dst->arrayDimensions};
+                decodeJsonSignature functions[] = {NULL, (decodeJsonSignature) Array_decodeJson, (decodeJsonSignature) VariantDimension_decodeJson};
                 UA_Boolean found[] = {UA_FALSE, UA_FALSE, UA_FALSE};
 
                 decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, BodyType, found);
@@ -2689,6 +2683,7 @@ DECODE_JSON(ExtensionObject) {
             if(!dst->content.decoded.data)
                 return UA_STATUSCODE_BADOUTOFMEMORY;
             
+            //TODO: This has to be parsed regular to step over tokens in Object
             UA_NodeId typeId_dummy;
             void *fieldPointer[] = {
                 &typeId_dummy, 
