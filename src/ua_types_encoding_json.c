@@ -540,11 +540,27 @@ ENCODE_JSON(Int64) {
     return UA_STATUSCODE_GOOD;
 }
 
+ENCODE_JSON(Float) {
+
+    char buffer[256];
+    memset(buffer, 0, 256);
+    fmt_fp(buffer, *src, 0, -1, 0, 'g');
+    size_t len = strlen(buffer);
+
+    if (ctx->pos + len > ctx->end)
+        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
+
+    memcpy(ctx->pos, buffer, len);
+
+    ctx->pos += (len);
+    return UA_STATUSCODE_GOOD;
+}
+
 ENCODE_JSON(Double) {
 
     char buffer[256];
     memset(buffer, 0, 256);
-    fmt_fp(buffer, *src, 0, -1, 0, 'f');
+    fmt_fp(buffer, *src, 0, 17, 0, 'g');
     size_t len = strlen(buffer);
 
     if (ctx->pos + len > ctx->end)
@@ -1672,7 +1688,7 @@ const encodeJsonSignature encodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
     (encodeJsonSignature) UInt32_encodeJson,
     (encodeJsonSignature) Int64_encodeJson, /* Int64 */
     (encodeJsonSignature) UInt64_encodeJson,
-    (encodeJsonSignature) NULL,//Float_encodeJson,
+    (encodeJsonSignature) Float_encodeJson,
     (encodeJsonSignature) Double_encodeJson,
     (encodeJsonSignature) String_encodeJson,
     (encodeJsonSignature) DateTime_encodeJson, /* DateTime */
