@@ -1395,11 +1395,11 @@ Variant_encodeJsonWrapExtensionObject(const UA_Variant *src, const bool isArray,
     if (isArray) {
         if (src->arrayLength > UA_INT32_MAX)
             return UA_STATUSCODE_BADENCODINGERROR;
-        length = src->arrayLength;
-        i32 encodedLength = (i32) src->arrayLength;
-        ret = ENCODE_DIRECT(&encodedLength, UInt32); /* Int32 */
-        if (ret != UA_STATUSCODE_GOOD)
-            return ret;
+        //length = src->arrayLength;
+        //i32 encodedLength = (i32) src->arrayLength;
+        //ret = ENCODE_DIRECT(&encodedLength, UInt32); /* Int32 */
+        //if (ret != UA_STATUSCODE_GOOD)
+        //    return ret;
     }
 
     /* Set up the ExtensionObject */
@@ -1499,9 +1499,14 @@ ENCODE_JSON(Variant) {
             return ret;
 
         /* Encode the content */
-        if (!isBuiltin && !isAlias)
+        if (!isBuiltin && !isAlias){
+            commaNeeded = UA_FALSE;
+            writeKey(ctx, "Type");
+            ret |= ENCODE_DIRECT(&src->type->typeIndex, UInt16);
+
+            writeKey(ctx, "Body");
             ret = Variant_encodeJsonWrapExtensionObject(src, isArray, ctx);
-        else if (!isArray) {
+        } else if (!isArray) {
 
             commaNeeded = UA_FALSE;
             writeKey(ctx, "Type");
@@ -1532,9 +1537,13 @@ ENCODE_JSON(Variant) {
     } else {
 
         /* Encode the content */
-        if (!isBuiltin && !isAlias)
+        if (!isBuiltin && !isAlias){
+            commaNeeded = UA_FALSE;
+            writeKey(ctx, "Type");
+            ret |= ENCODE_DIRECT(&src->type->typeIndex, UInt16);
+            writeKey(ctx, "Body");
             ret = Variant_encodeJsonWrapExtensionObject(src, isArray, ctx);
-        else if (!isArray) {
+        } else if (!isArray) {
             WRITE(ObjStart);
             commaNeeded = UA_FALSE;
             writeKey(ctx, "Body");
@@ -1728,16 +1737,11 @@ encodeJsonInternal(const void *src, const UA_DataType *type, Ctx *ctx) {
         const UA_DataTypeMember *member = &type->members[i];
         const UA_DataType *membertype = &typelists[!member->namespaceZero][member->memberTypeIndex];
 
-        //TODO: Special case for Strings?
-        //TODO: Special case for ByteString
-        //TODO Special Case for QualifiedName
-
         if (member->memberName != NULL && *member->memberName != 0) {
             //TODO:
             writeKey(ctx, member->memberName);
 
         }
-
 
         if (!member->isArray) {
             ptr += member->padding;
@@ -1758,26 +1762,12 @@ encodeJsonInternal(const void *src, const UA_DataType *type, Ctx *ctx) {
                 --i;
             }
         } else {
-
             ptr += member->padding;
             const size_t length = *((const size_t*) ptr);
             ptr += sizeof (size_t);
-
-            //UA_Boolean realArray = UA_FALSE;
-            //@TODO Special case for String because of its "bytearray"
-            if (type->typeIndex == 11) {
-                ENCODE_DIRECT(src, String);
-                continue;
-            }
-
             ret = Array_encodeJson(*(void *UA_RESTRICT const *) ptr, length, membertype, ctx, UA_FALSE);
             ptr += sizeof (void*);
         }
-
-        if (member->memberTypeIndex != 0 && membertype->builtin) {
-            //WRITE(ObjEnd);
-        }
-
     }
 
     if (!type->builtin) {

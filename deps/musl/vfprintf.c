@@ -315,6 +315,10 @@ static char *fmt_u(uintmax_t x, char *s)
 typedef char compiler_defines_long_double_incorrectly[9-(int)sizeof(long double)];
 #endif
 
+
+/*
+ * w = string width, p = precision, fl = flags, t = type. "%20.5g gives w=20, p=5, fl=0, t='g'
+ */
 int fmt_fp(char *output, long double y, int w, int p, int fl, int t)
 {
     char* sp = output;
