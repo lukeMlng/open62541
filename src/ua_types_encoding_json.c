@@ -133,23 +133,24 @@ JSON(dPoint) {
 
 status writeComma(Ctx *ctx) {
     if (commaNeeded) {
-        WRITE(Comma);
+        return WRITE(Comma);
     }
 
     return UA_STATUSCODE_GOOD;
 }
 
 status writeKey(Ctx *ctx, const char* key) {
-    writeComma(ctx);
-    WRITE(Quote);
+    status ret = UA_STATUSCODE_GOOD;
+    ret |= writeComma(ctx);
+    ret |= WRITE(Quote);
     for (size_t i = 0; i < strlen(key); i++) {
         *(ctx->pos++) = (u8)key[i];
     }
-    WRITE(Quote);
-    WRITE(dPoint);
+    ret |= WRITE(Quote);
+    ret |= WRITE(dPoint);
 
     commaNeeded = UA_TRUE;
-    return UA_STATUSCODE_GOOD;
+    return ret;
 }
 
 status encodingJsonStartObject(Ctx *ctx) {
@@ -160,7 +161,7 @@ status encodingJsonStartObject(Ctx *ctx) {
 
 size_t encodingJsonEndObject(Ctx *ctx) {
     *(ctx->pos++) = '}';
-    return 0;
+    return UA_STATUSCODE_GOOD;
 }
 
 status encodingJsonStartArray(Ctx *ctx) {
@@ -171,7 +172,7 @@ status encodingJsonStartArray(Ctx *ctx) {
 
 size_t encodingJsonEndArray(Ctx *ctx) {
     *(ctx->pos++) = ']';
-    return 0;
+    return UA_STATUSCODE_GOOD;
 }
 
 /**
@@ -544,33 +545,6 @@ ENCODE_JSON(Double) {
 /******************/
 
 static status
-Array_encodeJsonOverlayable(uintptr_t ptr, size_t length, size_t elementMemSize, Ctx *ctx) {
-    /* Store the number of already encoded elements */
-    size_t finished = 0;
-
-    //size_t encode_index = type->builtin ? type->typeIndex : UA_BUILTIN_TYPES_COUNT;
-    //encodeJsonSignature encodeType = encodeJsonJumpTable[encode_index];
-
-    /* Loop as long as more elements remain than fit into the chunk */
-    /*while (ctx->end < ctx->pos + (elementMemSize * (length - finished))) {
-        size_t possible = ((uintptr_t) ctx->end - (uintptr_t) ctx->pos) / (sizeof (u8) * elementMemSize);
-        size_t possibleMem = possible * elementMemSize;
-        memcpy(ctx->pos, (void*) ptr, possibleMem);
-        ctx->pos += possibleMem;
-        ptr += possibleMem;
-        finished += possible;
-        status ret = exchangeBuffer(ctx);
-        if (ret != UA_STATUSCODE_GOOD)
-            return ret;
-    } TODO */
-
-    /* Encode the remaining elements */
-    memcpy(ctx->pos, (void*) ptr, elementMemSize * (length - finished));
-    ctx->pos += elementMemSize * (length - finished);
-    return UA_STATUSCODE_GOOD;
-}
-
-static status
 Array_encodeJsonComplex(uintptr_t ptr, size_t length, const UA_DataType *type, Ctx *ctx) {
     /* Get the encoding function for the data type. The jumptable at
      * UA_BUILTIN_TYPES_COUNT points to the generic UA_encodeJson method */
@@ -613,50 +587,8 @@ Array_encodeJsonComplex(uintptr_t ptr, size_t length, const UA_DataType *type, C
 
 static status
 Array_encodeJson(const void *src, size_t length, const UA_DataType *type, Ctx *ctx, UA_Boolean isVariantArray) {
-    /* Check and convert the array length to int32 */
-    /*i32 signed_length = -1;
-    if (length > UA_INT32_MAX)
-        return UA_STATUSCODE_BADINTERNALERROR;
-    if (length > 0)
-        signed_length = (i32) length;
-    else if (src == UA_EMPTY_ARRAY_SENTINEL)
-        signed_length = 0;*/
-
-
-    //No need for a lengt in JSON!
-    /* Encode the array length */
-    //status ret = ENCODE_WITHEXCHANGE(&signed_length, UInt32);
-
-    /* Quit early? */
-    //if(ret != UA_STATUSCODE_GOOD || length == 0)
-    //   return ret;
-
     status ret = UA_STATUSCODE_GOOD;
-    /* Encode the content */
-
-
-
-    /* Byte Array  ByteString TODO*/
-    if (!isVariantArray && type->typeIndex == 2 /*byte*/) {
-        //UA_ByteString bs;
-        //bs.data = (UA_Byte const*)src;
-        //bs.length = length;
-        //size_t decode_index = type->builtin ? type->typeIndex : UA_BUILTIN_TYPES_COUNT;
-        //ret = ENCODE_DIRECT(&bs, ByteString);
-        return ret;
-    } else {
-        //@TODO FIXME
-        ret = Array_encodeJsonComplex((uintptr_t) src, length, type, ctx);
-        return ret;
-    }
-
-    if (!type->overlayable) {
-        ret = Array_encodeJsonComplex((uintptr_t) src, length, type, ctx);
-    } else {
-        ret = Array_encodeJsonOverlayable((uintptr_t) src, length, type->memSize, ctx);
-    }
-
-
+    ret = Array_encodeJsonComplex((uintptr_t) src, length, type, ctx);
     return ret;
 }
 
