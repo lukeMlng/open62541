@@ -228,41 +228,6 @@ encodeWithExchangeBuffer(const void *ptr, encodeJsonSignature encodeFunc, Ctx *c
 /* Integer Types */
 /*****************/
 
-#if !UA_BINARY_OVERLAYABLE_INTEGER
-
-#pragma message "Integer endianness could not be detected to be little endian. Use slow generic encoding."
-
-/* These en/decoding functions are only used when the architecture isn't little-endian. */
-static void
-UA_encode16(const u16 v, u8 buf[2]) {
-    buf[0] = (u8) v;
-    buf[1] = (u8) (v >> 8);
-}
-
-static void
-UA_encode32(const u32 v, u8 buf[4]) {
-    buf[0] = (u8) v;
-    buf[1] = (u8) (v >> 8);
-    buf[2] = (u8) (v >> 16);
-    buf[3] = (u8) (v >> 24);
-}
-
-
-static void
-UA_encode64(const u64 v, u8 buf[8]) {
-    buf[0] = (u8) v;
-    buf[1] = (u8) (v >> 8);
-    buf[2] = (u8) (v >> 16);
-    buf[3] = (u8) (v >> 24);
-    buf[4] = (u8) (v >> 32);
-    buf[5] = (u8) (v >> 40);
-    buf[6] = (u8) (v >> 48);
-    buf[7] = (u8) (v >> 56);
-}
-
-#endif /* !UA_BINARY_OVERLAYABLE_INTEGER */
-
-
 //http://www.techiedelight.com/implement-itoa-function-in-c/
 //  function to swap two numbers
 
@@ -353,10 +318,7 @@ UA_UInt16 itoa(UA_Int64 value, char* buffer) {
     if (i == 0)
         buffer[i++] = '0';
 
-    // If base is 10 and value is negative, the resulting string 
-    // is preceded with a minus sign (-)
-    // With any other base, value is always considered unsigned
-    if (value < 0 && 10 == 10)
+    if (value < 0)
         buffer[i++] = '-';
 
     buffer[i] = '\0'; // null terminate string
@@ -540,6 +502,10 @@ ENCODE_JSON(Int64) {
     return UA_STATUSCODE_GOOD;
 }
 
+/************************/
+/* Floating Point Types */
+/************************/
+
 ENCODE_JSON(Float) {
 
     char buffer[256];
@@ -572,117 +538,10 @@ ENCODE_JSON(Double) {
     return UA_STATUSCODE_GOOD;
 }
 
-/************************/
-/* Floating Point Types */
-/************************/
-
-#if UA_BINARY_OVERLAYABLE_FLOAT
-//#define Float_encodeJson UInt32_encodeJson
-//#define Float_decodeJson UInt32_decodeJson
-//#define Double_encodeJson UInt64_encodeJson
-//#define Double_decodeJson UInt64_decodeJson
-#else
-
-#include <math.h>
-
-#pragma message "No native IEEE 754 format detected. Use slow generic encoding."
-
-/* Handling of IEEE754 floating point values was taken from Beej's Guide to
- * Network Programming (http://beej.us/guide/bgnet/) and enhanced to cover the
- * edge cases +/-0, +/-inf and nan. */
-static uint64_t
-pack754(long double f, unsigned bits, unsigned expbits) {
-    unsigned significandbits = bits - expbits - 1;
-    long double fnorm;
-    long long sign;
-    if (f < 0) {
-        sign = 1;
-        fnorm = -f;
-    } else {
-        sign = 0;
-        fnorm = f;
-    }
-    int shift = 0;
-    while (fnorm >= 2.0) {
-        fnorm /= 2.0;
-        ++shift;
-    }
-    while (fnorm < 1.0) {
-        fnorm *= 2.0;
-        --shift;
-    }
-    fnorm = fnorm - 1.0;
-    long long significand = (long long) (fnorm * ((float) (1LL << significandbits) + 0.5f));
-    long long exponent = shift + ((1 << (expbits - 1)) - 1);
-    return (uint64_t) ((sign << (bits - 1)) | (exponent << (bits - expbits - 1)) | significand);
-}
-
-static long double
-unpack754(uint64_t i, unsigned bits, unsigned expbits) {
-    unsigned significandbits = bits - expbits - 1;
-    long double result = (long double) (i & (uint64_t) ((1LL << significandbits) - 1));
-    result /= (1LL << significandbits);
-    result += 1.0f;
-    unsigned bias = (unsigned) (1 << (expbits - 1)) - 1;
-    long long shift = (long long) ((i >> significandbits) & (uint64_t) ((1LL << expbits) - 1)) - bias;
-    while (shift > 0) {
-        result *= 2.0;
-        --shift;
-    }
-    while (shift < 0) {
-        result /= 2.0;
-        ++shift;
-    }
-    result *= ((i >> (bits - 1))&1) ? -1.0 : 1.0;
-    return result;
-}
-
-/* Float */
-#define FLOAT_NAN 0xffc00000
-#define FLOAT_INF 0x7f800000
-#define FLOAT_NEG_INF 0xff800000
-#define FLOAT_NEG_ZERO 0x80000000
-
-ENCODE_JSON(Float) {
-    //TODO
-    UA_Float f = *src;
-    u32 encoded;
-    /* cppcheck-suppress duplicateExpression */
-    if (f != f) encoded = FLOAT_NAN;
-    else if (f == 0.0f) encoded = signbit(f) ? FLOAT_NEG_ZERO : 0;
-    else if (f / f != f / f) encoded = f > 0 ? FLOAT_INF : FLOAT_NEG_INF;
-    else encoded = (u32) pack754(f, 32, 8);
-    return ENCODE_DIRECT(&encoded, UInt32);
-}
-
-
-/* Double */
-#define DOUBLE_NAN 0xfff8000000000000L
-#define DOUBLE_INF 0x7ff0000000000000L
-#define DOUBLE_NEG_INF 0xfff0000000000000L
-#define DOUBLE_NEG_ZERO 0x8000000000000000L
-
-ENCODE_JSON(Double) {
-
-    //TODO
-    UA_Double d = *src;
-    u64 encoded;
-    /* cppcheck-suppress duplicateExpression */
-    if (d != d) encoded = DOUBLE_NAN;
-    else if (d == 0.0) encoded = signbit(d) ? DOUBLE_NEG_ZERO : 0;
-    else if (d / d != d / d) encoded = d > 0 ? DOUBLE_INF : DOUBLE_NEG_INF;
-    else encoded = pack754(d, 64, 11);
-    return ENCODE_DIRECT(&encoded, UInt64);
-}
-
-
-#endif
-
 /******************/
 /* Array Handling */
 
 /******************/
-
 
 static status
 Array_encodeJsonOverlayable(uintptr_t ptr, size_t length, size_t elementMemSize, Ctx *ctx) {
@@ -1254,42 +1113,6 @@ ENCODE_JSON(StatusCode) {
     return ret;
 }
 
-/* The json encoding has a different nodeid from the data type. So it is not
- * possible to reuse UA_findDataType */
-static const UA_DataType *
-UA_findDataTypeByJsonInternal(const UA_NodeId *typeId, Ctx *ctx) {
-    /* We only store a numeric identifier for the encoding nodeid of data types */
-    if (typeId->identifierType != UA_NODEIDTYPE_NUMERIC)
-        return NULL;
-
-    /* Always look in built-in types first
-     * (may contain data types from all namespaces) */
-    for (size_t i = 0; i < UA_TYPES_COUNT; ++i) {
-        if (UA_TYPES[i].binaryEncodingId == typeId->identifier.numeric &&
-                UA_TYPES[i].typeId.namespaceIndex == typeId->namespaceIndex)
-            return &UA_TYPES[i];
-    }
-
-    /* When other namespace look in custom types, too */
-    if (typeId->namespaceIndex != 0) {
-        for (size_t i = 0; i < ctx->customTypesArraySize; ++i) {
-            if (ctx->customTypesArray[i].binaryEncodingId == typeId->identifier.numeric &&
-                    ctx->customTypesArray[i].typeId.namespaceIndex == typeId->namespaceIndex)
-                return &ctx->customTypesArray[i];
-        }
-    }
-
-    return NULL;
-}
-
-const UA_DataType *
-UA_findDataTypeByJson(const UA_NodeId *typeId) {
-    Ctx ctx;
-    ctx.customTypesArraySize = 0;
-    ctx.customTypesArray = NULL;
-    return UA_findDataTypeByJsonInternal(typeId, &ctx);
-}
-
 /* ExtensionObject */
 ENCODE_JSON(ExtensionObject) {
     u8 encoding = (u8) src->encoding;
@@ -1465,30 +1288,35 @@ void addMatrixContentJSON(Ctx *ctx, void* array, const UA_DataType *type, size_t
 
 ENCODE_JSON(Variant) {
     /* Quit early for the empty variant */
-    u8 encoding = 0;
+    //u8 encoding = 0;
     status ret = UA_STATUSCODE_GOOD;
-    if (!src->type)
-        return ENCODE_DIRECT(&encoding, Byte);
+    //if (!src->type)
+    //    return //TODO encode NULL!;
 
     /* Set the content type in the encoding mask */
     const bool isBuiltin = src->type->builtin;
     const bool isAlias = src->type->membersSize == 1
             && UA_TYPES[src->type->members[0].memberTypeIndex].builtin;
-    if (isBuiltin)
+    
+    /*No need for encoding flag?
+     * if (isBuiltin)
         encoding |= UA_VARIANT_ENCODINGMASKTYPE_TYPEID_MASK & (u8) (src->type->typeIndex + 1);
     else if (isAlias)
         encoding |= UA_VARIANT_ENCODINGMASKTYPE_TYPEID_MASK & (u8) (src->type->members[0].memberTypeIndex + 1);
     else
         encoding |= UA_VARIANT_ENCODINGMASKTYPE_TYPEID_MASK & (u8) (UA_TYPES_EXTENSIONOBJECT + 1);
-
+     */
+    
+    
     /* Set the array type in the encoding mask */
     const bool isArray = src->arrayLength > 0 || src->data <= UA_EMPTY_ARRAY_SENTINEL;
     const bool hasDimensions = isArray && src->arrayDimensionsSize > 0;
-    if (isArray) {
+    
+    /*if (isArray) {
         encoding |= UA_VARIANT_ENCODINGMASKTYPE_ARRAY;
         if (hasDimensions)
             encoding |= UA_VARIANT_ENCODINGMASKTYPE_DIMENSIONS;
-    }
+    }*/
 
     if (useReversibleForm) {
         WRITE(ObjStart);
@@ -1887,7 +1715,7 @@ static UA_Boolean isJsonNull(const Ctx *ctx, const ParseCtx *parseCtx){
         return false;
     }
     char* elem = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
-    return (elem[0] == 'n' && elem[0] == 'u' && elem[0] == 'l' && elem[0] == 'l');
+    return (elem[0] == 'n' && elem[1] == 'u' && elem[2] == 'l' && elem[3] == 'l');
 }
 
 
@@ -2522,13 +2350,127 @@ DECODE_JSON(StatusCode) {
     return UA_STATUSCODE_GOOD;
 }
 
+/* The binary encoding has a different nodeid from the data type. So it is not
+ * possible to reuse UA_findDataType */
+static const UA_DataType *
+UA_findDataTypeByBinaryInternal(const UA_NodeId *typeId, Ctx *ctx) {
+    /* We only store a numeric identifier for the encoding nodeid of data types */
+    if(typeId->identifierType != UA_NODEIDTYPE_NUMERIC)
+        return NULL;
+
+    /* Always look in built-in types first
+     * (may contain data types from all namespaces) */
+    for(size_t i = 0; i < UA_TYPES_COUNT; ++i) {
+        if(UA_TYPES[i].binaryEncodingId == typeId->identifier.numeric &&
+           UA_TYPES[i].typeId.namespaceIndex == typeId->namespaceIndex)
+            return &UA_TYPES[i];
+    }
+
+    /* When other namespace look in custom types, too */
+    if(typeId->namespaceIndex != 0) {
+        for(size_t i = 0; i < ctx->customTypesArraySize; ++i) {
+            if(ctx->customTypesArray[i].binaryEncodingId == typeId->identifier.numeric &&
+               ctx->customTypesArray[i].typeId.namespaceIndex == typeId->namespaceIndex)
+                return &ctx->customTypesArray[i];
+        }
+    }
+
+    return NULL;
+}
+
+
 static status
 VariantDimension_decodeJson(void *UA_RESTRICT dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parseCtx, UA_Boolean moveToken) {
     const UA_DataType *dimType = &UA_TYPES[UA_TYPES_UINT32];
     return Array_decodeJson(dst, dimType, ctx, parseCtx, moveToken);
 }
 
+static status
+Variant_decodeJsonUnwrapExtensionObject(UA_Variant *dst, Ctx *ctx, ParseCtx *parseCtx, UA_Boolean isArray, UA_Boolean hasDimension, size_t bodyIndex) {
+    /* Save the position in the ByteString. If unwrapping is not possible, start
+     * from here to decode a normal ExtensionObject. */
+    UA_UInt16 old_index = *parseCtx->index;
+    
+    status ret = UA_STATUSCODE_GOOD;
+    
+    
+    /* Decode the DataType */
+    UA_NodeId typeId;
+    UA_NodeId_init(&typeId);
+    {
+        *parseCtx->index = (UA_UInt16)bodyIndex; //GOTO Extenstionobject
+        
+        size_t searchTypeIdResult = 0;
+        UA_String searchTypeIdKey = UA_STRING("TypeId");
+        lookAheadForKey(searchTypeIdKey, ctx, parseCtx, &searchTypeIdResult);  
+
+        if(searchTypeIdResult == 0){
+            //No Typeid if extensionobject found, error
+            return UA_STATUSCODE_BADDECODINGERROR;
+        }
+        
+        /* parse the nodeid */
+        *parseCtx->index = (UA_UInt16)searchTypeIdResult;
+        ret = NodeId_decodeJson(&typeId, &UA_TYPES[UA_TYPES_NODEID], ctx, parseCtx, UA_TRUE);
+        if(ret != UA_STATUSCODE_GOOD){
+            return UA_STATUSCODE_BADDECODINGERROR;
+        }
+        
+        //restore index, Variant position
+        *parseCtx->index = old_index;
+    }
+
+    /* ---Decode the EncodingByte--- */
+    UA_Boolean isStructure = UA_FALSE;
+    {
+        //Search for Encoding
+        *parseCtx->index = (UA_UInt16)bodyIndex; //GOTO Extenstionobject
+
+        size_t searchEncodingResult = 0;
+        UA_String searchEncodingKey = UA_STRING("Encoding");
+        lookAheadForKey(searchEncodingKey, ctx, parseCtx, &searchEncodingResult);
+
+        //restore, Variant
+        *parseCtx->index = old_index;
+
+        //If no encoding found it is Structure encoding
+        if(searchEncodingResult == 0){
+            isStructure = UA_TRUE;
+        }
+    }
+
+    const UA_DataType *typeOfBody = UA_findDataTypeByBinaryInternal(&typeId, ctx);
+    
+    if(typeOfBody != NULL && isStructure){
+        /* Found a valid type and it is structure encoded so it can be unwrapped */
+        dst->type = typeOfBody;
+    }else{
+        /* decode as ExtensionObject */
+        dst->type = &UA_TYPES[UA_TYPES_EXTENSIONOBJECT];
+    }
+    
+    /* Allocate memory for type or extensionobject*/
+    dst->data = UA_new(dst->type);
+    if(!dst->data)
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+
+    /* Decode the content */
+    size_t decode_index = dst->type->builtin ? dst->type->typeIndex : UA_BUILTIN_TYPES_COUNT;
+
+    const char* fieldNames[] = {"Type", "Body"};
+    void *fieldPointer[] = {NULL, &dst->data};
+    decodeJsonSignature functions[] = {NULL, decodeJsonJumpTable[decode_index]};
+
+    ret = decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, dst->type, NULL);
+    //TODO Check?
+    
+    return ret;
+}
+
 DECODE_JSON(Variant) {
+    
+    status ret = UA_STATUSCODE_GOOD;
+    
     if(getJsmnType(parseCtx) != JSMN_OBJECT){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
@@ -2537,11 +2479,6 @@ DECODE_JSON(Variant) {
     UA_String searchKeyType = UA_STRING("Type");
  
     lookAheadForKey(searchKeyType, ctx, parseCtx, &searchResultType);
-    
-    //If non found we cannot decode
-    //if(searchStatus != UA_STATUSCODE_GOOD){
-    //    return searchStatus;
-    //}
     
     //TODO: Better way of not found condition.
     if(searchResultType != 0){  
@@ -2552,10 +2489,8 @@ DECODE_JSON(Variant) {
         
         /* Does the variant contain an array? */
         UA_Boolean isArray = UA_FALSE;
-        size_t arraySize = 0;
         
         UA_Boolean hasDimension = UA_FALSE;
-        size_t dimensionSize = 0;
         
         //Is the Body an Array?
         size_t searchResultBody = 0;
@@ -2566,6 +2501,7 @@ DECODE_JSON(Variant) {
             if(bodyToken.type == JSMN_ARRAY){
                 isArray = UA_TRUE;
                 
+                size_t arraySize = 0;
                 arraySize = (size_t)parseCtx->tokenArray[searchResultBody].size;
                 dst->arrayLength = arraySize;
             }
@@ -2577,8 +2513,8 @@ DECODE_JSON(Variant) {
         lookAheadForKey(searchKeyDim, ctx, parseCtx, &searchResultDim);
         if(searchResultDim != 0){
             hasDimension = UA_TRUE;
+            size_t dimensionSize = 0;
             dimensionSize = (size_t)parseCtx->tokenArray[searchResultDim].size;
-            
             dst->arrayDimensionsSize = dimensionSize;
         }
 
@@ -2587,12 +2523,39 @@ DECODE_JSON(Variant) {
         char *idTypeEncoded = (char*)(ctx->pos + parseCtx->tokenArray[searchResultType].start);
         UA_atoi(idTypeEncoded, size, &idTypeDecoded);
         
+        /* Get the datatype of the content. The type must be a builtin data type.
+        * All not-builtin types are wrapped in an ExtensionObject. */
+        if(idTypeDecoded > UA_TYPES_DIAGNOSTICINFO)
+            return UA_STATUSCODE_BADDECODINGERROR;
+
+        /* A variant cannot contain a variant. But it can contain an array of
+            * variants */
+        if(idTypeDecoded == UA_TYPES_VARIANT && !isArray)
+            return UA_STATUSCODE_BADDECODINGERROR;
+        
+        
         //Set the type
         const UA_DataType *BodyType = &UA_TYPES[idTypeDecoded];
         dst->type = BodyType;
         
-        if(!isArray){
+        if(isArray){
+              if(!hasDimension){
+                const char* fieldNames[] = {"Type", "Body"};
+
+                void *fieldPointer[] = {NULL, &dst->data};
+                decodeJsonSignature functions[] = {NULL, (decodeJsonSignature) Array_decodeJson};
+                UA_Boolean found[] = {UA_FALSE, UA_FALSE};
+                ret = decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, BodyType, found);
+            }else{
+                const char* fieldNames[] = {"Type", "Body", "Dimension"};
+                void *fieldPointer[] = {NULL, &dst->data, &dst->arrayDimensions};
+                decodeJsonSignature functions[] = {NULL, (decodeJsonSignature) Array_decodeJson, (decodeJsonSignature) VariantDimension_decodeJson};
+                UA_Boolean found[] = {UA_FALSE, UA_FALSE, UA_FALSE};
+
+                ret = decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, BodyType, found);
+            }
             
+        }else if(idTypeDecoded != UA_TYPES_EXTENSIONOBJECT){
             //Allocate Memory for Body
             void* bodyPointer = UA_new(BodyType);
             memcpy(&dst->data, &bodyPointer, sizeof(void*)); //Copy new Pointer do dest
@@ -2602,29 +2565,13 @@ DECODE_JSON(Variant) {
             decodeJsonSignature functions[] = {NULL, (decodeJsonSignature) decodeJsonInternal};
             UA_Boolean found[] = {UA_FALSE, UA_FALSE};
 
-            decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, BodyType, found);
-            
-        }else{
-            
-            if(!hasDimension){
-                const char* fieldNames[] = {"Type", "Body"};
-
-                void *fieldPointer[] = {NULL, &dst->data};
-                decodeJsonSignature functions[] = {NULL, (decodeJsonSignature) Array_decodeJson};
-                UA_Boolean found[] = {UA_FALSE, UA_FALSE};
-                decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, BodyType, found);
-            }else{
-                const char* fieldNames[] = {"Type", "Body", "Dimension"};
-                void *fieldPointer[] = {NULL, &dst->data, &dst->arrayDimensions};
-                decodeJsonSignature functions[] = {NULL, (decodeJsonSignature) Array_decodeJson, (decodeJsonSignature) VariantDimension_decodeJson};
-                UA_Boolean found[] = {UA_FALSE, UA_FALSE, UA_FALSE};
-
-                decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, BodyType, found);
-            }
+            ret = decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, BodyType, found);
+        }else {
+            ret = Variant_decodeJsonUnwrapExtensionObject(dst, ctx, parseCtx, isArray, hasDimension, searchResultBody);
         }
     }
     
-    return UA_STATUSCODE_GOOD;
+    return ret;
 }
 
 DECODE_JSON(DataValue) {
@@ -2656,34 +2603,6 @@ DECODE_JSON(DataValue) {
     dst->hasServerPicoseconds = found[5];
     
     return UA_STATUSCODE_GOOD;
-}
-
-/* The binary encoding has a different nodeid from the data type. So it is not
- * possible to reuse UA_findDataType */
-static const UA_DataType *
-UA_findDataTypeByBinaryInternal(const UA_NodeId *typeId, Ctx *ctx) {
-    /* We only store a numeric identifier for the encoding nodeid of data types */
-    if(typeId->identifierType != UA_NODEIDTYPE_NUMERIC)
-        return NULL;
-
-    /* Always look in built-in types first
-     * (may contain data types from all namespaces) */
-    for(size_t i = 0; i < UA_TYPES_COUNT; ++i) {
-        if(UA_TYPES[i].binaryEncodingId == typeId->identifier.numeric &&
-           UA_TYPES[i].typeId.namespaceIndex == typeId->namespaceIndex)
-            return &UA_TYPES[i];
-    }
-
-    /* When other namespace look in custom types, too */
-    if(typeId->namespaceIndex != 0) {
-        for(size_t i = 0; i < ctx->customTypesArraySize; ++i) {
-            if(ctx->customTypesArray[i].binaryEncodingId == typeId->identifier.numeric &&
-               ctx->customTypesArray[i].typeId.namespaceIndex == typeId->namespaceIndex)
-                return &ctx->customTypesArray[i];
-        }
-    }
-
-    return NULL;
 }
 
 DECODE_JSON(ExtensionObject) {
@@ -2935,16 +2854,18 @@ Array_decodeJson(void *UA_RESTRICT dst, const UA_DataType *type, Ctx *ctx, Parse
     size_t length = (size_t)parseCtx->tokenArray[*parseCtx->index].size;
     
     /* Return early for empty arrays */
-    if(length <= 0) {
+    if(length == 0) {
         dst = UA_EMPTY_ARRAY_SENTINEL;
         return UA_STATUSCODE_GOOD;
     }
 
     /* Allocate memory */
     void* mem = UA_calloc(length, type->memSize);
-    memcpy(dst, &mem, sizeof(void*)); //Copy new Pointer do dest
-    if(!dst)
+    if(dst == NULL)
         return UA_STATUSCODE_BADOUTOFMEMORY;
+    
+    memcpy(dst, &mem, sizeof(void*)); //Copy new Pointer do dest
+    
 
     (*parseCtx->index)++; // We go to first Array member!
     
