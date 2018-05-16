@@ -2386,7 +2386,7 @@ VariantDimension_decodeJson(void *UA_RESTRICT dst, const UA_DataType *type, Ctx 
 }
 
 static status
-Variant_decodeJsonUnwrapExtensionObject(UA_Variant *dst, Ctx *ctx, ParseCtx *parseCtx, UA_Boolean isArray, UA_Boolean hasDimension, size_t bodyIndex) {
+Variant_decodeJsonUnwrapExtensionObject(UA_Variant *dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parseCtx, UA_Boolean moveToken) {
     /* Save the position in the ByteString. If unwrapping is not possible, start
      * from here to decode a normal ExtensionObject. */
     UA_UInt16 old_index = *parseCtx->index;
@@ -2398,8 +2398,6 @@ Variant_decodeJsonUnwrapExtensionObject(UA_Variant *dst, Ctx *ctx, ParseCtx *par
     UA_NodeId typeId;
     UA_NodeId_init(&typeId);
     {
-        *parseCtx->index = (UA_UInt16)bodyIndex; //GOTO Extenstionobject
-        
         size_t searchTypeIdResult = 0;
         UA_String searchTypeIdKey = UA_STRING("TypeId");
         lookAheadForKey(searchTypeIdKey, ctx, parseCtx, &searchTypeIdResult);  
@@ -2424,8 +2422,6 @@ Variant_decodeJsonUnwrapExtensionObject(UA_Variant *dst, Ctx *ctx, ParseCtx *par
     UA_Boolean isStructure = UA_FALSE;
     {
         //Search for Encoding
-        *parseCtx->index = (UA_UInt16)bodyIndex; //GOTO Extenstionobject
-
         size_t searchEncodingResult = 0;
         UA_String searchEncodingKey = UA_STRING("Encoding");
         lookAheadForKey(searchEncodingKey, ctx, parseCtx, &searchEncodingResult);
@@ -2457,9 +2453,10 @@ Variant_decodeJsonUnwrapExtensionObject(UA_Variant *dst, Ctx *ctx, ParseCtx *par
     /* Decode the content */
     size_t decode_index = dst->type->builtin ? dst->type->typeIndex : UA_BUILTIN_TYPES_COUNT;
 
-    const char* fieldNames[] = {"Type", "Body"};
-    void *fieldPointer[] = {NULL, &dst->data};
-    decodeJsonSignature functions[] = {NULL, decodeJsonJumpTable[decode_index]};
+    UA_NodeId dummy;
+    const char* fieldNames[] = {"TypeId", "Body"};
+    void *fieldPointer[] = {&dummy, dst->data};
+    decodeJsonSignature functions[] = {(decodeJsonSignature) NodeId_decodeJson, decodeJsonJumpTable[decode_index]};
 
     ret = decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, dst->type, NULL);
     //TODO Check?
@@ -2567,7 +2564,12 @@ DECODE_JSON(Variant) {
 
             ret = decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, BodyType, found);
         }else {
-            ret = Variant_decodeJsonUnwrapExtensionObject(dst, ctx, parseCtx, isArray, hasDimension, searchResultBody);
+            const char* fieldNames[] = {"Type", "Body"};
+            void *fieldPointer[] = {NULL, dst};
+            decodeJsonSignature functions[] = {NULL, (decodeJsonSignature) Variant_decodeJsonUnwrapExtensionObject};
+            UA_Boolean found[] = {UA_FALSE, UA_FALSE};
+            //ret = Variant_decodeJsonUnwrapExtensionObject(dst, ctx, parseCtx, isArray, hasDimension, searchResultBody);
+            ret = decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, BodyType, found);
         }
     }
     
@@ -2768,6 +2770,8 @@ static status
 decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames[], decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type, UA_Boolean found[]) {
     size_t objectCount = (size_t)(parseCtx->tokenArray[(*parseCtx->index)].size);
     
+    status ret = UA_STATUSCODE_GOOD;
+    
     if(memberSize == 1){ // TODO: Experimental, is this assumption correct?
         if(*fieldNames[0] == 0){ //No MemberName
             return functions[0](fieldPointer[0], type, ctx, parseCtx, UA_TRUE); //ENCODE DIRECT
@@ -2791,7 +2795,7 @@ decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames
                 
                 (*parseCtx->index)++; //goto value
                 if(functions[i] != NULL){
-                    functions[i](fieldPointer[i], type, ctx, parseCtx, UA_TRUE);//Move Token True
+                    ret = functions[i](fieldPointer[i], type, ctx, parseCtx, UA_TRUE);//Move Token True
                 }else{
                     //TODO overstep single value, this will not work if object or array
                     (*parseCtx->index)++;
@@ -2809,7 +2813,11 @@ decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames
        
     }
 
-    return UA_STATUSCODE_GOOD;
+    if(memberSize != foundCount){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
+    return ret;
 }
 
 

@@ -3202,6 +3202,24 @@ START_TEST(UA_ExtensionObject_json_decode) {
 }
 END_TEST
 
+START_TEST(UA_ExtensionObjectWrap_json_decode) {
+    // given
+    
+    UA_Variant out;
+    UA_Variant_init(&out);
+    UA_ByteString buf = UA_STRING("{\"Type\":21,\"Body\":{\"TypeId\":{\"Id\":0},\"Body\":true}}");
+
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_VARIANT], 0, 0);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    ck_assert_int_eq(*((UA_Boolean*)out.data), UA_TRUE);
+    //ck_assert_int_eq(*((UA_Boolean*)out.content.decoded.data), UA_TRUE);
+    //ck_assert_int_eq(out.content.decoded.type->typeIndex, UA_TYPES_BOOLEAN);
+}
+END_TEST
+
 START_TEST(UA_ExtensionObject_EncodedByteString_json_decode) {
     // given
     
@@ -3375,6 +3393,7 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_decode, UA_DataValue_json_decode);
     tcase_add_test(tc_json_decode, UA_ExtensionObject_json_decode);
     tcase_add_test(tc_json_decode, UA_ExtensionObject_EncodedByteString_json_decode);
+    tcase_add_test(tc_json_decode, UA_ExtensionObjectWrap_json_decode);
     suite_add_tcase(s, tc_json_decode);
     return s;
 }
