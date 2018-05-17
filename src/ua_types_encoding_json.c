@@ -1222,8 +1222,8 @@ ENCODE_JSON(Variant) {
     /* Quit early for the empty variant */
     //u8 encoding = 0;
     status ret = UA_STATUSCODE_GOOD;
-    //if (!src->type)
-    //    return //TODO encode NULL!;
+    if (!src->type)
+        return ret;//TODO encode NULL!;
 
     /* Set the content type in the encoding mask */
     const bool isBuiltin = src->type->builtin;

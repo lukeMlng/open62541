@@ -896,7 +896,7 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
 
     if(writerGroup->config.encodingMimeType != UA_PUBSUB_ENCODING_UADP) {
         if(writerGroup->config.encodingMimeType == UA_PUBSUB_ENCODING_JSON){
-            UA_LOG_INFO(server->config.logger, UA_LOGCATEGORY_NETWORK, "Encoding is JSON!11");
+            //UA_LOG_INFO(server->config.logger, UA_LOGCATEGORY_NETWORK, "Encoding is JSON.");
         }else{
             UA_LOG_ERROR(server->config.logger, UA_LOGCATEGORY_SERVER, "Unknown encoding type.");
             return;
