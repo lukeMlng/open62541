@@ -339,6 +339,8 @@ include_directories(${PROJECT_SOURCE_DIR}/include
                     ${PROJECT_SOURCE_DIR}/plugins
                     ${PROJECT_SOURCE_DIR}/deps
                     ${PROJECT_SOURCE_DIR}/src/pubsub
+                    #${PROJECT_SOURCE_DIR}/src/pubsub/mqtt/paho-embed
+                    #${PROJECT_SOURCE_DIR}/src/pubsub/mqtt/paho-embed/linux
                     ${PROJECT_BINARY_DIR}
                     ${PROJECT_BINARY_DIR}/src_generated
                     ${MBEDTLS_INCLUDE_DIRS})

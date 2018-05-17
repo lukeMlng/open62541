@@ -14,8 +14,15 @@ extern "C" {
 
 #include "ua_plugin_pubsub.h"
 
+typedef struct {
+    UA_StatusCode (*connectMqtt)(UA_String host, int port);
+    UA_StatusCode (*disconnectMqtt)(void);
+    UA_StatusCode (*publishMqtt)(UA_String topic, const UA_ByteString *buf);
+} MQTT_Funcs;
+    
 UA_PubSubTransportLayer
-UA_PubSubTransportLayerMQTT(void);
+UA_PubSubTransportLayerMQTT(MQTT_Funcs);
+
 
 #ifdef __cplusplus
 } // extern "C"

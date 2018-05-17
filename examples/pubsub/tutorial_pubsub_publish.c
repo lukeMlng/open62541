@@ -21,8 +21,21 @@
  * PubSubConnections can be created and deleted on runtime. More details about the system preconfiguration and
  * connection can be found in ``tutorial_pubsub_connection.c``.
  */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <memory.h>
+#include <stdio.h>
+#include <signal.h>
+
+#include <sys/time.h>
+
 #include <signal.h>
 #include "open62541.h"
+
+//#include "MQTTLinux.h"
+#include "MQTTClient.h"
+
 UA_NodeId connectionIdent, publishedDataSetIdent, writerGroupIdent;
 
 static void
@@ -136,6 +149,57 @@ static void stopHandler(int sign) {
     running = false;
 }
 
+        
+	unsigned char bufmqtt[2000];
+	unsigned char readbufmqtt[2000];
+	Network network;
+	MQTTClient client;
+
+        
+UA_StatusCode connectMqtt(UA_String, int);
+
+UA_StatusCode connectMqtt(UA_String host, int port){
+    
+        
+        int rc = 0;
+        
+	NetworkInit(&network);
+	NetworkConnect(&network, "192.168.178.40", 1883);
+	MQTTClientInit(&client, &network, 1000, bufmqtt, 2000, readbufmqtt, 2000);
+ 
+	MQTTPacket_connectData data = MQTTPacket_connectData_initializer;       
+	data.willFlag = 0;
+	data.MQTTVersion = 3;
+	data.clientID.cstring = "23af54t";
+	//data.username.cstring = opts.username;
+	//data.password.cstring = opts.password;
+
+	data.keepAliveInterval = 10;
+	data.cleansession = 1;
+	printf("Connecting\n");
+	
+	rc = MQTTConnect(&client, &data);
+	printf("Connected %d\n", rc);
+    
+    
+    return 0;
+}
+
+UA_StatusCode publishMqtt(UA_String topic, const UA_ByteString *buf);
+UA_StatusCode publishMqtt(UA_String topic, const UA_ByteString *buf){
+    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "pub");
+    
+    //char* s = (char*)malloc(buf->length);
+    
+    //memcpy(&s, &buf->data, buf->length);
+    MQTTMessage m;
+    m.qos = QOS0;
+    m.payload = buf->data;
+    m.payloadlen = buf->length;
+    MQTTPublish(&client, "biblebabble", &m);
+    return 0;
+}
+
 int main(void) {
     signal(SIGINT, stopHandler);
     signal(SIGTERM, stopHandler);
@@ -148,8 +212,13 @@ int main(void) {
         UA_ServerConfig_delete(config);
         return -1;
     }
+    
+    MQTT_Funcs funcs;
+    funcs.connectMqtt = &connectMqtt;
+    funcs.publishMqtt = &publishMqtt;
+    
     //config->pubsubTransportLayers[0] = UA_PubSubTransportLayerUDPMP();
-    config->pubsubTransportLayers[0] = UA_PubSubTransportLayerMQTT();
+    config->pubsubTransportLayers[0] = UA_PubSubTransportLayerMQTT(funcs);
     config->pubsubTransportLayersSize++;
     UA_Server *server = UA_Server_new(config);
 

@@ -15,7 +15,7 @@ set(examples_headers
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/examples)
 
 macro(add_example EXAMPLE_NAME EXAMPLE_SOURCE)
-  add_executable(${EXAMPLE_NAME} ${STATIC_OBJECTS} ${EXAMPLE_SOURCE} ${ARGN} ${examples_headers})
+  add_executable(${EXAMPLE_NAME} ${STATIC_OBJECTS} ${EXAMPLE_SOURCE} ${ARGN} ${examples_headers} )
   target_link_libraries(${EXAMPLE_NAME} open62541 ${open62541_LIBRARIES})
   assign_source_group(${EXAMPLE_SOURCE})
   add_dependencies(${EXAMPLE_NAME} open62541-amalgamation-header open62541-amalgamation-source)
@@ -125,6 +125,59 @@ add_subdirectory(nodeset)
 ####################
 
 if(UA_ENABLE_PUBSUB)
+    
+                                  
     add_example(tutorial_pubsub_connection pubsub/tutorial_pubsub_connection.c)
-    add_example(tutorial_pubsub_publish pubsub/tutorial_pubsub_publish.c)
+
+
+    #add_example(tutorial_pubsub_publish pubsub/tutorial_pubsub_publish.c)
+
+    include_directories(pubsub/mqtt/paho-embed)
+    #include_directories(pubsub/mqtt/paho-embed/linux)
+
+
+    #list(APPEND default_plugin_headers ${PROJECT_SOURCE_DIR}/examples/pubsub/mqtt/paho-embed/linux/MQTTLinux.h)
+    #list(APPEND default_plugin_sources ${PROJECT_SOURCE_DIR}/examples/pubsub/mqtt/paho-embed/linux/MQTTLinux.c)
+    
+    #add_executable(mqttLinux ${PROJECT_SOURCE_DIR}/examples/pubsub/mqtt/paho-embed/linux/MQTTLinux.c)
+    #add_custom_target(mqtt_linux_header DEPENDS ${PROJECT_SOURCE_DIR}/examples/pubsub/mqtt/paho-embed/linux/MQTTLinux.h)
+    #add_custom_target(mqtt_linux_source DEPENDS ${PROJECT_SOURCE_DIR}/examples/pubsub/mqtt/paho-embed/linux/MQTTLinux.c)
+    
+    
+    #target_include_directories(mqttLinux PRIVATE "pubsub/mqtt/paho-embed/linux")
+
+    
+
+    #add_definitions("-c ${PROJECT_SOURCE_DIR}/examples/pubsub/mqtt/paho-embed/linux/MQTTLinux.c")
+    
+    #add_library(mylib STATIC pubsub/mqtt/paho-embed/linux/MQTTLinux.c)
+    add_executable(tutorial_pubsub_publish pubsub/tutorial_pubsub_publish.c pubsub/mqtt/paho-embed/linux/MQTTLinux.c)
+    add_definitions("-include ${PROJECT_SOURCE_DIR}/examples/pubsub/mqtt/paho-embed/linux/MQTTLinux.h")
+    #target_link_libraries(tutorial_pubsub_publish mylib)
+
+    #add_executable(tutorial_pubsub_publish pubsub/tutorial_pubsub_publish.c ${PROJECT_SOURCE_DIR}/examples/pubsub/mqtt/paho-embed/linux/MQTTLinux.c  )
+    #target_sources(tutorial_pubsub_publish INTERFACE ${PROJECT_SOURCE_DIR}/examples/pubsub/mqtt/paho-embed/linux/MQTTLinux.h)    
+    #target_compile_definitions(mqttLinux PRIVATE MQTTCLIENT_PLATFORM_HEADER=MQTTLinux.h MQTTCLIENT_QOS2=1)
+    #add_library(libMQTTPacketClient SHARED ${PROJECT_SOURCE_DIR}/examples/pubsub/mqtt/paho-embed/linux/libMQTTPacketClient.so)
+    
+    #add_library(testlib SHARED IMPORTED)
+    #set_property(TARGET testlib PROPERTY IMPORTED_LOCATION "/examples/pubsub/mqtt/paho-embed/linux/libMQTTPacketClient.so")
+
+    #LINK_DIRECTORIES(pubsub/mqtt/paho-embed)
+    TARGET_LINK_LIBRARIES(tutorial_pubsub_publish paho-embed-mqtt3c)
+    TARGET_LINK_LIBRARIES(tutorial_pubsub_publish paho-embed-mqtt3cc)
+    TARGET_LINK_LIBRARIES(tutorial_pubsub_publish MQTTPacketClient)
+    TARGET_LINK_LIBRARIES(tutorial_pubsub_publish MQTTPacketServer)
+
+
+    target_link_libraries(tutorial_pubsub_publish open62541 ${open62541_LIBRARIES})
+    assign_source_group(pubsub/tutorial_pubsub_publish.c)
+    add_dependencies(tutorial_pubsub_publish open62541-amalgamation-header open62541-amalgamation-source)
+    set_target_properties(tutorial_pubsub_publish PROPERTIES FOLDER "open62541/examples")
+    set_target_properties(tutorial_pubsub_publish PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+    if(UA_COMPILE_AS_CXX)
+        set_source_files_properties(tutorial_pubsub_publish PROPERTIES LANGUAGE CXX)
+    endif()
+
+    
 endif()

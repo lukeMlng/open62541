@@ -60,6 +60,10 @@
 #include "ua_network_pubsub_mqtt.h"
 #include "ua_log_stdout.h"
 
+
+
+MQTT_Funcs mqtt_funcs;
+
 //mqtt network layer specific internal data
 typedef struct {
     UA_UInt32 id;
@@ -149,6 +153,7 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
     sprintf(port, "%u", networkPort);
 
     
+    mqtt_funcs.connectMqtt(hostname, networkPort);
     
     //link channel and internal channel data
     newChannel->handle = channelDataMQTT;
@@ -201,6 +206,9 @@ UA_PubSubChannelMQTT_send(UA_PubSubChannel *channel, UA_ExtensionObject *transpo
         UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection sending failed. Invalid state.");
         return UA_STATUSCODE_BADINTERNALERROR;
     }
+    
+    mqtt_funcs.publishMqtt(UA_STRING("Topic"), buf);
+    
     printf("%u", channelConfigMQTT->id);
     return UA_STATUSCODE_GOOD;
 }
@@ -259,7 +267,8 @@ TransportLayerMQTT_addChannel(UA_PubSubConnectionConfig *connectionConfig) {
 
 //MQTT channel factory
 UA_PubSubTransportLayer
-UA_PubSubTransportLayerMQTT() {
+UA_PubSubTransportLayerMQTT(MQTT_Funcs f) {
+    mqtt_funcs = f;
     UA_PubSubTransportLayer pubSubTransportLayer;
     pubSubTransportLayer.transportProfileUri = UA_STRING("http://opcfoundation.org/UA-Profile/Transport/pubsub-mqtt");
     pubSubTransportLayer.createPubSubChannel = &TransportLayerMQTT_addChannel;
