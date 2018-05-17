@@ -2154,6 +2154,33 @@ START_TEST(UA_Variant_QualName_json_encode) {
 }
 END_TEST
 
+
+
+START_TEST(UA_DataSetFieldFlags_json_encode) {
+    UA_DataSetFieldFlags *src = UA_DataSetFieldFlags_new();
+    UA_DataSetFieldFlags_init(src);
+    *src = UA_DATASETFIELDFLAGS_PROMOTEDFIELD;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_DATASETFIELDFLAGS];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    //TODO
+    char* result = "1";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf);
+}
+END_TEST
+
 START_TEST(UA_ExtensionObject_json_encode) {
     UA_ExtensionObject *src = UA_ExtensionObject_new();
     UA_ExtensionObject_init(src);
@@ -3252,6 +3279,7 @@ START_TEST(UA_ExtensionObject_EncodedByteString_json_decode) {
     ck_assert_int_eq(out.content.encoded.typeId.identifier.numeric, 42);
 }
 END_TEST
+
          
 static Suite *testSuite_builtin(void) {
     Suite *s = suite_create("Built-in Data Types 62541-6 Table 1");
@@ -3372,6 +3400,8 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_encode, UA_Double_onesmallest_json_encode);
     tcase_add_test(tc_json_encode, UA_Float_json_encode);
     
+    tcase_add_test(tc_json_encode, UA_DataSetFieldFlags_json_encode);
+    
     suite_add_tcase(s, tc_json_encode);
     
     TCase *tc_json_decode = tcase_create("json_decode");
@@ -3410,6 +3440,7 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_decode, UA_ExtensionObject_EncodedByteString_json_decode);
     tcase_add_test(tc_json_decode, UA_ExtensionObjectWrap_json_decode);
     tcase_add_test(tc_json_decode, UA_ExtensionObjectWrapString_json_decode);
+    
     
     suite_add_tcase(s, tc_json_decode);
     return s;
