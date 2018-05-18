@@ -1040,7 +1040,7 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
                     UA_ByteString_deleteMembers(&buf);
                     return;
                 };
-                connection->channel->send(connection->channel, NULL, &buf);
+                connection->channel->send(connection->channel, &writerGroup->config.transportSettings, &buf);
             }
             UA_ByteString_deleteMembers(&buf);
         }

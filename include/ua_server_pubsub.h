@@ -247,14 +247,6 @@ UA_Server_removeDataSetField(UA_Server *server, const UA_NodeId dsf);
  * contained in the WriterGroup. */
 
 typedef enum {
-    UA_PUBSUB_BROKER_TRANSPORT_QOS_NOTSPECIFIED,
-    UA_PUBSUB_BROKER_TRANSPORT_QOS_BESTEFFORT,
-    UA_PUBSUB_BROKER_TRANSPORT_QOS_ATLEASTONCE,
-    UA_PUBSUB_BROKER_TRANSPORT_QOS_EXACTLYONCE
-} UA_PubSubBrokerTransportQosType;
-
-
-typedef enum {
     UA_PUBSUB_ENCODING_BINARY,
     UA_PUBSUB_ENCODING_JSON,
     UA_PUBSUB_ENCODING_UADP

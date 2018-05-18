@@ -118,9 +118,24 @@ addWriterGroup(UA_Server *server) {
     UA_WriterGroupConfig writerGroupConfig;
     memset(&writerGroupConfig, 0, sizeof(UA_WriterGroupConfig));
     writerGroupConfig.name = UA_STRING("Demo WriterGroup");
-    writerGroupConfig.publishingInterval = 1000;
+    writerGroupConfig.publishingInterval = 10;
     writerGroupConfig.enabled = UA_FALSE;
     writerGroupConfig.encodingMimeType = UA_PUBSUB_ENCODING_JSON;
+    
+    UA_BrokerWriterGroupTransportDataType brokerTransportSettings; //UA_BrokerConnectionTransportDataType_new();
+    memset(&brokerTransportSettings, 0, sizeof(UA_BrokerWriterGroupTransportDataType));
+    brokerTransportSettings.queueName = UA_STRING("customTopic");
+    brokerTransportSettings.resourceUri = UA_STRING_NULL;
+    brokerTransportSettings.authenticationProfileUri = UA_STRING_NULL;
+    brokerTransportSettings.requestedDeliveryGuarantee = UA_BROKERTRANSPORTQUALITYOFSERVICE_BESTEFFORT;
+    
+    UA_ExtensionObject transportSettings;
+    memset(&transportSettings, 0, sizeof(UA_ExtensionObject));
+    transportSettings.encoding = UA_EXTENSIONOBJECT_DECODED;
+    transportSettings.content.decoded.type = &UA_TYPES[UA_TYPES_BROKERWRITERGROUPTRANSPORTDATATYPE];
+    transportSettings.content.decoded.data = &brokerTransportSettings;
+    
+    writerGroupConfig.transportSettings = transportSettings;
     /* The configuration flags for the messages are encapsulated inside the
      * message- and transport settings extension objects. These extension objects
      * are defined by the standard. e.g. UadpWriterGroupMessageDataType */
@@ -210,7 +225,7 @@ UA_StatusCode connectMqtt(UA_String host, int port){
     //data.password.cstring = opts.password;
 
     data.keepAliveInterval = 10;
-    data.cleansession = 1;
+    data.cleansession = 0;
     printf("Connecting\n");
 
     rc = MQTTConnect(&client, &data);
