@@ -1015,7 +1015,7 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
                  *   {
                  *    "Timestamp":{"majorVersion":2079806354,"minorVersion":0},
                  *    "Timestamp":"2018-28-28T14:24:44Z",
-                 *    "Payload":[0]
+                 *    "Payload":[]
                  *   }
                  *  ]
                  * }
@@ -1024,8 +1024,8 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
                 //TODO: How can we calculate the size?
                 size_t len = strlen((char*)buf.data);
                 buf.length = len;
-                UA_LOG_INFO(server->config.logger, UA_LOGCATEGORY_NETWORK, "Send JSON!");
-                connection->channel->send(connection->channel, NULL, &buf);
+                
+                connection->channel->send(connection->channel, &writerGroup->config.transportSettings, &buf);
             }
             UA_ByteString_deleteMembers(&buf);
         }else if(writerGroup->config.encodingMimeType == UA_PUBSUB_ENCODING_UADP) {

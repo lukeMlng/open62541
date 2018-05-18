@@ -18,6 +18,9 @@ typedef struct {
     UA_StatusCode (*connectMqtt)(UA_String host, int port);
     UA_StatusCode (*disconnectMqtt)(void);
     UA_StatusCode (*publishMqtt)(UA_String topic, const UA_ByteString *buf);
+    UA_StatusCode (*subscribeMqtt)(UA_String topic, UA_StatusCode (*cb)(UA_ByteString *buf));
+    UA_StatusCode (*unSubscribeMqtt)(UA_String topic);
+    UA_StatusCode (*yieldMqtt)(void);
 } MQTT_Funcs;
     
 UA_PubSubTransportLayer
