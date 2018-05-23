@@ -133,6 +133,7 @@ if(UA_ENABLE_PUBSUB)
     #add_example(tutorial_pubsub_publish pubsub/tutorial_pubsub_publish.c)
 
     include_directories(pubsub/mqtt/paho-embed)
+    include_directories(pubsub/mqtt/mqtt-c)
     #include_directories(pubsub/mqtt/paho-embed/linux)
 
 
@@ -151,8 +152,20 @@ if(UA_ENABLE_PUBSUB)
     #add_definitions("-c ${PROJECT_SOURCE_DIR}/examples/pubsub/mqtt/paho-embed/linux/MQTTLinux.c")
     
     #add_library(mylib STATIC pubsub/mqtt/paho-embed/linux/MQTTLinux.c)
+
+    
+    #-------------------------
+    #mqtt-c
+    #add_executable(tutorial_pubsub_publish pubsub/tutorial_pubsub_publish.c pubsub/mqtt/plugin_mqtt_mqtt-c.c)
+    #find_library(libmqtt  NAMES libmqtt.a )
+    #target_link_libraries(tutorial_pubsub_publish ${libmqtt})
+    
+    #paho-embed   
     add_executable(tutorial_pubsub_publish pubsub/tutorial_pubsub_publish.c pubsub/mqtt/paho-embed/linux/MQTTLinux.c pubsub/mqtt/plugin_mqtt_paho_embed.c)
     add_definitions("-include ${PROJECT_SOURCE_DIR}/examples/pubsub/mqtt/paho-embed/linux/MQTTLinux.h")
+    #---------------------------
+
+
     #target_link_libraries(tutorial_pubsub_publish mylib)
 
     #add_executable(tutorial_pubsub_publish pubsub/tutorial_pubsub_publish.c ${PROJECT_SOURCE_DIR}/examples/pubsub/mqtt/paho-embed/linux/MQTTLinux.c  )

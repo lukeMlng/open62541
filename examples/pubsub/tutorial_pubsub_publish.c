@@ -172,7 +172,7 @@ int main(void) {
     UA_StatusCode retval = UA_STATUSCODE_GOOD;
     UA_ServerConfig *config = UA_ServerConfig_new_default();
     /* Details about the connection configuration and handling are located in the pubsub connection tutorial */
-    config->pubsubTransportLayers = (UA_PubSubTransportLayer *) UA_malloc(sizeof(UA_PubSubTransportLayer));
+    config->pubsubTransportLayers = (UA_PubSubTransportLayer *) UA_malloc(1  * sizeof(UA_PubSubTransportLayer));
     if(!config->pubsubTransportLayers) {
         UA_ServerConfig_delete(config);
         return -1;
@@ -187,6 +187,7 @@ int main(void) {
     funcs.subscribeMqtt = &subscribeMqtt;
     
     //config->pubsubTransportLayers[0] = UA_PubSubTransportLayerUDPMP();
+    //config->pubsubTransportLayersSize++;
     config->pubsubTransportLayers[0] = UA_PubSubTransportLayerMQTT(funcs);
     config->pubsubTransportLayersSize++;
     UA_Server *server = UA_Server_new(config);
