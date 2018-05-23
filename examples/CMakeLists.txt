@@ -151,7 +151,7 @@ if(UA_ENABLE_PUBSUB)
     #add_definitions("-c ${PROJECT_SOURCE_DIR}/examples/pubsub/mqtt/paho-embed/linux/MQTTLinux.c")
     
     #add_library(mylib STATIC pubsub/mqtt/paho-embed/linux/MQTTLinux.c)
-    add_executable(tutorial_pubsub_publish pubsub/tutorial_pubsub_publish.c pubsub/mqtt/paho-embed/linux/MQTTLinux.c)
+    add_executable(tutorial_pubsub_publish pubsub/tutorial_pubsub_publish.c pubsub/mqtt/paho-embed/linux/MQTTLinux.c pubsub/mqtt/plugin_mqtt_paho_embed.c)
     add_definitions("-include ${PROJECT_SOURCE_DIR}/examples/pubsub/mqtt/paho-embed/linux/MQTTLinux.h")
     #target_link_libraries(tutorial_pubsub_publish mylib)
 

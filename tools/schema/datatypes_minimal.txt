@@ -211,3 +211,4 @@ BrokerTransportQualityOfService
 BrokerConnectionTransportDataType
 BrokerWriterGroupTransportDataType
 BrokerDataSetWriterTransportDataType
+BrokerWriterGroupTransportType

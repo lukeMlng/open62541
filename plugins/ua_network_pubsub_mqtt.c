@@ -57,6 +57,7 @@
 
 #include <stdio.h>
 #include "ua_plugin_network.h"
+#include "ua_plugin_mqtt.h"
 #include "ua_network_pubsub_mqtt.h"
 #include "ua_log_stdout.h"
 
@@ -131,7 +132,7 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
     UA_String hostname, path;
     UA_UInt16 networkPort;
     //TODO replace fallback to use the existing parseEndpointUrl function. Extend parseEndpointUrl for UDP or create own parseEndpointUrl function for PubSub.
-    if(strncmp((char*)&address.url.data, "opc.mqtt://", 10) != 0){
+    if(strncmp((char*)&address.url.data, "opc.tcp://", 10) != 0){
         strncpy((char*)address.url.data, "opc.tcp://", 10);
     } else {
         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER,
@@ -261,7 +262,6 @@ UA_PubSubChannelMQTT_send(UA_PubSubChannel *channel, UA_ExtensionObject *transpo
     }
     
     UA_StatusCode ret = UA_STATUSCODE_GOOD;
-    
     UA_Byte qos;
     UA_String topic;
     
