@@ -73,19 +73,19 @@ UA_StatusCode connectMqtt(UA_String host, int port){
 
 UA_StatusCode subscribeMqtt(UA_String topic, UA_StatusCode (*cb)(UA_ByteString *buf)){
 
-    return 0;
+    return UA_STATUSCODE_BADNOTIMPLEMENTED;
 }
 
 
 UA_StatusCode unSubscribeMqtt(UA_String topic){
 
-    return 0;
+    return UA_STATUSCODE_BADNOTIMPLEMENTED;
 }
 
 
 UA_StatusCode yieldMqtt(){
 
-    return 0;
+    return UA_STATUSCODE_BADNOTIMPLEMENTED;
 }
 
 

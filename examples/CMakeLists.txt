@@ -134,6 +134,7 @@ if(UA_ENABLE_PUBSUB)
 
     include_directories(pubsub/mqtt/paho-embed)
     include_directories(pubsub/mqtt/mqtt-c)
+    include_directories(pubsub/mqtt/mosquitto)
     #include_directories(pubsub/mqtt/paho-embed/linux)
 
 
@@ -161,9 +162,19 @@ if(UA_ENABLE_PUBSUB)
     #target_link_libraries(tutorial_pubsub_publish ${libmqtt})
     
     #paho-embed   
-    add_executable(tutorial_pubsub_publish pubsub/tutorial_pubsub_publish.c pubsub/mqtt/paho-embed/linux/MQTTLinux.c pubsub/mqtt/plugin_mqtt_paho_embed.c)
-    add_definitions("-include ${PROJECT_SOURCE_DIR}/examples/pubsub/mqtt/paho-embed/linux/MQTTLinux.h")
+    #add_executable(tutorial_pubsub_publish pubsub/tutorial_pubsub_publish.c pubsub/mqtt/paho-embed/linux/MQTTLinux.c pubsub/mqtt/plugin_mqtt_paho_embed.c)
+    #add_definitions("-include ${PROJECT_SOURCE_DIR}/examples/pubsub/mqtt/paho-embed/linux/MQTTLinux.h")
+    #TARGET_LINK_LIBRARIES(tutorial_pubsub_publish paho-embed-mqtt3c)
+    #TARGET_LINK_LIBRARIES(tutorial_pubsub_publish paho-embed-mqtt3cc)
+    #TARGET_LINK_LIBRARIES(tutorial_pubsub_publish MQTTPacketClient)
+    #TARGET_LINK_LIBRARIES(tutorial_pubsub_publish MQTTPacketServer)
+
+    #mosquitto
+    add_executable(tutorial_pubsub_publish pubsub/tutorial_pubsub_publish.c pubsub/mqtt/plugin_mqtt_mosquitto.c)
+    TARGET_LINK_LIBRARIES(tutorial_pubsub_publish mosquitto)
     #---------------------------
+
+
 
 
     #target_link_libraries(tutorial_pubsub_publish mylib)
@@ -177,11 +188,7 @@ if(UA_ENABLE_PUBSUB)
     #set_property(TARGET testlib PROPERTY IMPORTED_LOCATION "/examples/pubsub/mqtt/paho-embed/linux/libMQTTPacketClient.so")
 
     #LINK_DIRECTORIES(pubsub/mqtt/paho-embed)
-    TARGET_LINK_LIBRARIES(tutorial_pubsub_publish paho-embed-mqtt3c)
-    TARGET_LINK_LIBRARIES(tutorial_pubsub_publish paho-embed-mqtt3cc)
-    TARGET_LINK_LIBRARIES(tutorial_pubsub_publish MQTTPacketClient)
-    TARGET_LINK_LIBRARIES(tutorial_pubsub_publish MQTTPacketServer)
-
+    
 
     target_link_libraries(tutorial_pubsub_publish open62541 ${open62541_LIBRARIES})
     assign_source_group(pubsub/tutorial_pubsub_publish.c)
