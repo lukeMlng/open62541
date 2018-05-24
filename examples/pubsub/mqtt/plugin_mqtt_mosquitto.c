@@ -22,7 +22,8 @@ extern "C" {
 struct mosquitto *mosq = NULL;
     
 UA_StatusCode disconnectMqtt(){
-    int ret = mosquitto_loop_stop(mosq, true);
+    int ret = mosquitto_disconnect(mosq);
+    ret = mosquitto_loop_stop(mosq, true);
     mosquitto_destroy(mosq);
     if(ret != MOSQ_ERR_SUCCESS){
         return UA_STATUSCODE_BADCOMMUNICATIONERROR;
@@ -49,6 +50,7 @@ UA_StatusCode connectMqtt(UA_String host, int port){
         return UA_STATUSCODE_BADCOMMUNICATIONERROR;
     }
     
+    //mosquitto_loop(mosq);
     int loop = mosquitto_loop_start(mosq);
     if(loop != MOSQ_ERR_SUCCESS){
         fprintf(stderr, "Unable to start loop: %i\n", loop);
