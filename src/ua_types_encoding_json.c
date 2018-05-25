@@ -1626,7 +1626,7 @@ Array_decodeJson(void *dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parseCt
 static status
 Variant_decodeJsonUnwrapExtensionObject(UA_Variant *dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parseCtx, UA_Boolean moveToken);
 
-static jsmntype_t getJsmnType(const ParseCtx *parseCtx){
+jsmntype_t getJsmnType(const ParseCtx *parseCtx){
     return parseCtx->tokenArray[*parseCtx->index].type;
 }
 
@@ -1966,7 +1966,6 @@ DECODE_JSON(QualifiedName) {
     return UA_STATUSCODE_GOOD;
 }
 
-status lookAheadForKey(UA_String search, Ctx *ctx, ParseCtx *parseCtx, size_t *resultIndex);
 status searchObjectForKeyRec(char* s, Ctx *ctx, ParseCtx *parseCtx, size_t *resultIndex, UA_UInt16 depth);
 
 status searchObjectForKeyRec(char* s, Ctx *ctx, ParseCtx *parseCtx, size_t *resultIndex, UA_UInt16 depth){
@@ -2749,6 +2748,10 @@ decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames
     }
     
     return ret;
+}
+
+decodeJsonSignature getDecodeSignature(u8 index){
+    return decodeJsonJumpTable[index];
 }
 
 

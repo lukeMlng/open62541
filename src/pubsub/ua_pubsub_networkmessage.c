@@ -135,14 +135,117 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_Byte **bufPos,
     return rv;
 }
 
-static status NetworkMessage_decodeJsonInternal(UA_NetworkMessage *dst, Ctx *ctx, ParseCtx *parseCtx){
-    const char* fieldNames[1];
-    void *fieldPointer[1];
-    decodeJsonSignature functions[1];
-    UA_Boolean found[1];
-    
-    decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, NULL, found);
+static status
+DatasetMessage_Payload_decodeJsonInternal(UA_DataSetMessage* dsm, const UA_DataType *type, Ctx *ctx, ParseCtx *parseCtx, UA_Boolean moveToken) {
+    //------------------CONTENT-----------------------
+    /*UA_Boolean isPayloadArray = UA_FALSE;
+    //size_t messageCount = 0;    
+    {
+        //Is Messages an Array? How big?
+        size_t searchResultBody = 0;
+        UA_String searchKeyBody = UA_STRING("Payload");
+        lookAheadForKey(searchKeyBody, ctx, parseCtx, &searchResultBody);
+        if(searchResultBody != 0){
+            jsmntok_t bodyToken = parseCtx->tokenArray[searchResultBody];
+            if(bodyToken.type == JSMN_ARRAY){
+                isPayloadArray = UA_TRUE;
+                //messageCount = (size_t)parseCtx->tokenArray[searchResultBody].size;
+                //TODO set sizes
+            }
+        }
+    }*/
 
+    UA_ConfigurationVersionDataType cvd;
+
+    u8 fieldCount = 4;
+    const char* fieldNames[] = {"SequenceNumber", "MetaDataVersion", "Status", "Payload"};
+    void *fieldPointer[] = {&dsm->header.dataSetMessageSequenceNr, &cvd, &dsm->header.status, &dsm->data.keyFrameData.dataSetFields};
+    decodeJsonSignature functions[] = {
+        getDecodeSignature(UA_TYPES_UINT16),
+        getDecodeSignature(UA_TYPES_UINT16),
+        getDecodeSignature(UA_TYPES_STRING),
+        getDecodeSignature(UA_TYPES_DATAVALUE)
+    };
+    
+    status ret = decodeFields(ctx, parseCtx, fieldCount, fieldNames, functions, fieldPointer, NULL, NULL);
+    return ret;
+}
+
+static status
+DatasetMessage_Array_decodeJsonInternal(void *UA_RESTRICT dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parseCtx, UA_Boolean moveToken) {
+    /* Array! */
+    if(getJsmnType(parseCtx) != JSMN_ARRAY){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
+    size_t length = (size_t)parseCtx->tokenArray[*parseCtx->index].size;
+    
+    /* Return early for empty arrays */
+    if(length == 0) {
+        return UA_STATUSCODE_GOOD;
+    }
+
+    /* Allocate memory */
+    UA_DataSetMessage *dsm = (UA_DataSetMessage*)UA_calloc(length, sizeof(UA_DataSetMessage));
+    if(dsm == NULL)
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+    
+    memcpy(dst, &dsm, sizeof(void*)); //Copy new Pointer do dest
+    
+
+    (*parseCtx->index)++; // We go to first Array member!
+    
+    /* Decode array members */
+    for(size_t i = 0; i < length; ++i) {
+        //ret = decodeJsonJumpTable[decode_index]((void*)dsm[i], type, ctx, parseCtx, UA_TRUE);
+       
+        status ret = DatasetMessage_Payload_decodeJsonInternal(&dsm[i], NULL, ctx, parseCtx, UA_TRUE);
+        
+        if(ret != UA_STATUSCODE_GOOD){
+            //TODO: handle error, free mem
+        }
+    }
+    
+    return 0;
+}
+
+static status NetworkMessage_decodeJsonInternal(UA_NetworkMessage *dst, Ctx *ctx, ParseCtx *parseCtx){
+    
+    /*UA_Boolean isArray = UA_FALSE;
+    //size_t messageCount = 0;    
+    {
+        //Is Messages an Array? How big?
+        size_t searchResultBody = 0;
+        UA_String searchKeyBody = UA_STRING("Messages");
+        lookAheadForKey(searchKeyBody, ctx, parseCtx, &searchResultBody);
+        if(searchResultBody != 0){
+            jsmntok_t bodyToken = parseCtx->tokenArray[searchResultBody];
+            if(bodyToken.type == JSMN_ARRAY){
+                isArray = UA_TRUE;
+                //messageCount = (size_t)parseCtx->tokenArray[searchResultBody].size;
+                //TODO set sizes
+            }
+        }
+    }*/
+    
+    /* Network Message */
+    u8 fieldCount = 5;
+    UA_Guid guid;
+    UA_String messageType;
+    const char* fieldNames[] = {"MessageId", "MessageType", "PublisherId", "DataSetClassId", "Messages"};
+    void *fieldPointer[] = {&guid, &messageType, &dst->publisherId.publisherIdString, &dst->dataSetClassId, &dst->payload.dataSetPayload.dataSetMessages};
+    decodeJsonSignature functions[] = {
+        getDecodeSignature(UA_TYPES_GUID),
+        getDecodeSignature(UA_TYPES_STRING),
+        getDecodeSignature(UA_TYPES_STRING),
+        getDecodeSignature(UA_TYPES_GUID),
+        &DatasetMessage_Array_decodeJsonInternal
+    };
+        
+        
+    //UA_Boolean found[] = {};
+    decodeFields(ctx, parseCtx, fieldCount, fieldNames, functions, fieldPointer, NULL, NULL);
+    
     return UA_STATUSCODE_GOOD;
 }
 

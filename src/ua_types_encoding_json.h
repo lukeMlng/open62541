@@ -60,6 +60,11 @@ typedef status (*decodeJsonSignature)(void *UA_RESTRICT dst, const UA_DataType *
 status 
 decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames[], decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type, UA_Boolean found[]);
 
+/* workaround: TODO generate functions for UA_xxx_decodeJson */
+decodeJsonSignature getDecodeSignature(u8 index);
+status lookAheadForKey(UA_String search, Ctx *ctx, ParseCtx *parseCtx, size_t *resultIndex);
+
+jsmntype_t getJsmnType(const ParseCtx *parseCtx);
 status tokenize(ParseCtx *parseCtx, Ctx *ctx, const UA_ByteString *src, UA_UInt16 *tokenIndex);
 //typedef UA_StatusCode (*UA_exchangeEncodeBuffer)(void *handle, UA_Byte **bufPos,
 //                                                 const UA_Byte **bufEnd);
