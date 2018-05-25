@@ -20,7 +20,7 @@ extern "C" {
 #include "ua_types_encoding_binary.h"
 #include "ua_types_encoding_json.h"
 #include "ua_types.h"
-
+#include "../deps/jsmn/jsmn.h"
 
 typedef struct {
     /* Pointers to the current position and the last position in the buffer */
@@ -36,6 +36,7 @@ typedef struct {
     void *exchangeBufferCallbackHandle;
 } Ctx;
     
+
 status writeKey(Ctx *ctx, const char* key);
 status encodingJsonStartObject(Ctx *ctx);
 size_t encodingJsonEndObject(Ctx *ctx);
@@ -43,6 +44,23 @@ status encodingJsonStartArray(Ctx *ctx);
 size_t encodingJsonEndArray(Ctx *ctx);
 status writeComma(Ctx *ctx);
 
+
+
+typedef struct {
+    jsmntok_t tokenArray[128];
+    UA_Int32 tokenCount;
+    UA_UInt16 *index;
+} ParseCtx;
+
+typedef status(*encodeJsonSignature)(const void *UA_RESTRICT src, const UA_DataType *type,
+        Ctx *UA_RESTRICT ctx);
+typedef status (*decodeJsonSignature)(void *UA_RESTRICT dst, const UA_DataType *type,
+                                        Ctx *UA_RESTRICT ctx, ParseCtx *parseCtx, UA_Boolean moveToken);
+
+status 
+decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames[], decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type, UA_Boolean found[]);
+
+status tokenize(ParseCtx *parseCtx, Ctx *ctx, const UA_ByteString *src, UA_UInt16 *tokenIndex);
 //typedef UA_StatusCode (*UA_exchangeEncodeBuffer)(void *handle, UA_Byte **bufPos,
 //                                                 const UA_Byte **bufEnd);
 

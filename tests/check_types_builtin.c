@@ -3208,6 +3208,38 @@ START_TEST(UA_DataValue_json_decode) {
 
     // then
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    ck_assert_int_eq(out.hasStatus, 1);
+    ck_assert_int_eq(out.hasServerPicoseconds, 1);
+    ck_assert_int_eq(out.hasServerTimestamp, 1);
+    ck_assert_int_eq(out.hasSourcePicoseconds, 1);
+    ck_assert_int_eq(out.hasSourceTimestamp, 1);
+    ck_assert_int_eq(out.hasValue, 1);
+    ck_assert_int_eq(out.status, 2153250816);
+    ck_assert_int_eq(out.value.type->typeIndex, 0);
+    ck_assert_int_eq((*((UA_Boolean*)out.value.data)), 1);
+}
+END_TEST
+
+START_TEST(UA_DataValueMissingFields_json_decode) {
+    // given
+    
+    UA_DataValue out;
+    UA_DataValue_init(&out);
+    UA_ByteString buf = UA_STRING("{\"Value\":{\"Type\":0,\"Body\":true}}");
+
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_DATAVALUE], 0, 0);
+    //UA_DiagnosticInfo inner = *out.innerDiagnosticInfo;
+
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    ck_assert_int_eq(out.hasStatus, 0);
+    ck_assert_int_eq(out.hasServerPicoseconds, 0);
+    ck_assert_int_eq(out.hasServerTimestamp, 0);
+    ck_assert_int_eq(out.hasSourcePicoseconds, 0);
+    ck_assert_int_eq(out.hasSourceTimestamp, 0);
+    ck_assert_int_eq(out.hasValue, 1);
 }
 END_TEST
 
@@ -3436,6 +3468,7 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_decode, UA_VariantBool_json_decode);
     tcase_add_test(tc_json_decode, UA_VariantStringArray_json_decode);
     tcase_add_test(tc_json_decode, UA_DataValue_json_decode);
+    tcase_add_test(tc_json_decode, UA_DataValueMissingFields_json_decode);
     tcase_add_test(tc_json_decode, UA_ExtensionObject_json_decode);
     tcase_add_test(tc_json_decode, UA_ExtensionObject_EncodedByteString_json_decode);
     tcase_add_test(tc_json_decode, UA_ExtensionObjectWrap_json_decode);

@@ -135,6 +135,33 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_Byte **bufPos,
     return rv;
 }
 
+static status NetworkMessage_decodeJsonInternal(UA_NetworkMessage *dst, Ctx *ctx, ParseCtx *parseCtx){
+    const char* fieldNames[1];
+    void *fieldPointer[1];
+    decodeJsonSignature functions[1];
+    UA_Boolean found[1];
+    
+    decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, NULL, found);
+
+    return UA_STATUSCODE_GOOD;
+}
+
+status NetworkMessage_decodeJson(UA_NetworkMessage *dst, UA_ByteString *src);
+status NetworkMessage_decodeJson(UA_NetworkMessage *dst, UA_ByteString *src){
+    /* Set up the context */
+    Ctx ctx;
+    ParseCtx parseCtx;
+
+    UA_UInt16 tokenIndex = 0;
+    status ret = tokenize(&parseCtx, &ctx, src, &tokenIndex);
+    if(ret != UA_STATUSCODE_GOOD){
+        return ret;
+    }
+    
+    NetworkMessage_decodeJsonInternal(dst, &ctx, &parseCtx);
+    
+    return UA_STATUSCODE_BADNOTIMPLEMENTED;
+}
 
 UA_StatusCode
 UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src, UA_Byte **bufPos,

@@ -23,7 +23,6 @@
 
 #include "../deps/libb64/cencode.h"
 #include "../deps/libb64/cdecode.h"
-#include "../deps/jsmn/jsmn.h"
 #include "../deps/musl/floatscan.h"
 #include "../deps/musl/vfprintf.h"
 
@@ -46,16 +45,6 @@
 
 #define UA_ENCODING_MAX_RECURSION 20
 
-typedef struct {
-    jsmntok_t tokenArray[128];
-    UA_Int32 tokenCount;
-    UA_UInt16 *index;
-} ParseCtx;
-
-typedef status(*encodeJsonSignature)(const void *UA_RESTRICT src, const UA_DataType *type,
-        Ctx *UA_RESTRICT ctx);
-typedef status (*decodeJsonSignature)(void *UA_RESTRICT dst, const UA_DataType *type,
-                                        Ctx *UA_RESTRICT ctx, ParseCtx *parseCtx, UA_Boolean moveToken);
 
 
 #define ENCODE_JSON(TYPE) static status \
@@ -1626,10 +1615,6 @@ status UA_atoiSigned(const char input[], size_t size, UA_Int64 *result){
 
 #define DECODE_DIRECT(DST, TYPE) TYPE##_decodeJson((UA_##TYPE*)DST, NULL, ctx, parseCtx, UA_FALSE)
 
-static status 
-decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames[], decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type, UA_Boolean found[]);
-
-
 static status
 decodeJsonInternal(void *dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parseCtx, UA_Boolean moveToken);
 
@@ -2712,7 +2697,7 @@ status DiagnosticInfoInner_decodeJson(UA_DiagnosticInfo* dst, const UA_DataType*
     return DiagnosticInfo_decodeJson(inner, type, ctx, parseCtx, UA_TRUE);
 }
 
-static status 
+status 
 decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames[], decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type, UA_Boolean found[]) {
     size_t objectCount = (size_t)(parseCtx->tokenArray[(*parseCtx->index)].size);
     
@@ -2896,33 +2881,45 @@ decodeJsonInternal(void *dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parse
     return ret;
 }
 
+status tokenize(ParseCtx *parseCtx, Ctx *ctx, const UA_ByteString *src, UA_UInt16 *tokenIndex){
+     /* Set up the context */
+    ctx->pos = &src->data[0];
+    ctx->end = &src->data[src->length];
+    ctx->depth = 0;
+
+    
+    
+    parseCtx->tokenCount = 0;
+    parseCtx->index = tokenIndex;
+
+    jsmn_parser p;
+    
+
+    jsmn_init(&p);
+    parseCtx->tokenCount = (UA_Int32)jsmn_parse(&p, (char*)src->data, src->length, parseCtx->tokenArray, sizeof (parseCtx->tokenArray) / sizeof (parseCtx->tokenArray[0]));
+    
+    if (parseCtx->tokenCount < 0) {
+        //printf("Failed to parse JSON: %d\n", tokenCount);
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
+    return UA_STATUSCODE_GOOD;
+}
+
 status
 UA_decodeJson(const UA_ByteString *src, size_t *offset, void *dst,
                 const UA_DataType *type, size_t customTypesSize,
                 const UA_DataType *customTypes) {
     /* Set up the context */
     Ctx ctx;
-    ctx.pos = &src->data[*offset];
-    ctx.end = &src->data[src->length];
-    ctx.depth = 0;
+    ParseCtx parseCtx;
     ctx.customTypesArraySize = customTypesSize;
     ctx.customTypesArray = customTypes;
 
-    
     UA_UInt16 tokenIndex = 0;
-    ParseCtx parseCtx;
-    parseCtx.tokenCount = 0;
-    parseCtx.index = &tokenIndex;
-
-    jsmn_parser p;
-    
-
-    jsmn_init(&p);
-    parseCtx.tokenCount = (UA_Int32)jsmn_parse(&p, (char*)src->data, src->length, parseCtx.tokenArray, sizeof (parseCtx.tokenArray) / sizeof (parseCtx.tokenArray[0]));
-    
-    if (parseCtx.tokenCount < 0) {
-        //printf("Failed to parse JSON: %d\n", tokenCount);
-        return UA_STATUSCODE_BADDECODINGERROR;
+    status ret = tokenize(&parseCtx, &ctx, src, &tokenIndex);
+    if(ret != UA_STATUSCODE_GOOD){
+        return ret;
     }
 
     /* Assume the top-level element is an object */
@@ -2933,7 +2930,7 @@ UA_decodeJson(const UA_ByteString *src, size_t *offset, void *dst,
             if(parseCtx.tokenArray[0].type == JSMN_PRIMITIVE || parseCtx.tokenArray[0].type == JSMN_STRING){
                             /* Decode */
                memset(dst, 0, type->memSize); /* Initialize the value */
-               status ret = decodeJsonInternal(dst, type, &ctx, &parseCtx, UA_TRUE);
+               ret = decodeJsonInternal(dst, type, &ctx, &parseCtx, UA_TRUE);
                return ret;
             }
         }
@@ -2944,7 +2941,7 @@ UA_decodeJson(const UA_ByteString *src, size_t *offset, void *dst,
     
     /* Decode */
     memset(dst, 0, type->memSize); /* Initialize the value */
-    status ret = decodeJsonInternal(dst, type, &ctx, &parseCtx, UA_TRUE);
+    ret = decodeJsonInternal(dst, type, &ctx, &parseCtx, UA_TRUE);
 
     /*if(ret == UA_STATUSCODE_GOOD) {
         // Set the new offset 
