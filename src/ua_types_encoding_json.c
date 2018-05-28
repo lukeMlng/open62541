@@ -48,19 +48,19 @@
 
 
 #define ENCODE_JSON(TYPE) static status \
-    TYPE##_encodeJson(const UA_##TYPE *UA_RESTRICT src, const UA_DataType *type, Ctx *UA_RESTRICT ctx)
+    TYPE##_encodeJson(const UA_##TYPE *UA_RESTRICT src, const UA_DataType *type, Ctx *UA_RESTRICT ctx, UA_Boolean useReversible)
 
-#define ENCODE_DIRECT(SRC, TYPE) TYPE##_encodeJson((const UA_##TYPE*)SRC, NULL, ctx)
+#define ENCODE_DIRECT(SRC, TYPE) TYPE##_encodeJson((const UA_##TYPE*)SRC, NULL, ctx, useReversible)
 
 
 extern const encodeJsonSignature encodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1];
 extern const decodeJsonSignature decodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1];
 
-static status encodeJsonInternal(const void *src, const UA_DataType *type, Ctx *ctx);
+static status encodeJsonInternal(const void *src, const UA_DataType *type, Ctx *ctx, UA_Boolean useReversible);
 
 UA_String UA_DateTime_toJSON(UA_DateTime t);
 
-void addMatrixContentJSON(Ctx *ctx, void* array, const UA_DataType *type, size_t *index, UA_UInt32 *arrayDimensions, size_t dimensionIndex, size_t dimensionSize);
+void addMatrixContentJSON(Ctx *ctx, void* array, const UA_DataType *type, size_t *index, UA_UInt32 *arrayDimensions, size_t dimensionIndex, size_t dimensionSize, UA_Boolean useReversible);
 
 static UA_Boolean useReversibleForm = UA_TRUE;
 
@@ -200,19 +200,19 @@ static status exchangeBuffer(Ctx *ctx) {
  * following encoding never fails on a fresh buffer. This is true for numerical
  * types. */
 static status
-encodeWithExchangeBuffer(const void *ptr, encodeJsonSignature encodeFunc, Ctx *ctx) {
-    status ret = encodeFunc(ptr, NULL, ctx);
+encodeWithExchangeBuffer(const void *ptr, encodeJsonSignature encodeFunc, Ctx *ctx, UA_Boolean useReversible) {
+    status ret = encodeFunc(ptr, NULL, ctx, useReversible);
     if (ret == UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED) {
         ret = exchangeBuffer(ctx);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
-        encodeFunc(ptr, NULL, ctx);
+        encodeFunc(ptr, NULL, ctx, useReversible);
     }
     return UA_STATUSCODE_GOOD;
 }
 
 #define ENCODE_WITHEXCHANGE(VAR, TYPE) \
-    encodeWithExchangeBuffer((const void*)VAR, (encodeJsonSignature)TYPE##_encodeJson, ctx)
+    encodeWithExchangeBuffer((const void*)VAR, (encodeJsonSignature)TYPE##_encodeJson, ctx, useReversible)
 
 /*****************/
 /* Integer Types */
@@ -534,7 +534,7 @@ ENCODE_JSON(Double) {
 /******************/
 
 static status
-Array_encodeJsonComplex(uintptr_t ptr, size_t length, const UA_DataType *type, Ctx *ctx) {
+Array_encodeJsonComplex(uintptr_t ptr, size_t length, const UA_DataType *type, Ctx *ctx, UA_Boolean useReversible) {
     /* Get the encoding function for the data type. The jumptable at
      * UA_BUILTIN_TYPES_COUNT points to the generic UA_encodeJson method */
     size_t encode_index = type->builtin ? type->typeIndex : UA_BUILTIN_TYPES_COUNT;
@@ -551,7 +551,7 @@ Array_encodeJsonComplex(uintptr_t ptr, size_t length, const UA_DataType *type, C
         }
 
         u8 *oldpos = ctx->pos;
-        status ret = encodeType((const void*) ptr, type, ctx);
+        status ret = encodeType((const void*) ptr, type, ctx, useReversible);
         ptr += type->memSize;
         /* Encoding failed, switch to the next chunk when possible */
         if (ret != UA_STATUSCODE_GOOD) {
@@ -575,9 +575,9 @@ Array_encodeJsonComplex(uintptr_t ptr, size_t length, const UA_DataType *type, C
 }
 
 static status
-Array_encodeJson(const void *src, size_t length, const UA_DataType *type, Ctx *ctx, UA_Boolean isVariantArray) {
+Array_encodeJson(const void *src, size_t length, const UA_DataType *type, Ctx *ctx, UA_Boolean isVariantArray, UA_Boolean useReversible) {
     status ret = UA_STATUSCODE_GOOD;
-    ret = Array_encodeJsonComplex((uintptr_t) src, length, type, ctx);
+    ret = Array_encodeJsonComplex((uintptr_t) src, length, type, ctx, useReversible);
     return ret;
 }
 
@@ -810,7 +810,7 @@ ENCODE_JSON(DateTime) {
  * UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED before encoding the string, as the
  * buffer is not replaced. */
 static status
-NodeId_encodeJsonWithEncodingMask(UA_NodeId const *src, u8 encoding, Ctx *ctx) {
+NodeId_encodeJsonWithEncodingMask(UA_NodeId const *src, u8 encoding, Ctx *ctx, UA_Boolean useReversible) {
     status ret = UA_STATUSCODE_GOOD;
 
     switch (src->identifierType) {
@@ -897,7 +897,7 @@ NodeId_encodeJsonWithEncodingMask(UA_NodeId const *src, u8 encoding, Ctx *ctx) {
 
 ENCODE_JSON(NodeId) {
     WRITE(ObjStart);
-    UA_StatusCode ret = NodeId_encodeJsonWithEncodingMask(src, 0, ctx);
+    UA_StatusCode ret = NodeId_encodeJsonWithEncodingMask(src, 0, ctx, useReversible);
     WRITE(ObjEnd);
     return ret;
 }
@@ -915,7 +915,7 @@ ENCODE_JSON(ExpandedNodeId) {
         encoding |= UA_EXPANDEDNODEID_SERVERINDEX_FLAG;
 
     /* Encode the NodeId */
-    status ret = NodeId_encodeJsonWithEncodingMask(&src->nodeId, encoding, ctx);
+    status ret = NodeId_encodeJsonWithEncodingMask(&src->nodeId, encoding, ctx, useReversible);
     if (ret != UA_STATUSCODE_GOOD)
         return ret;
 
@@ -1105,7 +1105,7 @@ ENCODE_JSON(ExtensionObject) {
 
         /* Encode the content */
         writeKey(ctx, "Body");
-        ret |= encodeJsonInternal(src->content.decoded.data, contentType, ctx);
+        ret |= encodeJsonInternal(src->content.decoded.data, contentType, ctx, useReversible);
 
 
         WRITE(ObjEnd);
@@ -1121,7 +1121,7 @@ ENCODE_JSON(ExtensionObject) {
         WRITE(ObjStart);
         const UA_DataType *contentType = src->content.decoded.type;
         writeKey(ctx, "Body");
-        ret |= encodeJsonInternal(src->content.decoded.data, contentType, ctx);
+        ret |= encodeJsonInternal(src->content.decoded.data, contentType, ctx, useReversible);
         WRITE(ObjEnd);
     }
     return ret;
@@ -1130,7 +1130,7 @@ ENCODE_JSON(ExtensionObject) {
 /* Variant */
 /* Never returns UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED */
 static status
-Variant_encodeJsonWrapExtensionObject(const UA_Variant *src, const bool isArray, Ctx *ctx) {
+Variant_encodeJsonWrapExtensionObject(const UA_Variant *src, const bool isArray, Ctx *ctx, UA_Boolean useReversible) {
     /* Default to 1 for a scalar. */
     size_t length = 1;
 
@@ -1157,7 +1157,7 @@ Variant_encodeJsonWrapExtensionObject(const UA_Variant *src, const bool isArray,
     /* Iterate over the array */
     for (size_t i = 0; i < length && ret == UA_STATUSCODE_GOOD; ++i) {
         eo.content.decoded.data = (void*) ptr;
-        ret = encodeJsonInternal(&eo, &UA_TYPES[UA_TYPES_EXTENSIONOBJECT], ctx);
+        ret = encodeJsonInternal(&eo, &UA_TYPES[UA_TYPES_EXTENSIONOBJECT], ctx, useReversible);
         ptr += memSize;
     }
     return ret;
@@ -1169,7 +1169,7 @@ enum UA_VARIANT_ENCODINGMASKTYPE {
     UA_VARIANT_ENCODINGMASKTYPE_ARRAY = (0x01 << 7) /* bit 7 */
 };
 
-void addMatrixContentJSON(Ctx *ctx, void* array, const UA_DataType *type, size_t *index, UA_UInt32 *arrayDimensions, size_t dimensionIndex, size_t dimensionSize) {
+void addMatrixContentJSON(Ctx *ctx, void* array, const UA_DataType *type, size_t *index, UA_UInt32 *arrayDimensions, size_t dimensionIndex, size_t dimensionSize, UA_Boolean useReversible) {
 
 
     if (dimensionIndex == (dimensionSize - 1)) {
@@ -1183,7 +1183,7 @@ void addMatrixContentJSON(Ctx *ctx, void* array, const UA_DataType *type, size_t
                 WRITE(Comma);
             }
 
-            encodeJsonInternal(((u8*)array) + (type->memSize * *index), type, ctx);
+            encodeJsonInternal(((u8*)array) + (type->memSize * *index), type, ctx, useReversible);
             commaNeeded = UA_TRUE;
             (*index)++;
         }
@@ -1199,7 +1199,7 @@ void addMatrixContentJSON(Ctx *ctx, void* array, const UA_DataType *type, size_t
             if (commaNeeded) {
                 WRITE(Comma);
             }
-            addMatrixContentJSON(ctx, array, type, index, arrayDimensions, dimensionIndex, dimensionSize);
+            addMatrixContentJSON(ctx, array, type, index, arrayDimensions, dimensionIndex, dimensionSize, useReversible);
             commaNeeded = UA_TRUE;
         }
 
@@ -1254,7 +1254,7 @@ ENCODE_JSON(Variant) {
             ret |= ENCODE_DIRECT(&src->type->typeIndex, UInt16);
 
             writeKey(ctx, "Body");
-            ret = Variant_encodeJsonWrapExtensionObject(src, isArray, ctx);
+            ret = Variant_encodeJsonWrapExtensionObject(src, isArray, ctx,useReversible);
         } else if (!isArray) {
 
             commaNeeded = UA_FALSE;
@@ -1262,7 +1262,7 @@ ENCODE_JSON(Variant) {
             ret |= ENCODE_DIRECT(&src->type->typeIndex, UInt16);
 
             writeKey(ctx, "Body");
-            ret = encodeJsonInternal(src->data, src->type, ctx);
+            ret = encodeJsonInternal(src->data, src->type, ctx, useReversible);
         } else {
             //TODO: Variant Array
             commaNeeded = UA_FALSE;
@@ -1270,14 +1270,14 @@ ENCODE_JSON(Variant) {
             ret |= ENCODE_DIRECT(&src->type->typeIndex, UInt16);
 
             writeKey(ctx, "Body");
-            ret = Array_encodeJson(src->data, src->arrayLength, src->type, ctx, UA_TRUE);
+            ret = Array_encodeJson(src->data, src->arrayLength, src->type, ctx, UA_TRUE, useReversible);
         }
 
         /* Encode the array dimensions */
         if (hasDimensions && ret == UA_STATUSCODE_GOOD) {
             //TODO: Variant Dimension
             writeKey(ctx, "Dimension");
-            ret = Array_encodeJson(src->arrayDimensions, src->arrayDimensionsSize, &UA_TYPES[UA_TYPES_INT32], ctx, UA_FALSE);
+            ret = Array_encodeJson(src->arrayDimensions, src->arrayDimensionsSize, &UA_TYPES[UA_TYPES_INT32], ctx, UA_FALSE, useReversible);
         }
 
 
@@ -1291,12 +1291,12 @@ ENCODE_JSON(Variant) {
             writeKey(ctx, "Type");
             ret |= ENCODE_DIRECT(&src->type->typeIndex, UInt16);
             writeKey(ctx, "Body");
-            ret = Variant_encodeJsonWrapExtensionObject(src, isArray, ctx);
+            ret = Variant_encodeJsonWrapExtensionObject(src, isArray, ctx, useReversible);
         } else if (!isArray) {
             WRITE(ObjStart);
             commaNeeded = UA_FALSE;
             writeKey(ctx, "Body");
-            ret = encodeJsonInternal(src->data, src->type, ctx);
+            ret = encodeJsonInternal(src->data, src->type, ctx, useReversible);
             WRITE(ObjEnd);
             commaNeeded = UA_TRUE;
         } else {
@@ -1308,13 +1308,13 @@ ENCODE_JSON(Variant) {
                 size_t dimensionIndex = 0;
                 void *ptr = src->data;
                 const UA_DataType *arraytype = src->type;
-                addMatrixContentJSON(ctx, ptr, arraytype, &index, src->arrayDimensions, dimensionIndex, dimensionSize);
+                addMatrixContentJSON(ctx, ptr, arraytype, &index, src->arrayDimensions, dimensionIndex, dimensionSize, useReversible);
             } else {
                 //nonreversible simple array
                 WRITE(ObjStart);
                 commaNeeded = UA_FALSE;
                 writeKey(ctx, "Body");
-                ret = Array_encodeJson(src->data, src->arrayLength, src->type, ctx, UA_TRUE);
+                ret = Array_encodeJson(src->data, src->arrayLength, src->type, ctx, UA_TRUE, useReversible);
                 WRITE(ObjEnd);
                 commaNeeded = UA_TRUE;
             }
@@ -1422,7 +1422,7 @@ ENCODE_JSON(DiagnosticInfo) {
     /* Encode the inner diagnostic info */
     if (src->hasInnerDiagnosticInfo) {
         writeKey(ctx, "InnerDiagnosticInfo");
-        ret = encodeJsonInternal(src->innerDiagnosticInfo, &UA_TYPES[UA_TYPES_DIAGNOSTICINFO], ctx);
+        ret = encodeJsonInternal(src->innerDiagnosticInfo, &UA_TYPES[UA_TYPES_DIAGNOSTICINFO], ctx, useReversible);
     }
 
     WRITE(ObjEnd);
@@ -1466,7 +1466,7 @@ const encodeJsonSignature encodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
 };
 
 static status
-encodeJsonInternal(const void *src, const UA_DataType *type, Ctx *ctx) {
+encodeJsonInternal(const void *src, const UA_DataType *type, Ctx *ctx, UA_Boolean useReversible) {
     /* Check the recursion limit */
     if (ctx->depth > UA_ENCODING_MAX_RECURSION)
         return UA_STATUSCODE_BADENCODINGERROR;
@@ -1497,7 +1497,7 @@ encodeJsonInternal(const void *src, const UA_DataType *type, Ctx *ctx) {
             size_t encode_index = membertype->builtin ? membertype->typeIndex : UA_BUILTIN_TYPES_COUNT;
             size_t memSize = membertype->memSize;
             u8 *oldpos = ctx->pos;
-            ret = encodeJsonJumpTable[encode_index]((const void*) ptr, membertype, ctx);
+            ret = encodeJsonJumpTable[encode_index]((const void*) ptr, membertype, ctx, useReversible);
             ptr += memSize;
             if (ret == UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED) {
                 ctx->pos = oldpos; /* exchange/send the buffer */
@@ -1514,7 +1514,7 @@ encodeJsonInternal(const void *src, const UA_DataType *type, Ctx *ctx) {
             ptr += member->padding;
             const size_t length = *((const size_t*) ptr);
             ptr += sizeof (size_t);
-            ret = Array_encodeJson(*(void *UA_RESTRICT const *) ptr, length, membertype, ctx, UA_FALSE);
+            ret = Array_encodeJson(*(void *UA_RESTRICT const *) ptr, length, membertype, ctx, UA_FALSE, useReversible);
             ptr += sizeof (void*);
         }
     }
@@ -1533,7 +1533,7 @@ encodeJsonInternal(const void *src, const UA_DataType *type, Ctx *ctx) {
 status
 UA_encodeJson(const void *src, const UA_DataType *type,
         u8 **bufPos, const u8 **bufEnd,
-        UA_exchangeEncodeBuffer exchangeCallback, void *exchangeHandle) {
+        UA_exchangeEncodeBuffer exchangeCallback, void *exchangeHandle, UA_Boolean useReversible) {
     /* Set up the context */
     Ctx ctx;
     ctx.pos = *bufPos;
@@ -1543,7 +1543,7 @@ UA_encodeJson(const void *src, const UA_DataType *type,
     ctx.exchangeBufferCallbackHandle = exchangeHandle;
 
     /* Encode */
-    status ret = encodeJsonInternal(src, type, &ctx);
+    status ret = encodeJsonInternal(src, type, &ctx, useReversible);
 
     /* Set the new buffer position for the output. Beware that the buffer might
      * have been exchanged internally. */

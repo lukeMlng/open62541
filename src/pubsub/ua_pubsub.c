@@ -1002,7 +1002,7 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
                 UA_Byte *bufPos = buf.data;
                 memset(bufPos, 0, msgSize);
                 const UA_Byte *bufEnd = &(buf.data[buf.length]);
-                if(UA_NetworkMessage_encodeJson(&nmStore[i], &bufPos, bufEnd) != UA_STATUSCODE_GOOD){
+                if(UA_NetworkMessage_encodeJson(&nmStore[i], &bufPos, bufEnd, UA_TRUE) != UA_STATUSCODE_GOOD){
                     UA_ByteString_deleteMembers(&buf);
                     return;
                 };

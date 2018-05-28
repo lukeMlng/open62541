@@ -53,7 +53,7 @@ typedef struct {
 } ParseCtx;
 
 typedef status(*encodeJsonSignature)(const void *UA_RESTRICT src, const UA_DataType *type,
-        Ctx *UA_RESTRICT ctx);
+        Ctx *UA_RESTRICT ctx, UA_Boolean useReversible);
 typedef status (*decodeJsonSignature)(void *UA_RESTRICT dst, const UA_DataType *type,
                                         Ctx *UA_RESTRICT ctx, ParseCtx *parseCtx, UA_Boolean moveToken);
 
@@ -91,7 +91,7 @@ UA_StatusCode
 UA_encodeJson(const void *src, const UA_DataType *type,
                 UA_Byte **bufPos, const UA_Byte **bufEnd,
                 UA_exchangeEncodeBuffer exchangeCallback,
-                void *exchangeHandle) UA_FUNC_ATTR_WARN_UNUSED_RESULT;
+                void *exchangeHandle, UA_Boolean useReversible) UA_FUNC_ATTR_WARN_UNUSED_RESULT;
 
 /* Decodes a scalar value described by type from binary encoding. Decoding
  * is thread-safe if thread-local variables are enabled. Decoding is also

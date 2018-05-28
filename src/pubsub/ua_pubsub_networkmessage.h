@@ -95,7 +95,7 @@ typedef struct {
 
 UA_StatusCode
 UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_Byte **bufPos,
-                               const UA_Byte *bufEnd);
+                               const UA_Byte *bufEnd, UA_Boolean useReversible);
 
 UA_StatusCode
 UA_DataSetMessage_encodeBinary(const UA_DataSetMessage* src, UA_Byte **bufPos,
@@ -224,7 +224,7 @@ UA_NetworkMessage_delete(UA_NetworkMessage* p);
 
 UA_StatusCode
 UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src,
-                               UA_Byte **bufPos, const UA_Byte *bufEnd);
+                               UA_Byte **bufPos, const UA_Byte *bufEnd, UA_Boolean useReversible);
 
 UA_StatusCode NetworkMessage_decodeJson(UA_NetworkMessage *dst, UA_ByteString *src);
 
