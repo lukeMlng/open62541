@@ -57,7 +57,7 @@ static UA_Boolean UA_DataSetMessageHeader_DataSetFlags2Enabled(const UA_DataSetM
 //TEST with: socat UDP-RECV:4840,ip-add-membership=224.0.0.22:eth0,reuseaddr -
 
 UA_StatusCode
-UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_Byte **bufPos,
+UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_UInt16 dataSetWriterId, UA_Byte **bufPos,
                                const UA_Byte *bufEnd, UA_Boolean useReversible) {
     Ctx ctx;
     ctx.pos = *bufPos;
@@ -68,7 +68,14 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_Byte **bufPos,
     
     encodingJsonStartObject(&ctx);
     
-    // TODO: DataSetWriterId
+    // TODO: DataSetWriterId should be a string in json
+    rv = writeKey(&ctx, "DataSetWriterId");
+    *(ctx.pos++) = '"';
+    rv = UA_encodeJson(&dataSetWriterId, &UA_TYPES[UA_TYPES_UINT16], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
+    *(ctx.pos++) = '"';
+    if(rv != UA_STATUSCODE_GOOD)
+        return rv;
+    
     
     // DataSetMessageSequenceNr
     if(src->header.dataSetMessageSequenceNrEnabled) { 
@@ -108,22 +115,42 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_Byte **bufPos,
     
     rv = writeKey(&ctx, "Payload");
     encodingJsonStartArray(&ctx);
-    if(src->header.fieldEncoding == UA_FIELDENCODING_VARIANT) {
-        
-        /* TODO: Use non-reversible form */
-        for (UA_UInt16 i = 0; i < src->data.deltaFrameData.fieldCount; i++) {
-            rv = UA_encodeJson(&(src->data.deltaFrameData.deltaFrameFields[i].fieldValue.value), &UA_TYPES[UA_TYPES_VARIANT], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
-            if(rv != UA_STATUSCODE_GOOD)
-                return rv;
+    
+    if(src->header.dataSetMessageType == UA_DATASETMESSAGE_DATAKEYFRAME) {
+        if(src->header.fieldEncoding == UA_FIELDENCODING_VARIANT) {
+
+            /* TODO: Use non-reversible form */
+            for (UA_UInt16 i = 0; i < src->data.keyFrameData.fieldCount; i++) {
+                writeComma(&ctx);
+                rv = UA_encodeJson(&(src->data.keyFrameData.dataSetFields[i].value), &UA_TYPES[UA_TYPES_VARIANT], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
+                if(rv != UA_STATUSCODE_GOOD)
+                    return rv;
+            }
+        } else if(src->header.fieldEncoding == UA_FIELDENCODING_RAWDATA) {
+            /* TODO:  */
+            return UA_STATUSCODE_BADNOTIMPLEMENTED;
+        } else if(src->header.fieldEncoding == UA_FIELDENCODING_DATAVALUE) {
+            for (UA_UInt16 i = 0; i < src->data.keyFrameData.fieldCount; i++) {
+                writeComma(&ctx);
+                rv = UA_encodeJson(&(src->data.keyFrameData.dataSetFields[i]), &UA_TYPES[UA_TYPES_DATAVALUE], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
+                if(rv != UA_STATUSCODE_GOOD)
+                    return rv;
+            }
         }
-    } else if(src->header.fieldEncoding == UA_FIELDENCODING_RAWDATA) {
-        /* TODO:  */
-        return UA_STATUSCODE_BADNOTIMPLEMENTED;
-    } else if(src->header.fieldEncoding == UA_FIELDENCODING_DATAVALUE) {
-        for (UA_UInt16 i = 0; i < src->data.deltaFrameData.fieldCount; i++) {
-            rv = UA_encodeJson(&(src->data.deltaFrameData.deltaFrameFields[i].fieldValue), &UA_TYPES[UA_TYPES_DATAVALUE], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
-            if(rv != UA_STATUSCODE_GOOD)
-                return rv;
+    }else if(src->header.dataSetMessageType == UA_DATASETMESSAGE_DATADELTAFRAME){
+        if(src->header.fieldEncoding == UA_FIELDENCODING_VARIANT) {
+            /* TODO:  */
+            return UA_STATUSCODE_BADNOTIMPLEMENTED;
+        } else if(src->header.fieldEncoding == UA_FIELDENCODING_RAWDATA) {
+            /* TODO:  */
+            return UA_STATUSCODE_BADNOTIMPLEMENTED;
+        } else if(src->header.fieldEncoding == UA_FIELDENCODING_DATAVALUE) {
+            for (UA_UInt16 i = 0; i < src->data.deltaFrameData.fieldCount; i++) {
+                writeComma(&ctx);
+                rv = UA_encodeJson(&(src->data.deltaFrameData.deltaFrameFields[i].fieldValue), &UA_TYPES[UA_TYPES_DATAVALUE], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
+                if(rv != UA_STATUSCODE_GOOD)
+                    return rv;
+            }
         }
     }
     encodingJsonEndArray(&ctx);
@@ -361,14 +388,20 @@ UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src, UA_Byte **bufPos,
     
     // Payload
     if(src->networkMessageType == UA_NETWORKMESSAGE_DATASET) {
-        UA_Byte count = 1;
+        
+        UA_UInt16 *dataSetWriterIds = src->payloadHeader.dataSetPayloadHeader.dataSetWriterIds;
+        
+        //src->payloadHeader.dataSetPayloadHeader.dataSetWriterIds ???
+        UA_Byte count = src->payloadHeader.dataSetPayloadHeader.count;
         rv = writeKey(&ctx, "Messages");
         encodingJsonStartArray(&ctx);
         for (UA_Byte i = 0; i < count; i++) {
-            rv = UA_DataSetMessage_encodeJson(&(src->payload.dataSetPayload.dataSetMessages[i]), &ctx.pos, ctx.end, useReversible);
+            writeComma(&ctx);
+            rv = UA_DataSetMessage_encodeJson(&(src->payload.dataSetPayload.dataSetMessages[i]), dataSetWriterIds[i], &ctx.pos, ctx.end, useReversible);
             if(rv != UA_STATUSCODE_GOOD)
                 return rv;
         }
+        
         encodingJsonEndArray(&ctx);
     } else {
         rv = UA_STATUSCODE_BADNOTIMPLEMENTED;
