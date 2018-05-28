@@ -226,6 +226,8 @@ UA_StatusCode
 UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src,
                                UA_Byte **bufPos, const UA_Byte *bufEnd);
 
+UA_StatusCode NetworkMessage_decodeJson(UA_NetworkMessage *dst, UA_ByteString *src);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif

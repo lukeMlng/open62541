@@ -2419,6 +2419,16 @@ DECODE_JSON(Variant) {
 }
 
 DECODE_JSON(DataValue) {
+    if(getJsmnType(parseCtx) != JSMN_OBJECT){
+        if(isJsonNull(ctx, parseCtx)){
+            //TODO set datavalue NULL
+            dst = NULL;
+            return UA_STATUSCODE_GOOD;
+        }
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
+    status ret = UA_STATUSCODE_GOOD;
     const char* fieldNames[] = {"Value", "Status", "SourceTimestamp", "SourcePicoseconds", "ServerTimestamp", "ServerPicoseconds"};
     
     void *fieldPointer[] = {
@@ -2438,7 +2448,7 @@ DECODE_JSON(DataValue) {
         (decodeJsonSignature) UInt16_decodeJson};
     
     UA_Boolean found[] = {UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE};
-    decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, found);
+    ret = decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, found);
     dst->hasValue = found[0];
     dst->hasStatus = found[1];
     dst->hasSourceTimestamp = found[2];
@@ -2446,7 +2456,7 @@ DECODE_JSON(DataValue) {
     dst->hasServerTimestamp = found[4];
     dst->hasServerPicoseconds = found[5];
     
-    return UA_STATUSCODE_GOOD;
+    return ret;
 }
 
 DECODE_JSON(ExtensionObject) {
@@ -2743,9 +2753,10 @@ decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames
        
     }
 
-    if(memberSize != foundCount){
+    /* TODO needed? DataValue with missing
+     * if(memberSize != foundCount){
         return UA_STATUSCODE_BADDECODINGERROR;
-    }
+    }*/
     
     return ret;
 }

@@ -14,6 +14,7 @@
 #include "ua_types_generated_encoding_binary.h"
 #include "ua_util.h"
 #include "check.h"
+#include "ua_pubsub_networkmessage.h"
 
 
 /* copied here from encoding_binary.c */
@@ -3312,6 +3313,23 @@ START_TEST(UA_ExtensionObject_EncodedByteString_json_decode) {
 }
 END_TEST
 
+
+START_TEST(UA_Networkmessage_json_decode) {
+    // given
+    
+    UA_NetworkMessage out;
+    memset(&out, 0, sizeof(UA_NetworkMessage));
+    UA_ByteString buf = UA_STRING("{ \"MessageId\": \"32235546-05d9-4fd7-97df-ea3ff3408574\",  \"MessageType\": \"ua-data\",  \"PublisherId\": \"MQTT-Localhost\",  \"DataSetClassId\": \"00000005-cab9-4470-8f8a-2c1ead207e0e\",  \"Messages\": [    {      \"DataSetWriterId\": \"1\",      \"SequenceNumber\": 224,     \"MetaDataVersion\": {        \"MajorVersion\": 1,        \"MinorVersion\": 1      },\"Payload\":null}]}");
+
+    // when
+    UA_StatusCode retval = NetworkMessage_decodeJson(&out, &buf);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    ck_assert_int_eq(out.dataSetClassId.data1, 5);
+    ck_assert_int_eq(out.payload.dataSetPayload.dataSetMessages->header.dataSetMessageSequenceNr, 224);
+    ck_assert_ptr_eq(out.payload.dataSetPayload.dataSetMessages->data.keyFrameData.dataSetFields, NULL);
+}   
+END_TEST
          
 static Suite *testSuite_builtin(void) {
     Suite *s = suite_create("Built-in Data Types 62541-6 Table 1");
@@ -3473,7 +3491,7 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_decode, UA_ExtensionObject_EncodedByteString_json_decode);
     tcase_add_test(tc_json_decode, UA_ExtensionObjectWrap_json_decode);
     tcase_add_test(tc_json_decode, UA_ExtensionObjectWrapString_json_decode);
-    
+    tcase_add_test(tc_json_decode, UA_Networkmessage_json_decode);
     
     suite_add_tcase(s, tc_json_decode);
     return s;

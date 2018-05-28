@@ -135,6 +135,22 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_Byte **bufPos,
     return rv;
 }
 
+
+static status MetaDataVersion_decodeJsonInternal(void* dsm, const UA_DataType *type, Ctx *ctx, ParseCtx *parseCtx, UA_Boolean moveToken){
+    //TODO: MetaDataVersion
+    (*parseCtx->index)++;
+    (*parseCtx->index)++;
+    (*parseCtx->index)++;
+    (*parseCtx->index)++;
+    (*parseCtx->index)++;
+    return 0;
+}
+
+static status DataSetPayload_decodeJsonInternal(void* dsm, const UA_DataType *type, Ctx *ctx, ParseCtx *parseCtx, UA_Boolean moveToken){
+
+    return 0;
+}
+
 static status
 DatasetMessage_Payload_decodeJsonInternal(UA_DataSetMessage* dsm, const UA_DataType *type, Ctx *ctx, ParseCtx *parseCtx, UA_Boolean moveToken) {
     //------------------CONTENT-----------------------
@@ -157,16 +173,20 @@ DatasetMessage_Payload_decodeJsonInternal(UA_DataSetMessage* dsm, const UA_DataT
 
     UA_ConfigurationVersionDataType cvd;
 
-    u8 fieldCount = 4;
-    const char* fieldNames[] = {"SequenceNumber", "MetaDataVersion", "Status", "Payload"};
-    void *fieldPointer[] = {&dsm->header.dataSetMessageSequenceNr, &cvd, &dsm->header.status, &dsm->data.keyFrameData.dataSetFields};
+    u8 fieldCount = 5;
+    UA_UInt64 dataSetWriterId; //TODO: Where to store?
+    
+    const char* fieldNames[] = {"DataSetWriterId", "SequenceNumber", "MetaDataVersion", "Status", "Payload"};
+    void *fieldPointer[] = {&dataSetWriterId, &dsm->header.dataSetMessageSequenceNr, &cvd, &dsm->header.status, &dsm->data.keyFrameData.dataSetFields};
     decodeJsonSignature functions[] = {
+        getDecodeSignature(UA_TYPES_UINT64),
         getDecodeSignature(UA_TYPES_UINT16),
+        &MetaDataVersion_decodeJsonInternal,
         getDecodeSignature(UA_TYPES_UINT16),
-        getDecodeSignature(UA_TYPES_STRING),
-        getDecodeSignature(UA_TYPES_DATAVALUE)
+        &DataSetPayload_decodeJsonInternal
     };
     
+    //TODO: PAYLOAD is key value pairs of Variant. (Or DataValue as in .net impl?), set TYPE!
     status ret = decodeFields(ctx, parseCtx, fieldCount, fieldNames, functions, fieldPointer, NULL, NULL);
     return ret;
 }
@@ -177,6 +197,7 @@ DatasetMessage_Array_decodeJsonInternal(void *UA_RESTRICT dst, const UA_DataType
     if(getJsmnType(parseCtx) != JSMN_ARRAY){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
+    status ret;
     
     size_t length = (size_t)parseCtx->tokenArray[*parseCtx->index].size;
     
@@ -199,14 +220,14 @@ DatasetMessage_Array_decodeJsonInternal(void *UA_RESTRICT dst, const UA_DataType
     for(size_t i = 0; i < length; ++i) {
         //ret = decodeJsonJumpTable[decode_index]((void*)dsm[i], type, ctx, parseCtx, UA_TRUE);
        
-        status ret = DatasetMessage_Payload_decodeJsonInternal(&dsm[i], NULL, ctx, parseCtx, UA_TRUE);
+        ret = DatasetMessage_Payload_decodeJsonInternal(&dsm[i], NULL, ctx, parseCtx, UA_TRUE);
         
         if(ret != UA_STATUSCODE_GOOD){
             //TODO: handle error, free mem
         }
     }
     
-    return 0;
+    return ret;
 }
 
 static status NetworkMessage_decodeJsonInternal(UA_NetworkMessage *dst, Ctx *ctx, ParseCtx *parseCtx){
@@ -229,6 +250,8 @@ static status NetworkMessage_decodeJsonInternal(UA_NetworkMessage *dst, Ctx *ctx
     }*/
     
     /* Network Message */
+    status ret = UA_STATUSCODE_GOOD;
+    
     u8 fieldCount = 5;
     UA_Guid guid;
     UA_String messageType;
@@ -244,26 +267,28 @@ static status NetworkMessage_decodeJsonInternal(UA_NetworkMessage *dst, Ctx *ctx
         
         
     //UA_Boolean found[] = {};
-    decodeFields(ctx, parseCtx, fieldCount, fieldNames, functions, fieldPointer, NULL, NULL);
+    ret = decodeFields(ctx, parseCtx, fieldCount, fieldNames, functions, fieldPointer, NULL, NULL);
     
-    return UA_STATUSCODE_GOOD;
+    return ret;
 }
 
-status NetworkMessage_decodeJson(UA_NetworkMessage *dst, UA_ByteString *src);
+
 status NetworkMessage_decodeJson(UA_NetworkMessage *dst, UA_ByteString *src){
     /* Set up the context */
     Ctx ctx;
     ParseCtx parseCtx;
+    
+    status ret = UA_STATUSCODE_GOOD;
 
     UA_UInt16 tokenIndex = 0;
-    status ret = tokenize(&parseCtx, &ctx, src, &tokenIndex);
+    ret = tokenize(&parseCtx, &ctx, src, &tokenIndex);
     if(ret != UA_STATUSCODE_GOOD){
         return ret;
     }
     
-    NetworkMessage_decodeJsonInternal(dst, &ctx, &parseCtx);
+    ret = NetworkMessage_decodeJsonInternal(dst, &ctx, &parseCtx);
     
-    return UA_STATUSCODE_BADNOTIMPLEMENTED;
+    return ret;
 }
 
 UA_StatusCode
