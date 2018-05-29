@@ -2634,7 +2634,7 @@ START_TEST(UA_Variant_Matrix_UInt16_json_encode) {
 }
 END_TEST
 
-/*
+
 START_TEST(UA_Variant_Matrix_String_NonReversible_json_encode) {
     UA_Variant src;
     UA_String d[] = {UA_STRING("1"), UA_STRING("2"), UA_STRING("3"),
@@ -2660,7 +2660,7 @@ START_TEST(UA_Variant_Matrix_String_NonReversible_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, NULL, UA_FALSE);
 
     *bufPos = 0;
     // then
@@ -2670,7 +2670,7 @@ START_TEST(UA_Variant_Matrix_String_NonReversible_json_encode) {
     UA_ByteString_deleteMembers(&buf);
 }
 END_TEST
-*/
+
 
 /*
 START_TEST(UA__json_encode) {
@@ -3566,7 +3566,7 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_encode, UA_Variant_Array_Byte_json_encode);
     tcase_add_test(tc_json_encode, UA_Variant_Array_String_json_encode);
     tcase_add_test(tc_json_encode, UA_Variant_Matrix_UInt16_json_encode);
-    //tcase_add_test(tc_json_encode, UA_Variant_Matrix_String_NonReversible_json_encode);
+    tcase_add_test(tc_json_encode, UA_Variant_Matrix_String_NonReversible_json_encode);
     
     tcase_add_test(tc_json_encode, UA_Double_json_encode);
     tcase_add_test(tc_json_encode, UA_Double_onesmallest_json_encode);

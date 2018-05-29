@@ -62,8 +62,6 @@ UA_String UA_DateTime_toJSON(UA_DateTime t);
 
 void addMatrixContentJSON(Ctx *ctx, void* array, const UA_DataType *type, size_t *index, UA_UInt32 *arrayDimensions, size_t dimensionIndex, size_t dimensionSize, UA_Boolean useReversible);
 
-static UA_Boolean useReversibleForm = UA_TRUE;
-
 ENCODE_JSON(ByteString);
 
 /**
@@ -868,7 +866,7 @@ NodeId_encodeJsonWithEncodingMask(UA_NodeId const *src, u8 encoding, Ctx *ctx, U
 
 
 
-    if (useReversibleForm) {
+    if (useReversible) {
         if (src->namespaceIndex > 0) {
             ret |= writeKey(ctx, "Namespace");
             ret |= ENCODE_DIRECT(&src->namespaceIndex, UInt16);
@@ -952,7 +950,7 @@ ENCODE_JSON(ExpandedNodeId) {
 ENCODE_JSON(LocalizedText) {
     status ret = UA_STATUSCODE_GOOD;
 
-    if (useReversibleForm) {
+    if (useReversible) {
         commaNeeded = UA_FALSE;
 
         WRITE(ObjStart);
@@ -983,7 +981,7 @@ ENCODE_JSON(QualifiedName) {
     writeKey(ctx, "Name");
     ret |= ENCODE_DIRECT(&src->name, String);
 
-    if (useReversibleForm) {
+    if (useReversible) {
         if (src->namespaceIndex != 0) {
             writeKey(ctx, "Uri");
             ret |= ENCODE_DIRECT(&src->namespaceIndex, UInt16);
@@ -1015,7 +1013,7 @@ NamespaceUri is unknown. In these cases, the NamespaceIndex is encoded as a JSON
 ENCODE_JSON(StatusCode) {
     status ret = UA_STATUSCODE_GOOD;
 
-    if (!useReversibleForm) {
+    if (!useReversible) {
         ret |= WRITE(ObjStart);
         commaNeeded = UA_FALSE;
         writeKey(ctx, "StatusCode");
@@ -1084,7 +1082,7 @@ ENCODE_JSON(ExtensionObject) {
         return UA_STATUSCODE_BADENCODINGERROR;
     typeId.identifier.numeric = src->content.decoded.type->binaryEncodingId;
 
-    if (useReversibleForm) {
+    if (useReversible) {
 
         WRITE(ObjStart);
 
@@ -1115,7 +1113,7 @@ ENCODE_JSON(ExtensionObject) {
          * shall be encoded as a JSON object containing only the 
          * value of the Body field. The TypeId and Encoding fields are dropped.
          * 
-         * Does this mean there is a "Body" in the ExtensionObject or not?
+         * TODO: Does this mean there is a "Body" in the ExtensionObject or not?
          */
         commaNeeded = UA_FALSE;
         WRITE(ObjStart);
@@ -1239,7 +1237,7 @@ ENCODE_JSON(Variant) {
             encoding |= UA_VARIANT_ENCODINGMASKTYPE_DIMENSIONS;
     }*/
 
-    if (useReversibleForm) {
+    if (useReversible) {
         WRITE(ObjStart);
 
         /* Encode the encoding byte */
