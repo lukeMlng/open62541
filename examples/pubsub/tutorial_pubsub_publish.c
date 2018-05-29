@@ -30,9 +30,18 @@
 
 #include <sys/time.h>
 
+#include "ua_pubsub_networkmessage.h"
+#include "ua_log_stdout.h"
+#include "ua_server.h"
+#include "ua_config_default.h"
+#include "ua_pubsub.h"
+#include "ua_network_pubsub_mqtt.h"
+#include "src_generated/ua_types_generated.h"
+
 #include <signal.h>
-#include "open62541.h"
+//#include "open62541.h"
 #include "../../include/ua_plugin_mqtt.h"
+
 
 
 UA_NodeId connectionIdent, publishedDataSetIdent, writerGroupIdent;
@@ -102,7 +111,7 @@ addWriterGroup(UA_Server *server) {
     UA_WriterGroupConfig writerGroupConfig;
     memset(&writerGroupConfig, 0, sizeof(UA_WriterGroupConfig));
     writerGroupConfig.name = UA_STRING("Demo WriterGroup");
-    writerGroupConfig.publishingInterval = 10;
+    writerGroupConfig.publishingInterval = 5000;
     writerGroupConfig.enabled = UA_FALSE;
     writerGroupConfig.encodingMimeType = UA_PUBSUB_ENCODING_JSON;
     
@@ -164,6 +173,34 @@ static void stopHandler(int sign) {
     running = false;
 }
 
+int subCount = 0;
+
+static void
+subscriptionPollingCallback(UA_Server *server, UA_PubSubConnection *connection) {
+    UA_ByteString buffer;
+    if (UA_ByteString_allocBuffer(&buffer, 512) != UA_STATUSCODE_GOOD) {
+        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER,
+                     "Message buffer allocation failed!");
+        return;
+    }
+
+    buffer.length = 0;
+    /* Receive the message. Blocks for 5ms */
+    UA_StatusCode retval =
+        connection->channel->receive(connection->channel, &buffer, NULL, 5);
+    if(retval != UA_STATUSCODE_GOOD || buffer.length == 0) {
+
+        buffer.length = 512;
+        UA_ByteString_deleteMembers(&buffer);
+        return;
+    }else{
+        subCount++;
+        printf("%d", subCount);
+        buffer.length = 512;
+        UA_ByteString_deleteMembers(&buffer);
+    }
+
+}
 
 int main(void) {
     signal(SIGINT, stopHandler);
@@ -185,6 +222,7 @@ int main(void) {
     funcs.disconnectMqtt = &disconnectMqtt;
     funcs.unSubscribeMqtt = &unSubscribeMqtt;
     funcs.subscribeMqtt = &subscribeMqtt;
+    funcs.recvMqtt = &recvMqtt;
     
     //config->pubsubTransportLayers[0] = UA_PubSubTransportLayerUDPMP();
     //config->pubsubTransportLayersSize++;
@@ -198,6 +236,22 @@ int main(void) {
     addWriterGroup(server);
     addDataSetWriter(server);
 
+    
+    /* Receive */
+     UA_PubSubConnection *connection =
+        UA_PubSubConnection_findConnectionbyId(server, connectionIdent);
+    if(connection != NULL) {
+        UA_StatusCode rv = connection->channel->regist(connection->channel, NULL);
+        if (rv == UA_STATUSCODE_GOOD) {
+            UA_UInt64 subscriptionCallbackId;
+            UA_Server_addRepeatedCallback(server, (UA_ServerCallback)subscriptionPollingCallback,
+                                          connection, 5, &subscriptionCallbackId);
+        } else {
+            UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "register channel failed: %s!",
+                           UA_StatusCode_name(rv));
+        }
+    }
+    
     retval |= UA_Server_run(server, &running);
     UA_Server_delete(server);
     UA_ServerConfig_delete(config);

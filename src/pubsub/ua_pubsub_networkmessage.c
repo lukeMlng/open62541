@@ -390,19 +390,25 @@ UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src, UA_Byte **bufPos,
     if(src->networkMessageType == UA_NETWORKMESSAGE_DATASET) {
         
         UA_UInt16 *dataSetWriterIds = src->payloadHeader.dataSetPayloadHeader.dataSetWriterIds;
+        if(dataSetWriterIds){
+            
         
-        //src->payloadHeader.dataSetPayloadHeader.dataSetWriterIds ???
-        UA_Byte count = src->payloadHeader.dataSetPayloadHeader.count;
-        rv = writeKey(&ctx, "Messages");
-        encodingJsonStartArray(&ctx);
-        for (UA_Byte i = 0; i < count; i++) {
-            writeComma(&ctx);
-            rv = UA_DataSetMessage_encodeJson(&(src->payload.dataSetPayload.dataSetMessages[i]), dataSetWriterIds[i], &ctx.pos, ctx.end, useReversible);
-            if(rv != UA_STATUSCODE_GOOD)
-                return rv;
+            //src->payloadHeader.dataSetPayloadHeader.dataSetWriterIds ???
+            UA_Byte count = src->payloadHeader.dataSetPayloadHeader.count;
+            rv = writeKey(&ctx, "Messages");
+            encodingJsonStartArray(&ctx);
+            for (UA_Byte i = 0; i < count; i++) {
+                writeComma(&ctx);
+                rv = UA_DataSetMessage_encodeJson(&(src->payload.dataSetPayload.dataSetMessages[i]), dataSetWriterIds[i], &ctx.pos, ctx.end, useReversible);
+                if(rv != UA_STATUSCODE_GOOD)
+                    return rv;
+            }
+
+            encodingJsonEndArray(&ctx);
+
+        }else{
+            //TODO NO dataSetWriterId available, value is mandatory!
         }
-        
-        encodingJsonEndArray(&ctx);
     } else {
         rv = UA_STATUSCODE_BADNOTIMPLEMENTED;
     }

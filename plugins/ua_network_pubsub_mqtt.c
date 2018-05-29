@@ -306,11 +306,11 @@ UA_PubSubChannelMQTT_receive(UA_PubSubChannel *channel, UA_ByteString *message, 
     //UA_PubSubChannelDataMQTT *channelConfigMQTT = (UA_PubSubChannelDataMQTT *) channel->handle;
     
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "Yield MQTT, recv.");
-    ret = mqtt_funcs.yieldMqtt();
-    if(!ret){
-        
-    }
-    return UA_STATUSCODE_GOOD;
+    //ret = mqtt_funcs.yieldMqtt();
+    
+    ret = mqtt_funcs.recvMqtt(message);
+   
+    return ret;
 }
 
 /**

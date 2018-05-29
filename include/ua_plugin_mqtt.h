@@ -19,6 +19,7 @@ UA_StatusCode unSubscribeMqtt(UA_String topic);
 UA_StatusCode publishMqtt(UA_String topic, const UA_ByteString *buf);
 UA_StatusCode subscribeMqtt(UA_String topic, UA_StatusCode (*cb)(UA_ByteString *buf));
 UA_StatusCode yieldMqtt(void);
+UA_StatusCode recvMqtt(UA_ByteString *buf);
 
     
 #ifdef __cplusplus
