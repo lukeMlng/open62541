@@ -92,6 +92,7 @@ addDataSetField(UA_Server *server) {
     UA_DataSetFieldConfig dataSetFieldConfig;
     memset(&dataSetFieldConfig, 0, sizeof(UA_DataSetFieldConfig));
     dataSetFieldConfig.dataSetFieldType = UA_PUBSUB_DATASETFIELD_VARIABLE;
+    //FIeld key json? @@@
     dataSetFieldConfig.field.variable.fieldNameAlias = UA_STRING("Server localtime");
     dataSetFieldConfig.field.variable.promotedField = UA_FALSE;
     dataSetFieldConfig.field.variable.publishParameters.publishedVariable =
@@ -245,7 +246,7 @@ int main(void) {
         if (rv == UA_STATUSCODE_GOOD) {
             UA_UInt64 subscriptionCallbackId;
             UA_Server_addRepeatedCallback(server, (UA_ServerCallback)subscriptionPollingCallback,
-                                          connection, 5, &subscriptionCallbackId);
+                                          connection, 500, &subscriptionCallbackId);
         } else {
             UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "register channel failed: %s!",
                            UA_StatusCode_name(rv));

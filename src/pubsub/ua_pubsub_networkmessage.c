@@ -389,12 +389,21 @@ UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src, UA_Byte **bufPos,
     // Payload
     if(src->networkMessageType == UA_NETWORKMESSAGE_DATASET) {
         
-        UA_UInt16 *dataSetWriterIds = src->payloadHeader.dataSetPayloadHeader.dataSetWriterIds;
-        if(dataSetWriterIds){
-            
         
+        UA_Byte count = src->payloadHeader.dataSetPayloadHeader.count;
+        if(count > 0){
+            
+            UA_UInt16 *dataSetWriterIds = src->payloadHeader.dataSetPayloadHeader.dataSetWriterIds;
+            if(!dataSetWriterIds){
+                //TODO NO dataSetWriterId available, value is mandatory!
+                //WORKAROUND!
+                UA_STACKARRAY(UA_UInt16, dswids, count);
+                memset(dswids, 0, count * sizeof(UA_UInt16));
+                dataSetWriterIds = dswids;
+            }
+            
             //src->payloadHeader.dataSetPayloadHeader.dataSetWriterIds ???
-            UA_Byte count = src->payloadHeader.dataSetPayloadHeader.count;
+            
             rv = writeKey(&ctx, "Messages");
             encodingJsonStartArray(&ctx);
             for (UA_Byte i = 0; i < count; i++) {
@@ -406,8 +415,6 @@ UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src, UA_Byte **bufPos,
 
             encodingJsonEndArray(&ctx);
 
-        }else{
-            //TODO NO dataSetWriterId available, value is mandatory!
         }
     } else {
         rv = UA_STATUSCODE_BADNOTIMPLEMENTED;

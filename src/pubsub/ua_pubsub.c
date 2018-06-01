@@ -930,11 +930,18 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
      *    +----------------------+-----+
      *    NetworkMessages
      */
+    
+    
+    //Alloc memory for the FIELD NAMES
+    //UA_STACKARRAY(UA_NetworkMessage, nmStore, networkMessageCount);
+    //memset(nmStore, 0, networkMessageCount * sizeof(UA_NetworkMessage));
+    
     UA_UInt16 combinedNetworkMessageCount = 0, singleNetworkMessagesCount = 0;
     UA_DataSetWriter *tmpDataSetWriter;
     LIST_FOREACH(tmpDataSetWriter, &writerGroup->writers, listEntry){
         //if promoted fields are contained in the PublishedDataSet, then this DSM must encapsulated in one NM
         UA_PublishedDataSet *tmpPublishedDataSet = UA_PublishedDataSet_findPDSbyId(server, tmpDataSetWriter->connectedDataSet);
+        //tmpPublishedDataSet.
         if(!tmpPublishedDataSet) {
             UA_LOG_ERROR(server->config.logger, UA_LOGCATEGORY_SERVER, "Publish failed. PublishedDataSet not found");
             return;
@@ -995,6 +1002,8 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
             return;
         }
         
+        
+        //DataSet Array mit MetaData übergeben?
         if(writerGroup->config.encodingMimeType == UA_PUBSUB_ENCODING_JSON){
             UA_ByteString buf;
             size_t msgSize = 2000; //WIP, TODO: get Json buffer size!
