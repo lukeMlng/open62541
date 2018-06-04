@@ -134,6 +134,16 @@ status writeNull(Ctx *ctx) {
     return UA_STATUSCODE_GOOD;
 }
 
+status writeKey_UA_String(Ctx *ctx, UA_String *key){
+    if(!key || key->length < 1){
+        return UA_STATUSCODE_BADENCODINGERROR;
+    }
+    char fieldKeyString[key->length + 1];
+    memset(&fieldKeyString, 0, key->length + 1);
+    memcpy(&fieldKeyString, key->data, key->length);
+    return writeKey(ctx, fieldKeyString);
+}
+
 status writeKey(Ctx *ctx, const char* key) {
     status ret = UA_STATUSCODE_GOOD;
     ret |= writeComma(ctx);
@@ -2653,7 +2663,7 @@ DECODE_JSON(ExtensionObject) {
         if( searchTypeIdResult != 0){
             
             const char* fieldNames[] = {"TypeId", "Body"};
-
+            UA_Boolean found[] = {UA_FALSE, UA_FALSE};
             dst->content.decoded.data = UA_new(type);
             if(!dst->content.decoded.data)
                 return UA_STATUSCODE_BADOUTOFMEMORY;
@@ -2670,7 +2680,7 @@ DECODE_JSON(ExtensionObject) {
                 (decodeJsonSignature) NodeId_decodeJson, 
                 decodeJsonJumpTable[decode_index]};
 
-            return decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, typeOfBody, NULL);
+            return decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, typeOfBody, found);
         }else{
            return UA_STATUSCODE_BADDECODINGERROR;
         }
@@ -2687,7 +2697,7 @@ DECODE_JSON(ExtensionObject) {
             dst->encoding = UA_EXTENSIONOBJECT_ENCODED_BYTESTRING;
             
             const char* fieldNames[] = {"Encoding", "Body", "TypeId"};
-            
+            UA_Boolean found[] = {UA_FALSE, UA_FALSE, UA_FALSE};
             UA_UInt16 encodingTypeJson;
             void *fieldPointer[] = {
                 &encodingTypeJson, 
@@ -2700,13 +2710,13 @@ DECODE_JSON(ExtensionObject) {
                 (decodeJsonSignature) ByteString_decodeJson, 
                 (decodeJsonSignature) NodeId_decodeJson};
             
-            return decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, NULL);
+            return decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, found);
         } else if(encoding == 2) {
             /* XmlElement in Json Body */
             dst->encoding = UA_EXTENSIONOBJECT_ENCODED_XML;
             
             const char* fieldNames[] = {"Encoding", "Body", "TypeId"};
-            
+            UA_Boolean found[] = {UA_FALSE, UA_FALSE, UA_FALSE};
             UA_UInt16 encodingTypeJson;
             void *fieldPointer[] = {
                 &encodingTypeJson, 
@@ -2719,7 +2729,7 @@ DECODE_JSON(ExtensionObject) {
                 (decodeJsonSignature) String_decodeJson, 
                 (decodeJsonSignature) NodeId_decodeJson};
             
-            return decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, NULL);
+            return decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, found);
         } else {
             //UA_NodeId_deleteMembers(&typeId);
             return UA_STATUSCODE_BADDECODINGERROR;
@@ -2796,8 +2806,9 @@ Variant_decodeJsonUnwrapExtensionObject(UA_Variant *dst, const UA_DataType *type
         const char* fieldNames[] = {"TypeId", "Body"};
         void *fieldPointer[] = {&dummy, dst->data};
         decodeJsonSignature functions[] = {(decodeJsonSignature) NodeId_decodeJson, decodeJsonJumpTable[decode_index]};
-
-        ret = decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, dst->type, NULL);
+        UA_Boolean found[] = {UA_FALSE, UA_FALSE};
+        
+        ret = decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, dst->type, found);
 
     }else{
         /* decode as ExtensionObject */

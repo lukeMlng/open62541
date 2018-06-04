@@ -48,6 +48,7 @@ typedef struct {
     UA_DataSetMessageType dataSetMessageType;
     UA_Boolean picoSecondsIncluded;
     UA_UInt16 dataSetMessageSequenceNr;
+    UA_UInt16 dataSetWriterId; //TODO: For Json DataSetMessages necessary?
     UA_UtcTime timestamp;
     UA_UInt16 picoSeconds;
     UA_UInt16 status;
@@ -95,7 +96,7 @@ typedef struct {
 
 UA_StatusCode
 UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_UInt16 dataSetWriterId, UA_Byte **bufPos,
-                               const UA_Byte *bufEnd, UA_Boolean useReversible);
+                               const UA_Byte *bufEnd, UA_Boolean useReversible, UA_String* dataSetMessageFieldNames);
 
 UA_StatusCode
 UA_DataSetMessage_encodeBinary(const UA_DataSetMessage* src, UA_Byte **bufPos,
@@ -224,7 +225,7 @@ UA_NetworkMessage_delete(UA_NetworkMessage* p);
 
 UA_StatusCode
 UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src,
-                               UA_Byte **bufPos, const UA_Byte *bufEnd, UA_Boolean useReversible);
+                               UA_Byte **bufPos, const UA_Byte *bufEnd, UA_Boolean useReversible, UA_String** dataSetMessageFieldNames);
 
 UA_StatusCode NetworkMessage_decodeJson(UA_NetworkMessage *dst, UA_ByteString *src);
 

@@ -36,7 +36,7 @@ typedef struct {
     void *exchangeBufferCallbackHandle;
 } Ctx;
     
-
+status writeKey_UA_String(Ctx *ctx, UA_String *key);
 status writeKey(Ctx *ctx, const char* key);
 status encodingJsonStartObject(Ctx *ctx);
 size_t encodingJsonEndObject(Ctx *ctx);

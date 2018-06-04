@@ -856,6 +856,14 @@ UA_DataSetWriter_generateDataSetMessage(UA_Server *server, UA_DataSetMessage *da
     /* Reset the message */
     memset(dataSetMessage, 0, sizeof(UA_DataSetMessage));
 
+    //TODO:
+    dataSetMessage->header.dataSetWriterId = dataSetWriter->config.dataSetWriterId;
+    
+    UA_UInt16 messageType = 0;
+    
+    UA_JsonDataSetWriterMessageDataType *jsonDataSetWriterMessageDataType = NULL;
+    //UA_JsonDataSetWriterMessageDataType defaultJsonConfiguration;
+    
     /* Currently is only UADP supported. The configuration Flags are included
      * inside the std. defined UA_UadpDataSetWriterMessageDataType */
     UA_UadpDataSetWriterMessageDataType defaultUadpConfiguration;
@@ -865,6 +873,13 @@ UA_DataSetWriter_generateDataSetMessage(UA_Server *server, UA_DataSetMessage *da
        (dataSetWriter->config.messageSettings.content.decoded.type == &UA_TYPES[UA_TYPES_UADPDATASETWRITERMESSAGEDATATYPE])) {
         dataSetWriterMessageDataType = (UA_UadpDataSetWriterMessageDataType *)
             dataSetWriter->config.messageSettings.content.decoded.data;
+        messageType = UA_TYPES_UADPDATASETWRITERMESSAGEDATATYPE;
+    } else if((dataSetWriter->config.messageSettings.encoding == UA_EXTENSIONOBJECT_DECODED ||
+        dataSetWriter->config.messageSettings.encoding == UA_EXTENSIONOBJECT_DECODED_NODELETE) &&
+       (dataSetWriter->config.messageSettings.content.decoded.type == &UA_TYPES[UA_TYPES_JSONDATASETWRITERMESSAGEDATATYPE])) {
+        jsonDataSetWriterMessageDataType = (UA_JsonDataSetWriterMessageDataType *)
+            dataSetWriter->config.messageSettings.content.decoded.data;
+        messageType = UA_TYPES_JSONDATASETWRITERMESSAGEDATATYPE;
     } else {
         /* create default flag configuration if no
          * UadpDataSetWriterMessageDataType was passed in */
@@ -873,17 +888,7 @@ UA_DataSetWriter_generateDataSetMessage(UA_Server *server, UA_DataSetMessage *da
             (UA_UADPDATASETMESSAGECONTENTMASK_TIMESTAMP | UA_UADPDATASETMESSAGECONTENTMASK_MAJORVERSION |
              UA_UADPDATASETMESSAGECONTENTMASK_MINORVERSION);
         dataSetWriterMessageDataType = &defaultUadpConfiguration;
-    }
-
-    /* Sanity-test the configuration */
-    if(dataSetWriterMessageDataType->networkMessageNumber != 0 ||
-       dataSetWriterMessageDataType->dataSetOffset != 0 ||
-       dataSetWriterMessageDataType->configuredSize !=0 ) {
-        UA_LOG_WARNING(server->config.logger, UA_LOGCATEGORY_SERVER,
-                       "Static DSM configuration not supported. Using defaults");
-        dataSetWriterMessageDataType->networkMessageNumber = 0;
-        dataSetWriterMessageDataType->dataSetOffset = 0;
-        dataSetWriterMessageDataType->configuredSize = 0;
+        messageType = UA_TYPES_UADPDATASETWRITERMESSAGEDATATYPE;
     }
 
     /* The field encoding depends on the flags inside the writer config.
@@ -898,38 +903,82 @@ UA_DataSetWriter_generateDataSetMessage(UA_Server *server, UA_DataSetMessage *da
         dataSetMessage->header.fieldEncoding = UA_FIELDENCODING_VARIANT;
     }
 
-    /* Std: 'The DataSetMessageContentMask defines the flags for the content of the DataSetMessage header.' */
-    if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_MAJORVERSION){
-        dataSetMessage->header.configVersionMajorVersionEnabled = UA_TRUE;
-        dataSetMessage->header.configVersionMajorVersion =
-            currentDataSet->dataSetMetaData.configurationVersion.majorVersion;
-    }
-    if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_MINORVERSION){
-        dataSetMessage->header.configVersionMinorVersionEnabled = UA_TRUE;
-        dataSetMessage->header.configVersionMinorVersion =
-            currentDataSet->dataSetMetaData.configurationVersion.minorVersion;
-    }
+    if(messageType == UA_TYPES_UADPDATASETWRITERMESSAGEDATATYPE){
+        /* Sanity-test the configuration */
+        if(dataSetWriterMessageDataType->networkMessageNumber != 0 ||
+           dataSetWriterMessageDataType->dataSetOffset != 0 ||
+           dataSetWriterMessageDataType->configuredSize !=0 ) {
+            UA_LOG_WARNING(server->config.logger, UA_LOGCATEGORY_SERVER,
+                           "Static DSM configuration not supported. Using defaults");
+            dataSetWriterMessageDataType->networkMessageNumber = 0;
+            dataSetWriterMessageDataType->dataSetOffset = 0;
+            dataSetWriterMessageDataType->configuredSize = 0;
+        }
 
-    if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_SEQUENCENUMBER) {
-        dataSetMessage->header.dataSetMessageSequenceNrEnabled = UA_TRUE;
-        dataSetMessage->header.dataSetMessageSequenceNr =
-            dataSetWriter->actualDataSetMessageSequenceCount;
-    }
+        /* Std: 'The DataSetMessageContentMask defines the flags for the content of the DataSetMessage header.' */
+        if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_MAJORVERSION){
+            dataSetMessage->header.configVersionMajorVersionEnabled = UA_TRUE;
+            dataSetMessage->header.configVersionMajorVersion =
+                currentDataSet->dataSetMetaData.configurationVersion.majorVersion;
+        }
+        if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_MINORVERSION){
+            dataSetMessage->header.configVersionMinorVersionEnabled = UA_TRUE;
+            dataSetMessage->header.configVersionMinorVersion =
+                currentDataSet->dataSetMetaData.configurationVersion.minorVersion;
+        }
 
-    if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_TIMESTAMP) {
-        dataSetMessage->header.timestampEnabled = UA_TRUE;
-        dataSetMessage->header.timestamp = UA_DateTime_now();
-    }
-    /* TODO: Picoseconds resolution not supported atm */
-    if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_PICOSECONDS) {
-        dataSetMessage->header.picoSecondsIncluded = UA_FALSE;
-    }
+        if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_SEQUENCENUMBER) {
+            dataSetMessage->header.dataSetMessageSequenceNrEnabled = UA_TRUE;
+            dataSetMessage->header.dataSetMessageSequenceNr =
+                dataSetWriter->actualDataSetMessageSequenceCount;
+        }
 
-    /* TODO: Statuscode not supported yet */
-    if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_STATUS){
-        dataSetMessage->header.statusEnabled = UA_FALSE;
-    }
+        if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_TIMESTAMP) {
+            dataSetMessage->header.timestampEnabled = UA_TRUE;
+            dataSetMessage->header.timestamp = UA_DateTime_now();
+        }
+        /* TODO: Picoseconds resolution not supported atm */
+        if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_PICOSECONDS) {
+            dataSetMessage->header.picoSecondsIncluded = UA_FALSE;
+        }
 
+        /* TODO: Statuscode not supported yet */
+        if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_STATUS){
+            dataSetMessage->header.statusEnabled = UA_FALSE;
+        }
+
+    }else if(messageType == UA_TYPES_JSONDATASETWRITERMESSAGEDATATYPE){
+        
+        //UA_JSONDATASETMESSAGECONTENTMASK_DATASETWRITERID: "This value is mandatory", Part 14: 7.2.3.3 Table 92
+        
+        /* Std: 'The DataSetMessageContentMask defines the flags for the content of the DataSetMessage header.' */
+        if(jsonDataSetWriterMessageDataType->dataSetMessageContentMask & UA_JSONDATASETMESSAGECONTENTMASK_METADATAVERSION){
+            dataSetMessage->header.configVersionMajorVersionEnabled = UA_TRUE;
+            dataSetMessage->header.configVersionMajorVersion =
+                currentDataSet->dataSetMetaData.configurationVersion.majorVersion;
+        }
+        if(jsonDataSetWriterMessageDataType->dataSetMessageContentMask & UA_JSONDATASETMESSAGECONTENTMASK_METADATAVERSION){
+            dataSetMessage->header.configVersionMinorVersionEnabled = UA_TRUE;
+            dataSetMessage->header.configVersionMinorVersion =
+                currentDataSet->dataSetMetaData.configurationVersion.minorVersion;
+        }
+
+        if(jsonDataSetWriterMessageDataType->dataSetMessageContentMask & UA_JSONDATASETMESSAGECONTENTMASK_SEQUENCENUMBER) {
+            dataSetMessage->header.dataSetMessageSequenceNrEnabled = UA_TRUE;
+            dataSetMessage->header.dataSetMessageSequenceNr =
+                dataSetWriter->actualDataSetMessageSequenceCount;
+        }
+
+        if(jsonDataSetWriterMessageDataType->dataSetMessageContentMask & UA_JSONDATASETMESSAGECONTENTMASK_TIMESTAMP) {
+            dataSetMessage->header.timestampEnabled = UA_TRUE;
+            dataSetMessage->header.timestamp = UA_DateTime_now();
+        }
+
+        /* TODO: Statuscode not supported yet */
+        if(jsonDataSetWriterMessageDataType->dataSetMessageContentMask & UA_JSONDATASETMESSAGECONTENTMASK_STATUS){
+            dataSetMessage->header.statusEnabled = UA_FALSE;
+        }
+    }
     /* Set the sequence count. Automatically rolls over to zero */
     dataSetWriter->actualDataSetMessageSequenceCount++;
 
@@ -1008,6 +1057,12 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
     //The binary DataSetMessage sizes are part of the payload. Memory is allocated on the stack.
     UA_STACKARRAY(UA_UInt16, dsmSizes, writerGroup->writersCount);
     memset(dsmSizes, 0, writerGroup->writersCount * sizeof(UA_UInt16));
+    
+    /* DataSetWriterId */
+    //size_t dataSetWriterIdsCount = 0;
+    //UA_STACKARRAY(UA_UInt16, dataSetWriterIds, writerGroup->writersCount);
+    //memset(dataSetWriterIds, 0, writerGroup->writersCount * sizeof(UA_UInt16));
+    
     /*
      * Calculate the number of needed NetworkMessages. The previous allocated DataSetMessage array is
      * filled from left for combined DSM messages and from the right for single DSM.
@@ -1035,6 +1090,13 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
         //if promoted fields are contained in the PublishedDataSet, then this DSM must encapsulated in one NM
         UA_PublishedDataSet *tmpPublishedDataSet = UA_PublishedDataSet_findPDSbyId(server, tmpDataSetWriter->connectedDataSet);  
         //tmpPublishedDataSet->fields.lh_first->config.field.variable.fieldNameAlias
+        if(!tmpPublishedDataSet) {
+            UA_LOG_ERROR(server->config.logger, UA_LOGCATEGORY_SERVER, "Publish failed. PublishedDataSet not found");
+            return;
+        }
+        
+        /* Store DataSetIds*/
+        //dataSetWriterIds[dataSetWriterIdsCount++] = tmpDataSetWriter->config.dataSetWriterId;
         
         /* Store Fieldnames */
         fieldNames = (UA_String**)malloc(tmpPublishedDataSet->fieldSize * sizeof(UA_String*));
@@ -1045,10 +1107,7 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
         }
         fieldNamesPerWriter[counterFieldNamesPerWriter++] = fieldNames;
         
-        if(!tmpPublishedDataSet) {
-            UA_LOG_ERROR(server->config.logger, UA_LOGCATEGORY_SERVER, "Publish failed. PublishedDataSet not found");
-            return;
-        }
+        
         if(tmpPublishedDataSet->promotedFieldsCount > 0) {
             if(UA_DataSetWriter_generateDataSetMessage(server, &dsmStore[(writerGroup->writersCount - 1) - singleNetworkMessagesCount],
                                                        tmpDataSetWriter) != UA_STATUSCODE_GOOD){
@@ -1107,6 +1166,10 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
             nmStore[i].payload.dataSetPayload.dataSetMessages = &dsmStore[currentDSMPosition];
             nmStore->payload.dataSetPayload.sizes = &dsmSizes[currentDSMPosition];
         }
+        
+        //DataSetWriterId
+        //nmStore[i].payloadHeader.dataSetPayloadHeader.dataSetWriterIds = &dataSetWriterIds;
+        
         UA_PubSubConnection *connection = UA_PubSubConnection_findConnectionbyId(server, writerGroup->linkedConnection);
         if(!connection){
             UA_LOG_ERROR(server->config.logger, UA_LOGCATEGORY_SERVER, "Publish failed. PubSubConnection invalid.");
@@ -1124,7 +1187,7 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
                 UA_Byte *bufPos = buf.data;
                 memset(bufPos, 0, msgSize);
                 const UA_Byte *bufEnd = &(buf.data[buf.length]);
-                if(UA_NetworkMessage_encodeJson(&nmStore[i], &bufPos, bufEnd, UA_TRUE) != UA_STATUSCODE_GOOD){
+                if(UA_NetworkMessage_encodeJson(&nmStore[i], &bufPos, bufEnd, UA_TRUE, fieldNamesPerWriter[i]) != UA_STATUSCODE_GOOD){
                     UA_ByteString_deleteMembers(&buf);
                     return;
                 };
