@@ -328,7 +328,10 @@ UA_UInt16 itoa(UA_Int64 value, char* buffer) {
 
 /* Boolean */
 ENCODE_JSON(Boolean) {
-
+    if(!src){
+        return writeNull(ctx);
+    }
+    
     size_t sizeOfJSONBool;
     if (*src == UA_TRUE) {
         sizeOfJSONBool = 4; //"true"
@@ -358,6 +361,10 @@ ENCODE_JSON(Boolean) {
 
 /* Byte */
 ENCODE_JSON(Byte) {
+    if(!src){
+        return writeNull(ctx);
+    }
+    
     char buf[3]; //TODO size
     UA_UInt16 digits = itoaUnsigned(*src, buf, 10);
 
@@ -373,6 +380,10 @@ ENCODE_JSON(Byte) {
 
 /* signed Byte */
 ENCODE_JSON(SByte) {
+    if(!src){
+        return writeNull(ctx);
+    }
+    
     char buf[4]; //TODO size
     UA_UInt16 digits = itoa(*src, buf);
 
@@ -387,7 +398,9 @@ ENCODE_JSON(SByte) {
 
 /* UInt16 */
 ENCODE_JSON(UInt16) {
-
+    if(!src){
+        return writeNull(ctx);
+    }
 #if UA_BINARY_OVERLAYABLE_INTEGER
 
     char buf[50]; //TODO size
@@ -407,7 +420,9 @@ ENCODE_JSON(UInt16) {
 
 /* Int16 */
 ENCODE_JSON(Int16) {
-
+    if(!src){
+        return writeNull(ctx);
+    }
 #if UA_BINARY_OVERLAYABLE_INTEGER
 
     char buf[50]; //TODO size
@@ -426,7 +441,9 @@ ENCODE_JSON(Int16) {
 
 /* UInt32 */
 ENCODE_JSON(UInt32) {
-
+    if(!src){
+        return writeNull(ctx);
+    }
 #if UA_BINARY_OVERLAYABLE_INTEGER
     char buf[50]; //TODO size
     UA_UInt16 digits = itoaUnsigned(*src, buf, 10);
@@ -445,7 +462,9 @@ ENCODE_JSON(UInt32) {
 
 /* Int32 */
 ENCODE_JSON(Int32) {
-
+    if(!src){
+        return writeNull(ctx);
+    }
 #if UA_BINARY_OVERLAYABLE_INTEGER
     char buf[50]; //TODO size
     UA_UInt16 digits = itoa(*src, buf);
@@ -463,6 +482,9 @@ ENCODE_JSON(Int32) {
 
 /* UInt64 */
 ENCODE_JSON(UInt64) {
+    if(!src){
+        return writeNull(ctx);
+    }
 #if UA_BINARY_OVERLAYABLE_INTEGER
     char buf[50]; //TODO size
     UA_UInt16 digits = itoaUnsigned(*src, buf, 10);
@@ -481,7 +503,9 @@ ENCODE_JSON(UInt64) {
 
 /* Int64 */
 ENCODE_JSON(Int64) {
-
+    if(!src){
+        return writeNull(ctx);
+    }
 #if UA_BINARY_OVERLAYABLE_INTEGER
     char buf[50]; //TODO size
     UA_UInt16 digits = itoa(*src, buf);
@@ -503,7 +527,9 @@ ENCODE_JSON(Int64) {
 /************************/
 
 ENCODE_JSON(Float) {
-
+    if(!src){
+        return writeNull(ctx);
+    }
     char buffer[256];
     memset(buffer, 0, 256);
     fmt_fp(buffer, *src, 0, -1, 0, 'g');
@@ -519,7 +545,9 @@ ENCODE_JSON(Float) {
 }
 
 ENCODE_JSON(Double) {
-
+    if(!src){
+        return writeNull(ctx);
+    }
     char buffer[256];
     memset(buffer, 0, 256);
     fmt_fp(buffer, *src, 0, 17, 0, 'g');
@@ -597,6 +625,10 @@ static char escapeLookup[256];
 
 ENCODE_JSON(String) {
 
+    if(!src){
+        return writeNull(ctx);
+    }
+    
     WRITE(Quote);
     //TODO: Escape String
     memset(&escapeLookup, 0, 256);
@@ -627,6 +659,9 @@ ENCODE_JSON(String) {
 
 ENCODE_JSON(ByteString) {
 
+    if(!src || src->length < 1){
+        return writeNull(ctx);
+    }
     
     //Estimate base64 size, this is a few bytes bigger https://stackoverflow.com/questions/1533113/calculate-the-size-to-a-base-64-encoded-message
     UA_UInt32 output_size = (UA_UInt32)(((src->length * 4) / 3) + (src->length / 96) + 6);
@@ -681,6 +716,10 @@ char hexmapUpper[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B'
 
 /* Guid */
 ENCODE_JSON(Guid) {
+    if(!src){
+        return writeNull(ctx);
+    }
+    
     status ret = UA_STATUSCODE_GOOD;
     char *hexmap = hexmapUpper; //TODO: Define 
 
@@ -795,6 +834,9 @@ UA_DateTime_toJSON(UA_DateTime t) {
 }
 
 ENCODE_JSON(DateTime) {
+    if(!src){
+        return writeNull(ctx);
+    }
     UA_StatusCode ret = UA_STATUSCODE_GOOD;
     UA_String str = UA_DateTime_toJSON(*src);
     //WRITE(Quote);
@@ -818,7 +860,12 @@ ENCODE_JSON(DateTime) {
 static status
 NodeId_encodeJsonWithEncodingMask(UA_NodeId const *src, u8 encoding, Ctx *ctx, UA_Boolean useReversible) {
     status ret = UA_STATUSCODE_GOOD;
-
+    
+    if(!src){
+        writeNull(ctx);
+        return ret;
+    }
+    
     switch (src->identifierType) {
         case UA_NODEIDTYPE_NUMERIC:
         {
@@ -902,6 +949,10 @@ NodeId_encodeJsonWithEncodingMask(UA_NodeId const *src, u8 encoding, Ctx *ctx, U
 }
 
 ENCODE_JSON(NodeId) {
+    if(!src){
+        return writeNull(ctx);
+    }
+    
     WRITE(ObjStart);
     UA_StatusCode ret = NodeId_encodeJsonWithEncodingMask(src, 0, ctx, useReversible);
     WRITE(ObjEnd);
@@ -910,7 +961,10 @@ ENCODE_JSON(NodeId) {
 
 /* ExpandedNodeId */
 ENCODE_JSON(ExpandedNodeId) {
-
+    if(!src){
+        return writeNull(ctx);
+    }
+    
     WRITE(ObjStart);
 
     /* Set up the encoding mask */
@@ -956,6 +1010,9 @@ ENCODE_JSON(ExpandedNodeId) {
 #define UA_LOCALIZEDTEXT_ENCODINGMASKTYPE_TEXT 0x02
 
 ENCODE_JSON(LocalizedText) {
+    if(!src){
+        return writeNull(ctx);
+    }
     status ret = UA_STATUSCODE_GOOD;
 
     if (useReversible) {
@@ -981,6 +1038,10 @@ ENCODE_JSON(LocalizedText) {
 }
 
 ENCODE_JSON(QualifiedName) {
+    if(!src){
+        return writeNull(ctx);
+    }
+    
     status ret = UA_STATUSCODE_GOOD;
 
     commaNeeded = UA_FALSE;
@@ -1019,6 +1080,9 @@ NamespaceUri is unknown. In these cases, the NamespaceIndex is encoded as a JSON
 }
 
 ENCODE_JSON(StatusCode) {
+    if(!src){
+        return writeNull(ctx);
+    }
     status ret = UA_STATUSCODE_GOOD;
 
     if (!useReversible) {
@@ -1042,6 +1106,10 @@ ENCODE_JSON(StatusCode) {
 
 /* ExtensionObject */
 ENCODE_JSON(ExtensionObject) {
+    if(!src){
+        return writeNull(ctx);
+    }
+    
     u8 encoding = (u8) src->encoding;
     status ret = UA_STATUSCODE_GOOD;
     /* No content or already encoded content. Do not return
@@ -1216,10 +1284,13 @@ void addMatrixContentJSON(Ctx *ctx, void* array, const UA_DataType *type, size_t
 ENCODE_JSON(Variant) {
     /* Quit early for the empty variant */
     //u8 encoding = 0;
+    if(!src){
+        return writeNull(ctx);
+    }
+    
     status ret = UA_STATUSCODE_GOOD;
     if (!src->type){
-        writeNull(ctx);
-        return ret;//TODO encode NULL!;
+        return writeNull(ctx);
     }
         
 
@@ -1335,7 +1406,10 @@ ENCODE_JSON(Variant) {
 
 /* DataValue */
 ENCODE_JSON(DataValue) {
-
+    if(!src){
+        return writeNull(ctx);
+    }
+    
     WRITE(ObjStart);
     commaNeeded = UA_FALSE;
 
@@ -1380,7 +1454,10 @@ ENCODE_JSON(DataValue) {
 
 /* DiagnosticInfo */
 ENCODE_JSON(DiagnosticInfo) {
-  
+    if(!src){
+        return writeNull(ctx);
+    }
+    
     commaNeeded = UA_FALSE;
 
     WRITE(ObjStart);
@@ -1476,6 +1553,10 @@ const encodeJsonSignature encodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
 
 static status
 encodeJsonInternal(const void *src, const UA_DataType *type, Ctx *ctx, UA_Boolean useReversible) {
+    if(!type || !ctx){
+        return UA_STATUSCODE_BADENCODINGERROR;
+    }
+    
     /* Check the recursion limit */
     if (ctx->depth > UA_ENCODING_MAX_RECURSION)
         return UA_STATUSCODE_BADENCODINGERROR;
@@ -2721,7 +2802,7 @@ decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames
     
     status ret = UA_STATUSCODE_GOOD;
     
-    if(memberSize == 1){ // TODO: Experimental, is this assumption correct?
+    if(memberSize == 1){ // TODO
         if(*fieldNames[0] == 0){ //No MemberName
             return functions[0](fieldPointer[0], type, ctx, parseCtx, UA_TRUE); //ENCODE DIRECT
         }
@@ -2737,7 +2818,18 @@ decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames
 
         size_t i;//TODO: consider to jump over already searched tokens
         for (i = 0; i < memberSize; i++) { //Search for KEY, if found outer loop will be one less. Best case is objectCount if in order!
+            
+            //all possible keys found?
+            if(currentObjectCout >= memberSize){
+                return UA_STATUSCODE_GOOD;
+            }
+            
             if (jsoneq((char*)ctx->pos, &parseCtx->tokenArray[*parseCtx->index], fieldNames[i]) == 0) {
+
+                if(found && found[i]){
+                    //Duplicate Key found, abort.
+                    return UA_STATUSCODE_BADDECODINGERROR;
+                }
                 if(found != NULL){
                     found[i] = UA_TRUE;
                 }
@@ -2869,6 +2961,8 @@ decodeJsonInternal(void *dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parse
     const char* fieldNames[membersSize];
     void *fieldPointer[membersSize];
     decodeJsonSignature functions[membersSize];
+    UA_Boolean found[membersSize];
+    memset(found, 0, membersSize);
     
     
     for(size_t i = 0; i < membersSize && ret == UA_STATUSCODE_GOOD; ++i) {
@@ -2898,7 +2992,7 @@ decodeJsonInternal(void *dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parse
     }
     
     
-    ret = decodeFields(ctx, parseCtx, membersSize, fieldNames, functions, fieldPointer, type, NULL);
+    ret = decodeFields(ctx, parseCtx, membersSize, fieldNames, functions, fieldPointer, type, found);
 
     ctx->depth--;
     return ret;

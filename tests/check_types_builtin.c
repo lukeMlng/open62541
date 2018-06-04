@@ -2671,7 +2671,32 @@ START_TEST(UA_Variant_Matrix_String_NonReversible_json_encode) {
 }
 END_TEST
 
+START_TEST(UA_null_json_encode) {
+    UA_ByteString buf;
+    UA_ByteString_allocBuffer(&buf, 1000);
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
 
+    void* src = NULL;
+    char* result = "null";
+    
+    const UA_DataType *type;
+    status s;
+
+    int i;
+    for (i = 0; i < 25; i++) {
+        bufPos = &buf.data[0];
+        src = NULL;
+        type = &UA_TYPES[i];
+        s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+        *bufPos = 0;
+        ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+        ck_assert_str_eq(result, (char*)buf.data);
+    }
+
+    UA_ByteString_deleteMembers(&buf);
+}
+END_TEST
 /*
 START_TEST(UA__json_encode) {
 
@@ -3452,7 +3477,21 @@ START_TEST(UA_Networkmessage_json_decode) {
     ck_assert_ptr_eq(out.payload.dataSetPayload.dataSetMessages->data.keyFrameData.dataSetFields, NULL);
 }   
 END_TEST
-         
+
+START_TEST(UA_duplicate_json_decode) {
+    // given
+    UA_Variant out;
+    UA_ByteString buf = UA_STRING("{\"Type\":0, \"Type\":0, \"Body\":false}");
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_VARIANT], 0, 0);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    ck_assert_int_eq(out.type->typeIndex, 0);
+    ck_assert_uint_eq(*((UA_Boolean*)out.data), 0);
+}
+END_TEST
+
 static Suite *testSuite_builtin(void) {
     Suite *s = suite_create("Built-in Data Types 62541-6 Table 1");
 
@@ -3573,7 +3612,7 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_encode, UA_Float_json_encode);
     
     tcase_add_test(tc_json_encode, UA_DataSetFieldFlags_json_encode);
-    
+    tcase_add_test(tc_json_encode, UA_null_json_encode);
     tcase_add_test(tc_json_encode, UA_PubSub_EnDecode);
     
     suite_add_tcase(s, tc_json_encode);
@@ -3616,6 +3655,7 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_decode, UA_ExtensionObjectWrap_json_decode);
     tcase_add_test(tc_json_decode, UA_ExtensionObjectWrapString_json_decode);
     tcase_add_test(tc_json_decode, UA_Networkmessage_json_decode);
+    tcase_add_test(tc_json_decode, UA_duplicate_json_decode);
     
     suite_add_tcase(s, tc_json_decode);
     return s;
