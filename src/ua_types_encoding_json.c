@@ -1743,6 +1743,11 @@ static int jsoneq(const char *json, jsmntok_t *tok, const char *s) {
 DECODE_JSON(Boolean) {
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
     
+    jsmntype_t tokenType = getJsmnType(parseCtx);
+    if(tokenType != JSMN_PRIMITIVE){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
     UA_Boolean d = UA_TRUE;
     if(size == 4){
         d = UA_TRUE;
@@ -1760,6 +1765,11 @@ DECODE_JSON(Boolean) {
 }
 
 DECODE_JSON(Byte) {
+    jsmntype_t tokenType = getJsmnType(parseCtx);
+    if(tokenType != JSMN_PRIMITIVE){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
     UA_UInt64 d = 0;
     
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
@@ -1774,6 +1784,11 @@ DECODE_JSON(Byte) {
 }
 
 DECODE_JSON(SByte) {
+    jsmntype_t tokenType = getJsmnType(parseCtx);
+    if(tokenType != JSMN_PRIMITIVE){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
     UA_Int64 d = 0;
     
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
@@ -1788,6 +1803,11 @@ DECODE_JSON(SByte) {
 }
 
 DECODE_JSON(UInt16) {
+    jsmntype_t tokenType = getJsmnType(parseCtx);
+    if(tokenType != JSMN_PRIMITIVE){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
     UA_UInt64 d = 0;
     
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
@@ -1802,6 +1822,11 @@ DECODE_JSON(UInt16) {
 }
 
 DECODE_JSON(UInt32) {
+    jsmntype_t tokenType = getJsmnType(parseCtx);
+    if(tokenType != JSMN_PRIMITIVE){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
     UA_UInt64 d = 0;
    
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
@@ -1816,6 +1841,11 @@ DECODE_JSON(UInt32) {
 }
 
 DECODE_JSON(UInt64) {
+    jsmntype_t tokenType = getJsmnType(parseCtx);
+    if(tokenType != JSMN_PRIMITIVE){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
     UA_UInt64 d = 0;
     
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
@@ -1830,6 +1860,11 @@ DECODE_JSON(UInt64) {
 }
 
 DECODE_JSON(Int16) {
+    jsmntype_t tokenType = getJsmnType(parseCtx);
+    if(tokenType != JSMN_PRIMITIVE){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
     UA_Int64 d = 0;
     
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
@@ -1844,6 +1879,11 @@ DECODE_JSON(Int16) {
 }
 
 DECODE_JSON(Int32) {
+    jsmntype_t tokenType = getJsmnType(parseCtx);
+    if(tokenType != JSMN_PRIMITIVE){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
     UA_Int64 d = 0;
     
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
@@ -1858,6 +1898,11 @@ DECODE_JSON(Int32) {
 }
 
 DECODE_JSON(Int64) {
+    jsmntype_t tokenType = getJsmnType(parseCtx);
+    if(tokenType != JSMN_PRIMITIVE){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
     UA_Int64 d = 0;
     
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
@@ -1883,6 +1928,11 @@ UA_UInt32 hex2int(char ch)
 }
 
 DECODE_JSON(Float){
+    jsmntype_t tokenType = getJsmnType(parseCtx);
+    if(tokenType != JSMN_PRIMITIVE){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
     UA_Float d = 0;
     
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
@@ -1899,6 +1949,11 @@ DECODE_JSON(Float){
 }
 
 DECODE_JSON(Double){
+    jsmntype_t tokenType = getJsmnType(parseCtx);
+    if(tokenType != JSMN_PRIMITIVE){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
     UA_Double d = 0;
     
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
@@ -2799,7 +2854,6 @@ status DiagnosticInfoInner_decodeJson(UA_DiagnosticInfo* dst, const UA_DataType*
 status 
 decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames[], decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type, UA_Boolean found[]) {
     size_t objectCount = (size_t)(parseCtx->tokenArray[(*parseCtx->index)].size);
-    
     status ret = UA_STATUSCODE_GOOD;
     
     if(memberSize == 1){ // TODO
@@ -2807,7 +2861,7 @@ decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames
             return functions[0](fieldPointer[0], type, ctx, parseCtx, UA_TRUE); //ENCODE DIRECT
         }
     }else if(memberSize == 0){
-        return UA_STATUSCODE_BADENCODINGERROR;
+        return UA_STATUSCODE_BADDECODINGERROR;
     }
     
     (*parseCtx->index)++; //go to first key
@@ -2818,11 +2872,6 @@ decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames
 
         size_t i;//TODO: consider to jump over already searched tokens
         for (i = 0; i < memberSize; i++) { //Search for KEY, if found outer loop will be one less. Best case is objectCount if in order!
-            
-            //all possible keys found?
-            if(currentObjectCout >= memberSize){
-                return UA_STATUSCODE_GOOD;
-            }
             
             if (jsoneq((char*)ctx->pos, &parseCtx->tokenArray[*parseCtx->index], fieldNames[i]) == 0) {
 

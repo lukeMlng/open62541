@@ -3481,14 +3481,24 @@ END_TEST
 START_TEST(UA_duplicate_json_decode) {
     // given
     UA_Variant out;
-    UA_ByteString buf = UA_STRING("{\"Type\":0, \"Type\":0, \"Body\":false}");
+    UA_ByteString buf = UA_STRING("{\"Type\":0, \"Body\":false, \"Type\":0}");
     // when
     size_t offset = 0;
     UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_VARIANT], 0, 0);
     // then
-    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
-    ck_assert_int_eq(out.type->typeIndex, 0);
-    ck_assert_uint_eq(*((UA_Boolean*)out.data), 0);
+    ck_assert_int_eq(retval, UA_STATUSCODE_BADDECODINGERROR);
+}
+END_TEST
+
+START_TEST(UA_wrongBoolean_json_decode) {
+    // given
+    UA_Variant out;
+    UA_ByteString buf = UA_STRING("{\"Type\":0, \"Body\":\"asdfaaaaaaaaaaaaaaaaaaaa\"}");
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_VARIANT], 0, 0);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_BADDECODINGERROR);
 }
 END_TEST
 
@@ -3656,6 +3666,7 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_decode, UA_ExtensionObjectWrapString_json_decode);
     tcase_add_test(tc_json_decode, UA_Networkmessage_json_decode);
     tcase_add_test(tc_json_decode, UA_duplicate_json_decode);
+    tcase_add_test(tc_json_decode, UA_wrongBoolean_json_decode);
     
     suite_add_tcase(s, tc_json_decode);
     return s;
