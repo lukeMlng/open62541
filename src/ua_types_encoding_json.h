@@ -43,7 +43,7 @@ size_t encodingJsonEndObject(Ctx *ctx);
 status encodingJsonStartArray(Ctx *ctx);
 size_t encodingJsonEndArray(Ctx *ctx);
 status writeComma(Ctx *ctx);
-
+status writeNull(Ctx *ctx);
 
 
 typedef struct {

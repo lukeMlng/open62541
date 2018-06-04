@@ -126,6 +126,14 @@ status writeComma(Ctx *ctx) {
     return UA_STATUSCODE_GOOD;
 }
 
+status writeNull(Ctx *ctx) {
+    *(ctx->pos++) = 'n';
+    *(ctx->pos++) = 'u';
+    *(ctx->pos++) = 'l';
+    *(ctx->pos++) = 'l';
+    return UA_STATUSCODE_GOOD;
+}
+
 status writeKey(Ctx *ctx, const char* key) {
     status ret = UA_STATUSCODE_GOOD;
     ret |= writeComma(ctx);
@@ -1209,8 +1217,11 @@ ENCODE_JSON(Variant) {
     /* Quit early for the empty variant */
     //u8 encoding = 0;
     status ret = UA_STATUSCODE_GOOD;
-    if (!src->type)
+    if (!src->type){
+        writeNull(ctx);
         return ret;//TODO encode NULL!;
+    }
+        
 
     /* Set the content type in the encoding mask */
     const bool isBuiltin = src->type->builtin;

@@ -931,17 +931,28 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
      *    NetworkMessages
      */
     
-    
+
     //Alloc memory for the FIELD NAMES
-    //UA_STACKARRAY(UA_NetworkMessage, nmStore, networkMessageCount);
-    //memset(nmStore, 0, networkMessageCount * sizeof(UA_NetworkMessage));
+    size_t counterFieldNamesPerWriter = 0;
+    UA_String** fieldNamesPerWriter[writerGroup->writersCount];
+    UA_String** fieldNames;
     
     UA_UInt16 combinedNetworkMessageCount = 0, singleNetworkMessagesCount = 0;
     UA_DataSetWriter *tmpDataSetWriter;
     LIST_FOREACH(tmpDataSetWriter, &writerGroup->writers, listEntry){
         //if promoted fields are contained in the PublishedDataSet, then this DSM must encapsulated in one NM
-        UA_PublishedDataSet *tmpPublishedDataSet = UA_PublishedDataSet_findPDSbyId(server, tmpDataSetWriter->connectedDataSet);
-        //tmpPublishedDataSet.
+        UA_PublishedDataSet *tmpPublishedDataSet = UA_PublishedDataSet_findPDSbyId(server, tmpDataSetWriter->connectedDataSet);  
+        //tmpPublishedDataSet->fields.lh_first->config.field.variable.fieldNameAlias
+        
+        /* Store Fieldnames */
+        fieldNames = (UA_String**)malloc(tmpPublishedDataSet->fieldSize * sizeof(UA_String*));
+        UA_DataSetField *tmpDataSetField;
+        size_t counterFieldNames = 0;
+        LIST_FOREACH(tmpDataSetField, &tmpPublishedDataSet->fields, listEntry){
+            fieldNames[counterFieldNames++] = &tmpDataSetField->config.field.variable.fieldNameAlias;
+        }
+        fieldNamesPerWriter[counterFieldNamesPerWriter++] = fieldNames;
+        
         if(!tmpPublishedDataSet) {
             UA_LOG_ERROR(server->config.logger, UA_LOGCATEGORY_SERVER, "Publish failed. PublishedDataSet not found");
             return;
@@ -1004,6 +1015,8 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
         
         
         //DataSet Array mit MetaData übergeben?
+        
+        //fieldNamesPerWriter
         if(writerGroup->config.encodingMimeType == UA_PUBSUB_ENCODING_JSON){
             UA_ByteString buf;
             size_t msgSize = 2000; //WIP, TODO: get Json buffer size!
@@ -1037,6 +1050,8 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
                 connection->channel->send(connection->channel, &writerGroup->config.transportSettings, &buf);
             }
             UA_ByteString_deleteMembers(&buf);
+            
+            
         }else if(writerGroup->config.encodingMimeType == UA_PUBSUB_ENCODING_UADP) {
             //send the prepared messages
             UA_ByteString buf;
@@ -1054,6 +1069,11 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
             UA_ByteString_deleteMembers(&buf);
         }
         UA_NetworkMessage_deleteMembers(&nmStore[i]);
+    }
+    
+    //TODO: Delete field pointer array for json keys
+    for (size_t e = 0; e < writerGroup->writersCount; e++) {
+        free(fieldNamesPerWriter[e]);
     }
 }
 

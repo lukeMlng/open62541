@@ -114,14 +114,13 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_UInt16 dataSetWrit
     }
     
     rv = writeKey(&ctx, "Payload");
-    encodingJsonStartArray(&ctx);
+    encodingJsonStartObject(&ctx); //Payload
     
     if(src->header.dataSetMessageType == UA_DATASETMESSAGE_DATAKEYFRAME) {
         if(src->header.fieldEncoding == UA_FIELDENCODING_VARIANT) {
 
-            /* TODO: Use non-reversible form */
             for (UA_UInt16 i = 0; i < src->data.keyFrameData.fieldCount; i++) {
-                writeComma(&ctx);
+                writeKey(&ctx, "dummyKey"); //TODO: replace with field key
                 rv = UA_encodeJson(&(src->data.keyFrameData.dataSetFields[i].value), &UA_TYPES[UA_TYPES_VARIANT], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
                 if(rv != UA_STATUSCODE_GOOD)
                     return rv;
@@ -131,7 +130,7 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_UInt16 dataSetWrit
             return UA_STATUSCODE_BADNOTIMPLEMENTED;
         } else if(src->header.fieldEncoding == UA_FIELDENCODING_DATAVALUE) {
             for (UA_UInt16 i = 0; i < src->data.keyFrameData.fieldCount; i++) {
-                writeComma(&ctx);
+                writeKey(&ctx, "dummyKey");
                 rv = UA_encodeJson(&(src->data.keyFrameData.dataSetFields[i]), &UA_TYPES[UA_TYPES_DATAVALUE], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
                 if(rv != UA_STATUSCODE_GOOD)
                     return rv;
@@ -146,16 +145,16 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_UInt16 dataSetWrit
             return UA_STATUSCODE_BADNOTIMPLEMENTED;
         } else if(src->header.fieldEncoding == UA_FIELDENCODING_DATAVALUE) {
             for (UA_UInt16 i = 0; i < src->data.deltaFrameData.fieldCount; i++) {
-                writeComma(&ctx);
+                writeKey(&ctx, "dummyKey");
                 rv = UA_encodeJson(&(src->data.deltaFrameData.deltaFrameFields[i].fieldValue), &UA_TYPES[UA_TYPES_DATAVALUE], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
                 if(rv != UA_STATUSCODE_GOOD)
                     return rv;
             }
         }
     }
-    encodingJsonEndArray(&ctx);
+    encodingJsonEndObject(&ctx); //Payload
     
-    encodingJsonEndObject(&ctx);
+    encodingJsonEndObject(&ctx); //DataSetMessage
     
     *bufPos = ctx.pos;
     bufEnd = ctx.end;
