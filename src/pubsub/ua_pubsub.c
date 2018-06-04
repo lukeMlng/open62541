@@ -1133,6 +1133,9 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
                 (combinedNetworkMessageCount % writerGroup->config.maxEncapsulatedDataSetMessageCount) == 0 ? 0 : 1);
         networkMessageCount += combinedNetworkMessageCount;
     }
+    
+    UA_UInt16 indexKeyArrayField = 0;
+    
     //Alloc memory for the NetworkMessages on the stack
     UA_STACKARRAY(UA_NetworkMessage, nmStore, networkMessageCount);
     memset(nmStore, 0, networkMessageCount * sizeof(UA_NetworkMessage));
@@ -1187,10 +1190,12 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
                 UA_Byte *bufPos = buf.data;
                 memset(bufPos, 0, msgSize);
                 const UA_Byte *bufEnd = &(buf.data[buf.length]);
-                if(UA_NetworkMessage_encodeJson(&nmStore[i], &bufPos, bufEnd, UA_TRUE, fieldNamesPerWriter[i]) != UA_STATUSCODE_GOOD){
+                if(UA_NetworkMessage_encodeJson(&nmStore[i], &bufPos, bufEnd, UA_TRUE, fieldNamesPerWriter, indexKeyArrayField) != UA_STATUSCODE_GOOD){
                     UA_ByteString_deleteMembers(&buf);
                     return;
                 };
+                //Increment dataset message counter for next networkmessage, TODO!
+                //indexKeyArrayField = (UA_UInt16)((nmStore[i].payloadHeader.dataSetPayloadHeader.count << 8) + indexKeyArrayField);
                 
                 /* {
                  * "MessageId":"5EDFCEF4-7B81-8B74-9689-A8CAC6CC6CC6",

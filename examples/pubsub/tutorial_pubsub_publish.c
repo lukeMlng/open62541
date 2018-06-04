@@ -54,7 +54,7 @@ addPubSubConnection(UA_Server *server){
     UA_PubSubConnectionConfig connectionConfig;
     memset(&connectionConfig, 0, sizeof(connectionConfig));
     connectionConfig.name = UA_STRING("MQTT Connection 1");
-    connectionConfig.transportProfileUri = UA_STRING("http://opcfoundation.org/UA-Profile/Transport/pubsub-mqtt");
+    connectionConfig.transportProfileUri = UA_STRING("http://opcfoundation.org/UA-Profile/Transport/pubsub-mqtt-json");
     connectionConfig.enabled = UA_TRUE;
     //UA_NetworkAddressUrlDataType networkAddressUrl = {UA_STRING_NULL , UA_STRING("opc.udp://224.0.0.22:4840/")};
     UA_NetworkAddressUrlDataType networkAddressUrl = {UA_STRING_NULL , UA_STRING("opc.udp://127.0.0.1:1883/")};
@@ -81,6 +81,27 @@ addPublishedDataSet(UA_Server *server) {
     UA_Server_addPublishedDataSet(server, &publishedDataSetConfig, &publishedDataSetIdent);
 }
 
+static void
+addVariable(UA_Server *server) {
+    /* Define the attribute of the myInteger variable node */
+    UA_VariableAttributes attr = UA_VariableAttributes_default;
+    UA_Int32 myInteger = 42;
+    UA_Variant_setScalar(&attr.value, &myInteger, &UA_TYPES[UA_TYPES_INT32]);
+    attr.description = UA_LOCALIZEDTEXT("en-US","the answer");
+    attr.displayName = UA_LOCALIZEDTEXT("en-US","the answer");
+    attr.dataType = UA_TYPES[UA_TYPES_INT32].typeId;
+    attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
+
+    /* Add the variable node to the information model */
+    UA_NodeId myIntegerNodeId = UA_NODEID_NUMERIC(1, 42);
+    UA_QualifiedName myIntegerName = UA_QUALIFIEDNAME(1, "the answer");
+    UA_NodeId parentNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
+    UA_NodeId parentReferenceNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES);
+    UA_Server_addVariableNode(server, myIntegerNodeId, parentNodeId,
+                              parentReferenceNodeId, myIntegerName,
+                              UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
+}
+
 /**
  * **DataSetField handling**
  * The DataSetField (DSF) is part of the PDS and describes exactly one published field.
@@ -99,6 +120,18 @@ addDataSetField(UA_Server *server) {
     UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_CURRENTTIME);
     dataSetFieldConfig.field.variable.publishParameters.attributeId = UA_ATTRIBUTEID_VALUE;
     UA_Server_addDataSetField(server, publishedDataSetIdent, &dataSetFieldConfig, &dataSetFieldIdent);
+    
+    UA_NodeId dataSetFieldIdent2;
+    UA_DataSetFieldConfig dataSetFieldConfig2;
+    memset(&dataSetFieldConfig2, 0, sizeof(UA_DataSetFieldConfig));
+    dataSetFieldConfig2.dataSetFieldType = UA_PUBSUB_DATASETFIELD_VARIABLE;
+    //FIeld key json? @@@
+    dataSetFieldConfig2.field.variable.fieldNameAlias = UA_STRING("Test");
+    dataSetFieldConfig2.field.variable.promotedField = UA_FALSE;
+    dataSetFieldConfig2.field.variable.publishParameters.publishedVariable = UA_NODEID_NUMERIC(1, 42);
+
+    dataSetFieldConfig2.field.variable.publishParameters.attributeId = UA_ATTRIBUTEID_VALUE;
+    UA_Server_addDataSetField(server, publishedDataSetIdent, &dataSetFieldConfig2, &dataSetFieldIdent2);
 }
 
 /**
@@ -112,7 +145,7 @@ addWriterGroup(UA_Server *server) {
     UA_WriterGroupConfig writerGroupConfig;
     memset(&writerGroupConfig, 0, sizeof(UA_WriterGroupConfig));
     writerGroupConfig.name = UA_STRING("Demo WriterGroup");
-    writerGroupConfig.publishingInterval = 5000;
+    writerGroupConfig.publishingInterval = 1000;
     writerGroupConfig.enabled = UA_FALSE;
     writerGroupConfig.writerGroupId = 100;
     writerGroupConfig.encodingMimeType = UA_PUBSUB_ENCODING_JSON;
@@ -152,6 +185,25 @@ addDataSetWriter(UA_Server *server) {
     dataSetWriterConfig.name = UA_STRING("Demo DataSetWriter");
     dataSetWriterConfig.dataSetWriterId = 62541;
     dataSetWriterConfig.keyFrameCount = 10;
+    
+    UA_JsonDataSetWriterMessageDataType jsonDswMd;
+    jsonDswMd.dataSetMessageContentMask = UA_JSONDATASETMESSAGECONTENTMASK_SEQUENCENUMBER;
+    
+    UA_ExtensionObject messageSettings;
+    messageSettings.encoding = UA_EXTENSIONOBJECT_DECODED;
+    messageSettings.content.decoded.type = &UA_TYPES[UA_TYPES_JSONDATASETWRITERMESSAGEDATATYPE];
+    messageSettings.content.decoded.data = &jsonDswMd;
+    /*==  ||
+        dataSetWriter->config.messageSettings.encoding == UA_EXTENSIONOBJECT_DECODED_NODELETE) &&
+       (dataSetWriter->config.messageSettings.content.decoded.type == &UA_TYPES[UA_TYPES_JSONDATASETWRITERMESSAGEDATATYPE])) {
+        jsonDataSetWriterMessageDataType = (UA_JsonDataSetWriterMessageDataType *)
+            dataSetWriter->config.messageSettings.content.decoded.data;
+        messageType = UA_TYPES_JSONDATASETWRITERMESSAGEDATATYPE;
+    */
+    
+    dataSetWriterConfig.messageSettings = messageSettings;
+    
+    
     UA_Server_addDataSetWriter(server, writerGroupIdent, publishedDataSetIdent,
                                &dataSetWriterConfig, &dataSetWriterIdent);
 }
@@ -232,6 +284,7 @@ int main(void) {
     config->pubsubTransportLayersSize++;
     UA_Server *server = UA_Server_new(config);
 
+    addVariable(server);
     addPubSubConnection(server);
     addPublishedDataSet(server);
     addDataSetField(server);

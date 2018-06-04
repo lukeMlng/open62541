@@ -60,7 +60,7 @@ static UA_Boolean UA_DataSetMessageHeader_DataSetFlags2Enabled(const UA_DataSetM
 
 UA_StatusCode
 UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_UInt16 dataSetWriterId, UA_Byte **bufPos,
-                               const UA_Byte *bufEnd, UA_Boolean useReversible, UA_String dataSetMessageFieldNames[]) {
+                               const UA_Byte *bufEnd, UA_Boolean useReversible, UA_String **dataSetMessageFieldNames) {
     Ctx ctx;
     ctx.pos = *bufPos;
     ctx.end = bufEnd;
@@ -125,7 +125,7 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_UInt16 dataSetWrit
         if(src->header.fieldEncoding == UA_FIELDENCODING_VARIANT) {
 
             for (UA_UInt16 i = 0; i < src->data.keyFrameData.fieldCount; i++) {
-                UA_String *fieldKey = &dataSetMessageFieldNames[i];
+                UA_String *fieldKey = dataSetMessageFieldNames[i];
                 writeKey_UA_String(&ctx, fieldKey); //TODO: replace with field key
                 rv = UA_encodeJson(&(src->data.keyFrameData.dataSetFields[i].value), &UA_TYPES[UA_TYPES_VARIANT], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
                 if(rv != UA_STATUSCODE_GOOD)
@@ -144,8 +144,13 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_UInt16 dataSetWrit
         }
     }else if(src->header.dataSetMessageType == UA_DATASETMESSAGE_DATADELTAFRAME){
         if(src->header.fieldEncoding == UA_FIELDENCODING_VARIANT) {
-            /* TODO:  */
-            return UA_STATUSCODE_BADNOTIMPLEMENTED;
+             for (UA_UInt16 i = 0; i < src->data.deltaFrameData.fieldCount; i++) {
+                UA_String *fieldKey = dataSetMessageFieldNames[i];
+                writeKey_UA_String(&ctx, fieldKey); //TODO: replace with field key
+                rv = UA_encodeJson(&(src->data.deltaFrameData.deltaFrameFields[i].fieldValue.value), &UA_TYPES[UA_TYPES_VARIANT], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
+                if(rv != UA_STATUSCODE_GOOD)
+                    return rv;
+            }
         } else if(src->header.fieldEncoding == UA_FIELDENCODING_RAWDATA) {
             /* TODO:  */
             return UA_STATUSCODE_BADNOTIMPLEMENTED;
@@ -325,7 +330,7 @@ status NetworkMessage_decodeJson(UA_NetworkMessage *dst, UA_ByteString *src){
 
 UA_StatusCode
 UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src, UA_Byte **bufPos,
-                               const UA_Byte *bufEnd, UA_Boolean useReversible, UA_String** dataSetMessageFieldNames) {
+                               const UA_Byte *bufEnd, UA_Boolean useReversible, UA_String ***dataSetMessageFieldNames, UA_UInt16 indexKeyArrayField) {
     
     Ctx ctx;
     ctx.pos = *bufPos;
@@ -411,7 +416,7 @@ UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src, UA_Byte **bufPos,
             
             rv = writeKey(&ctx, "Messages");
             encodingJsonStartArray(&ctx);
-            for (UA_Byte i = 0; i < count; i++) {
+            for (UA_UInt16 i = indexKeyArrayField; i < (indexKeyArrayField + count); i++) {
                 writeComma(&ctx);
                 rv = UA_DataSetMessage_encodeJson(&(src->payload.dataSetPayload.dataSetMessages[i]), dataSetWriterIds[i], &ctx.pos, ctx.end, useReversible, dataSetMessageFieldNames[i]);
                 if(rv != UA_STATUSCODE_GOOD)

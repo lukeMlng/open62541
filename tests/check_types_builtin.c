@@ -2775,7 +2775,7 @@ START_TEST(UA_PubSub_EnDecode) {
     const UA_Byte *bufEnd = &(buffer.data[buffer.length]);
     
     //{"MessageId":"D4195B44-2E0A-8D5B-46F4-BF9B1CB1BB0B","MessageType":"ua-data","Messages":[{"DataSetWriterId":"4","Payload":[{"Type":6,"Body":27}]},{"DataSetWriterId":"7","Payload":[{"Value":{"Type":13,"Body":"B7E9851D-2E4D-E71F-7107-A02AF23F5375"}},{"Value":{"Type":7,"Body":152478978534}}]}]}
-    rv = UA_NetworkMessage_encodeJson(&m, &bufPos, bufEnd, UA_TRUE, NULL);
+    rv = UA_NetworkMessage_encodeJson(&m, &bufPos, bufEnd, UA_TRUE, NULL, 0);
     ck_assert_int_eq(rv, UA_STATUSCODE_GOOD);
     /*
     UA_NetworkMessage m2;
