@@ -96,7 +96,7 @@ addDataSetField(UA_Server *server) {
     dataSetFieldConfig.field.variable.fieldNameAlias = UA_STRING("Server localtime");
     dataSetFieldConfig.field.variable.promotedField = UA_FALSE;
     dataSetFieldConfig.field.variable.publishParameters.publishedVariable =
-            UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_LOCALTIME);
+    UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_CURRENTTIME);
     dataSetFieldConfig.field.variable.publishParameters.attributeId = UA_ATTRIBUTEID_VALUE;
     UA_Server_addDataSetField(server, publishedDataSetIdent, &dataSetFieldConfig, &dataSetFieldIdent);
 }
@@ -114,6 +114,7 @@ addWriterGroup(UA_Server *server) {
     writerGroupConfig.name = UA_STRING("Demo WriterGroup");
     writerGroupConfig.publishingInterval = 5000;
     writerGroupConfig.enabled = UA_FALSE;
+    writerGroupConfig.writerGroupId = 100;
     writerGroupConfig.encodingMimeType = UA_PUBSUB_ENCODING_JSON;
     
     UA_BrokerWriterGroupTransportDataType brokerTransportSettings; //UA_BrokerConnectionTransportDataType_new();

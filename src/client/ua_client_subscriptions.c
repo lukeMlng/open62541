@@ -613,6 +613,15 @@ UA_Client_Subscriptions_processPublishResponse(UA_Client *client, UA_PublishRequ
         return;
     }
 
+    if(response->responseHeader.serviceResult == UA_STATUSCODE_BADSESSIONCLOSED) {
+        if(client->state >= UA_CLIENTSTATE_SESSION) {
+            UA_LOG_WARNING(client->config.logger, UA_LOGCATEGORY_CLIENT,
+                           "Received Publish Response with code %s",
+                            UA_StatusCode_name(response->responseHeader.serviceResult));
+        }
+        return;
+    }
+
     if(response->responseHeader.serviceResult == UA_STATUSCODE_BADSESSIONIDINVALID) {
         UA_Client_close(client); /* TODO: This should be handled before the process callback */
         UA_LOG_WARNING(client->config.logger, UA_LOGCATEGORY_CLIENT,
@@ -681,7 +690,7 @@ UA_Client_Subscriptions_processPublishResponse(UA_Client *client, UA_PublishRequ
 
 static void
 processPublishResponseAsync(UA_Client *client, void *userdata, UA_UInt32 requestId,
-                            void *response, const UA_DataType *responseType) {
+                            void *response) {
     UA_PublishRequest *req = (UA_PublishRequest*)userdata;
     UA_PublishResponse *res = (UA_PublishResponse*)response;
 
@@ -728,7 +737,7 @@ UA_Client_Subscriptions_backgroundPublishInactivityCheck(UA_Client *client) {
             /* Reset activity */
             sub->lastActivity = UA_DateTime_nowMonotonic();
 
-            if (client->config.subscriptionInactivityCallback)
+            if(client->config.subscriptionInactivityCallback)
                 client->config.subscriptionInactivityCallback(client, sub->subscriptionId, sub->context);
             UA_LOG_ERROR(client->config.logger, UA_LOGCATEGORY_CLIENT,
                          "Inactivity for Subscription %u.", sub->subscriptionId);
@@ -758,10 +767,12 @@ UA_Client_Subscriptions_backgroundPublish(UA_Client *client) {
     
         UA_UInt32 requestId;
         client->currentlyOutStandingPublishRequests++;
-        retval = __UA_Client_AsyncService(client, request, &UA_TYPES[UA_TYPES_PUBLISHREQUEST],
-                                          processPublishResponseAsync,
-                                          &UA_TYPES[UA_TYPES_PUBLISHRESPONSE],
-                                          (void*)request, &requestId);
+
+        /* Disable the timeout, it is treat in UA_Client_Subscriptions_backgroundPublishInactivityCheck */
+        retval = __UA_Client_AsyncServiceEx(client, request, &UA_TYPES[UA_TYPES_PUBLISHREQUEST],
+                                            processPublishResponseAsync,
+                                            &UA_TYPES[UA_TYPES_PUBLISHRESPONSE],
+                                            (void*)request, &requestId, 0);
         if(retval != UA_STATUSCODE_GOOD) {
             UA_PublishRequest_delete(request);
             return retval;

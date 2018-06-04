@@ -38,6 +38,9 @@ setClientState(UA_Client *client, UA_ClientState state) {
 /* Open the Connection */
 /***********************/
 
+#define UA_BITMASK_MESSAGETYPE 0x00ffffff
+#define UA_BITMASK_CHUNKTYPE 0xff000000
+
 static UA_StatusCode
 processACKResponse(void *application, UA_Connection *connection, UA_ByteString *chunk) {
     UA_Client *client = (UA_Client*)application;
@@ -48,6 +51,30 @@ processACKResponse(void *application, UA_Connection *connection, UA_ByteString *
     UA_TcpMessageHeader messageHeader;
     UA_TcpAcknowledgeMessage ackMessage;
     retval = UA_TcpMessageHeader_decodeBinary(chunk, &offset, &messageHeader);
+    if(retval != UA_STATUSCODE_GOOD) {
+        UA_LOG_INFO(client->config.logger, UA_LOGCATEGORY_NETWORK,
+                    "Decoding ACK message failed");
+        return retval;
+    }
+
+    // check if we got an error response from the server
+    UA_MessageType messageType = (UA_MessageType)
+        (messageHeader.messageTypeAndChunkType & UA_BITMASK_MESSAGETYPE);
+    UA_ChunkType chunkType = (UA_ChunkType)
+        (messageHeader.messageTypeAndChunkType & UA_BITMASK_CHUNKTYPE);
+    if (messageType == UA_MESSAGETYPE_ERR) {
+        // Header + ErrorMessage (error + reasonLength_field + length)
+        UA_StatusCode error = *(UA_StatusCode*)(&chunk->data[offset]);
+        UA_UInt32 len = *((UA_UInt32*)&chunk->data[offset + 4]);
+        UA_Byte *data = (UA_Byte*)&chunk->data[offset + 4+4];
+        UA_LOG_ERROR(client->config.logger, UA_LOGCATEGORY_NETWORK,
+                    "Received ERR response. %s - %.*s", UA_StatusCode_name(error), len, data);
+        return UA_STATUSCODE_BADTCPMESSAGETYPEINVALID;
+    }
+    if (chunkType != UA_CHUNKTYPE_FINAL) {
+        return UA_STATUSCODE_BADTCPMESSAGETYPEINVALID;
+    }
+
     retval |= UA_TcpAcknowledgeMessage_decodeBinary(chunk, &offset, &ackMessage);
     if(retval != UA_STATUSCODE_GOOD) {
         UA_LOG_INFO(client->config.logger, UA_LOGCATEGORY_NETWORK,
@@ -232,7 +259,7 @@ openSecureChannel(UA_Client *client, UA_Boolean renew) {
  * @param  channel      current channel in which the client runs
  * @param  response     create session response from the server
  * @return Returns an error code or UA_STATUSCODE_GOOD. */
-static UA_StatusCode
+UA_StatusCode
 checkClientSignature(const UA_SecureChannel *channel, const UA_CreateSessionResponse *response) {
     if(channel == NULL || response == NULL)
         return UA_STATUSCODE_BADINTERNALERROR;
@@ -271,7 +298,7 @@ checkClientSignature(const UA_SecureChannel *channel, const UA_CreateSessionResp
  * @param  channel      current channel in which the client runs
  * @param  request      activate session request message to server
  * @return Returns an error or UA_STATUSCODE_GOOD */
-static UA_StatusCode
+UA_StatusCode
 signActivateSessionRequest(UA_SecureChannel *channel,
                            UA_ActivateSessionRequest *request) {
     if(channel == NULL || request == NULL)
@@ -721,13 +748,17 @@ UA_Client_disconnect(UA_Client *client) {
     }
 
     /* Close the TCP connection */
-    if(client->connection.state != UA_CONNECTION_CLOSED)
-        client->connection.close(&client->connection);
+    if(client->connection.state != UA_CONNECTION_CLOSED
+            && client->connection.state != UA_CONNECTION_OPENING)
+        /*UA_ClientConnectionTCP_init sets initial state to opening */
+        if(client->connection.close != NULL)
+            client->connection.close(&client->connection);
+
 
 #ifdef UA_ENABLE_SUBSCRIPTIONS
 // TODO REMOVE WHEN UA_SESSION_RECOVERY IS READY
-        /* We need to clean up the subscriptions */
-        UA_Client_Subscriptions_clean(client);
+    /* We need to clean up the subscriptions */
+    UA_Client_Subscriptions_clean(client);
 #endif
 
     setClientState(client, UA_CLIENTSTATE_DISCONNECTED);

@@ -21,6 +21,13 @@
 #ifdef UA_ENABLE_GENERATE_NAMESPACE0
 #include "ua_namespaceinit_generated.h"
 #endif
+#ifdef UA_ENABLE_PUBSUB_INFORMATIONMODEL
+#include "ua_pubsub_ns0.h"
+#endif
+
+#ifdef UA_ENABLE_SUBSCRIPTIONS
+#include "ua_subscription.h"
+#endif
 
 /**********************/
 /* Namespace Handling */
@@ -104,6 +111,14 @@ void UA_Server_delete(UA_Server *server) {
     UA_SecureChannelManager_deleteMembers(&server->secureChannelManager);
     UA_SessionManager_deleteMembers(&server->sessionManager);
     UA_Array_delete(server->namespaces, server->namespacesSize, &UA_TYPES[UA_TYPES_STRING]);
+
+#ifdef UA_ENABLE_SUBSCRIPTIONS
+    UA_MonitoredItem *mon, *mon_tmp;
+    LIST_FOREACH_SAFE(mon, &server->localMonitoredItems, listEntry, mon_tmp) {
+        LIST_REMOVE(mon, listEntry);
+        UA_MonitoredItem_delete(server, mon);
+    }
+#endif
 
 #ifdef UA_ENABLE_PUBSUB
     UA_PubSubManager_delete(server, &server->pubSubManager);
@@ -280,6 +295,10 @@ UA_Server_new(const UA_ServerConfig *config) {
         UA_Server_delete(server);
         return NULL;
     }
+    /* Build PubSub information model */
+#ifdef UA_ENABLE_PUBSUB_INFORMATIONMODEL
+    UA_Server_initPubSubNS0(server);
+#endif
 
     return server;
 }
