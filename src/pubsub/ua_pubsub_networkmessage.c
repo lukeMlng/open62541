@@ -136,7 +136,8 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_UInt16 dataSetWrit
             return UA_STATUSCODE_BADNOTIMPLEMENTED;
         } else if(src->header.fieldEncoding == UA_FIELDENCODING_DATAVALUE) {
             for (UA_UInt16 i = 0; i < src->data.keyFrameData.fieldCount; i++) {
-                writeKey(&ctx, "dummyKey");
+                UA_String *fieldKey = dataSetMessageFieldNames[i];
+                writeKey_UA_String(&ctx, fieldKey); //TODO: replace with field key
                 rv = UA_encodeJson(&(src->data.keyFrameData.dataSetFields[i]), &UA_TYPES[UA_TYPES_DATAVALUE], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
                 if(rv != UA_STATUSCODE_GOOD)
                     return rv;
@@ -156,7 +157,8 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_UInt16 dataSetWrit
             return UA_STATUSCODE_BADNOTIMPLEMENTED;
         } else if(src->header.fieldEncoding == UA_FIELDENCODING_DATAVALUE) {
             for (UA_UInt16 i = 0; i < src->data.deltaFrameData.fieldCount; i++) {
-                writeKey(&ctx, "dummyKey");
+                UA_String *fieldKey = dataSetMessageFieldNames[i];
+                writeKey_UA_String(&ctx, fieldKey); //TODO: replace with field key
                 rv = UA_encodeJson(&(src->data.deltaFrameData.deltaFrameFields[i].fieldValue), &UA_TYPES[UA_TYPES_DATAVALUE], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
                 if(rv != UA_STATUSCODE_GOOD)
                     return rv;
@@ -183,8 +185,45 @@ static status MetaDataVersion_decodeJsonInternal(void* dsm, const UA_DataType *t
     return 0;
 }
 
-static status DataSetPayload_decodeJsonInternal(void* dsm, const UA_DataType *type, Ctx *ctx, ParseCtx *parseCtx, UA_Boolean moveToken){
-
+static status DataSetPayload_decodeJsonInternal(void* dsmP, const UA_DataType *type, Ctx *ctx, ParseCtx *parseCtx, UA_Boolean moveToken){
+    UA_DataSetMessage* dsm = (UA_DataSetMessage*)dsmP;
+    
+    if(isJsonNull(ctx, parseCtx)){
+        (*parseCtx->index)++;
+        //TODO: set size, etc.
+        return UA_STATUSCODE_GOOD;
+    }
+    
+    size_t length = (size_t)parseCtx->tokenArray[*parseCtx->index].size;
+    //UA_Variant *var = (UA_Variant*)UA_calloc(length, sizeof(UA_Variant));
+    //dsm->data.keyFrameData
+    UA_String *fieldNames = (UA_String*)UA_calloc(length, sizeof(UA_String));
+    
+    dsm->data.keyFrameData.fieldCount = (UA_UInt16)length;
+    
+    dsm->data.keyFrameData.dataSetFields =
+                    (UA_DataValue *)UA_Array_new(dsm->data.keyFrameData.fieldCount, &UA_TYPES[UA_TYPES_DATAVALUE]);
+                    
+    
+    status ret = UA_STATUSCODE_GOOD;
+    (*parseCtx->index)++; // We go to first Object key!
+    for(size_t i = 0; i < length; ++i) {
+        
+        ret = getDecodeSignature(UA_TYPES_STRING)(&fieldNames[i], type, ctx, parseCtx, UA_TRUE);
+        if(ret != UA_STATUSCODE_GOOD){
+            //TODO: handle error, free mem
+        }
+        
+        UA_DataValue_init(&dsm->data.keyFrameData.dataSetFields[i]);
+        ret = getDecodeSignature(UA_TYPES_VARIANT)(&dsm->data.keyFrameData.dataSetFields[i].value, type, ctx, parseCtx, UA_TRUE);
+        dsm->data.keyFrameData.dataSetFields[i].hasValue = UA_TRUE;
+        
+        
+        if(ret != UA_STATUSCODE_GOOD){
+            //TODO: handle error, free mem
+        }
+    }
+    
     return 0;
 }
 
@@ -214,7 +253,7 @@ DatasetMessage_Payload_decodeJsonInternal(UA_DataSetMessage* dsm, const UA_DataT
     UA_UInt64 dataSetWriterId; //TODO: Where to store?
     
     const char* fieldNames[] = {"DataSetWriterId", "SequenceNumber", "MetaDataVersion", "Status", "Payload"};
-    void *fieldPointer[] = {&dataSetWriterId, &dsm->header.dataSetMessageSequenceNr, &cvd, &dsm->header.status, &dsm->data.keyFrameData.dataSetFields};
+    void *fieldPointer[] = {&dataSetWriterId, &dsm->header.dataSetMessageSequenceNr, &cvd, &dsm->header.status, dsm};
     decodeJsonSignature functions[] = {
         getDecodeSignature(UA_TYPES_UINT64),
         getDecodeSignature(UA_TYPES_UINT16),
@@ -286,27 +325,60 @@ static status NetworkMessage_decodeJsonInternal(UA_NetworkMessage *dst, Ctx *ctx
         }
     }*/
     
-    /* Network Message */
-    status ret = UA_STATUSCODE_GOOD;
-    
-    u8 fieldCount = 5;
-    UA_Guid guid;
-    UA_String messageType;
-    const char* fieldNames[] = {"MessageId", "MessageType", "PublisherId", "DataSetClassId", "Messages"};
-    void *fieldPointer[] = {&guid, &messageType, &dst->publisherId.publisherIdString, &dst->dataSetClassId, &dst->payload.dataSetPayload.dataSetMessages};
-    decodeJsonSignature functions[] = {
-        getDecodeSignature(UA_TYPES_GUID),
-        getDecodeSignature(UA_TYPES_STRING),
-        getDecodeSignature(UA_TYPES_STRING),
-        getDecodeSignature(UA_TYPES_GUID),
-        &DatasetMessage_Array_decodeJsonInternal
-    };
+    /* MessageType */
+    UA_Boolean isUaData = UA_TRUE;
+    size_t searchResult = 0;
+    UA_String searchKey = UA_STRING("MessageType"); 
+    lookAheadForKey(searchKey, ctx, parseCtx, &searchResult);
+    if(searchResult == 0){
+        //TODO Cleanup
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }else{
+        size_t size = (size_t)(parseCtx->tokenArray[searchResult].end - parseCtx->tokenArray[searchResult].start);
+        char* msgType = (char*)(ctx->pos + parseCtx->tokenArray[searchResult].start);
+        if(size == 7){ //ua-data
+            if(strncmp(msgType, "ua-data", size) != 0){
+                return UA_STATUSCODE_BADDECODINGERROR;
+            }else{
+                isUaData = UA_TRUE;
+            }
+        }else if(size == 11){ //ua-metadata
+            if(strncmp(msgType, "ua-metadata", size) != 0){
+                return UA_STATUSCODE_BADDECODINGERROR;
+            }else{
+                isUaData = UA_FALSE;
+            }
+        }else{
+            return UA_STATUSCODE_BADDECODINGERROR;
+        }
+    }
         
-        
-    //UA_Boolean found[] = {};
-    ret = decodeFields(ctx, parseCtx, fieldCount, fieldNames, functions, fieldPointer, NULL, NULL);
+
     
-    return ret;
+    if(isUaData){
+        /* Network Message */
+        status ret = UA_STATUSCODE_GOOD;
+
+        u8 fieldCount = 5;
+        UA_Guid guid;
+        UA_String messageType;
+        const char* fieldNames[] = {"MessageId", "MessageType", "PublisherId", "DataSetClassId", "Messages"};
+        void *fieldPointer[] = {&guid, &messageType, &dst->publisherId.publisherIdString, &dst->dataSetClassId, &dst->payload.dataSetPayload.dataSetMessages};
+        decodeJsonSignature functions[] = {
+            getDecodeSignature(UA_TYPES_GUID),
+            getDecodeSignature(UA_TYPES_STRING),
+            getDecodeSignature(UA_TYPES_STRING),
+            getDecodeSignature(UA_TYPES_GUID),
+            &DatasetMessage_Array_decodeJsonInternal
+        };
+
+        //UA_Boolean found[] = {};
+        ret = decodeFields(ctx, parseCtx, fieldCount, fieldNames, functions, fieldPointer, NULL, NULL);
+        return ret;
+    }else{
+        //TODO: MetaData
+        return UA_STATUSCODE_BADNOTIMPLEMENTED;
+    }
 }
 
 

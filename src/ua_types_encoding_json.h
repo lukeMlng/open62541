@@ -66,6 +66,8 @@ status lookAheadForKey(UA_String search, Ctx *ctx, ParseCtx *parseCtx, size_t *r
 
 jsmntype_t getJsmnType(const ParseCtx *parseCtx);
 status tokenize(ParseCtx *parseCtx, Ctx *ctx, const UA_ByteString *src, UA_UInt16 *tokenIndex);
+UA_Boolean isJsonNull(const Ctx *ctx, const ParseCtx *parseCtx);
+
 //typedef UA_StatusCode (*UA_exchangeEncodeBuffer)(void *handle, UA_Byte **bufPos,
 //                                                 const UA_Byte **bufEnd);
 

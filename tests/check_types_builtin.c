@@ -2774,9 +2774,24 @@ START_TEST(UA_PubSub_EnDecode) {
     memset(bufPos, 0, msgSize);
     const UA_Byte *bufEnd = &(buffer.data[buffer.length]);
     
-    //{"MessageId":"D4195B44-2E0A-8D5B-46F4-BF9B1CB1BB0B","MessageType":"ua-data","Messages":[{"DataSetWriterId":"4","Payload":[{"Type":6,"Body":27}]},{"DataSetWriterId":"7","Payload":[{"Value":{"Type":13,"Body":"B7E9851D-2E4D-E71F-7107-A02AF23F5375"}},{"Value":{"Type":7,"Body":152478978534}}]}]}
-    rv = UA_NetworkMessage_encodeJson(&m, &bufPos, bufEnd, UA_TRUE, NULL, 0);
+    UA_String a = UA_STRING("a");
+    UA_String b = UA_STRING("b");
+    UA_String** dataSetMessageFields[2];
+    
+    UA_String* dataSetMessageFieldNames[2];
+    dataSetMessageFields[0] = dataSetMessageFieldNames;
+    dataSetMessageFieldNames[0] = &a;
+    dataSetMessageFieldNames[1] = &b;
+    
+    dataSetMessageFields[1] = dataSetMessageFieldNames;
+    rv = UA_NetworkMessage_encodeJson(&m, &bufPos, bufEnd, UA_TRUE, dataSetMessageFields, 0);
+    *bufPos = 0;
+    // then
     ck_assert_int_eq(rv, UA_STATUSCODE_GOOD);
+    //char* result = "{\"MessageId\":\"D4195B44-2E0A-8D5B-46F4-BF9B1CB1BB0B\",\"MessageType\":\"ua-data\",\"Messages\":[{\"DataSetWriterId\":\"4\",\"Payload\":[{\"Type\":6,\"Body\":27}]},{\"DataSetWriterId\":\"7\",\"Payload\":[{\"Value\":{\"Type\":13,\"Body\":\"B7E9851D-2E4D-E71F-7107-A02AF23F5375\"}},{\"Value\":{\"Type\":7,\"Body\":152478978534}}]}]}";
+    //ck_assert_str_eq(result, (char*)buffer.data);
+    //"{\"MessageId\":\"D4195B44-2E0A-8D5B-46F4-BF9B1CB1BB0B\",\"MessageType\":\"ua-data\",\"Messages\":[{\"DataSetWriterId\":\"0\",\"Payload\":{\"a\":{\"Type\":6,\"Body\":27}}},{\"DataSetWriterId\":\"0\",\"Payload\":{\"a\":{\"Value\":{\"Type\":13,\"Body\":\"B7E9851D-2E4D-E71F-7107-A02AF23F5375\"}},\"b\":{\"Value\":{\"Type\":7,\"Body\":152478978534}}}}]}"
+    
     /*
     UA_NetworkMessage m2;
     memset(&m2, 0, sizeof(UA_NetworkMessage));
@@ -2832,6 +2847,34 @@ START_TEST(UA_PubSub_EnDecode) {
 END_TEST
 
 /* ---------------------------DECODE-------------------------------------*/
+
+START_TEST(UA_NetworkMessage_oneMessage_twoFields_json_decode) {
+    // given
+    UA_NetworkMessage out;
+    UA_ByteString buf = UA_STRING("{\"MessageId\":\"5ED82C10-50BB-CD07-0120-22521081E8EE\",\"MessageType\":\"ua-data\",\"Messages\":[{\"DataSetWriterId\":\"62541\",\"SequenceNumber\":4711,\"Payload\":{\"Test\":{\"Type\":5,\"Body\":42},\"Server localtime\":{\"Type\":12,\"Body\":\"2018-06-05T05:58:36Z\"}}}]}");
+    // when
+    UA_StatusCode retval = NetworkMessage_decodeJson(&out, &buf);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    ck_assert_int_eq(out.payload.dataSetPayload.dataSetMessages[0].header.dataSetMessageSequenceNr, 4711);
+    //ck_assert_int_eq(out.payload.dataSetPayload.dataSetMessages[0].header.dataSetWriterId, 62541);
+    ck_assert_int_eq(out.payload.dataSetPayload.dataSetMessages[0].data.keyFrameData.dataSetFields[0].hasValue, 1);
+    ck_assert_int_eq(*((UA_UInt16*)out.payload.dataSetPayload.dataSetMessages[0].data.keyFrameData.dataSetFields[0].value.data), 42);
+    ck_assert_int_eq(out.payload.dataSetPayload.dataSetMessages[0].data.keyFrameData.dataSetFields[1].hasValue, 1);
+    UA_DateTime *dt = (UA_DateTime*)out.payload.dataSetPayload.dataSetMessages[0].data.keyFrameData.dataSetFields[1].value.data;
+    UA_DateTimeStruct dts = UA_DateTime_toStruct(*dt);
+    //2018-06-05T05:58:36
+    ck_assert_int_eq(dts.year, 2018);
+    ck_assert_int_eq(dts.month, 6);
+    ck_assert_int_eq(dts.day, 5);
+    ck_assert_int_eq(dts.hour, 5);
+    ck_assert_int_eq(dts.min, 58);
+    ck_assert_int_eq(dts.sec, 36);
+    ck_assert_int_eq(dts.milliSec, 0);
+    ck_assert_int_eq(dts.microSec, 0);
+    ck_assert_int_eq(dts.nanoSec, 0);
+}
+END_TEST
 
 START_TEST(UA_UInt16_json_decode) {
     // given
@@ -3667,6 +3710,8 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_decode, UA_Networkmessage_json_decode);
     tcase_add_test(tc_json_decode, UA_duplicate_json_decode);
     tcase_add_test(tc_json_decode, UA_wrongBoolean_json_decode);
+    
+    tcase_add_test(tc_json_decode, UA_NetworkMessage_oneMessage_twoFields_json_decode);
     
     suite_add_tcase(s, tc_json_decode);
     return s;

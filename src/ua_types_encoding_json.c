@@ -1730,7 +1730,7 @@ jsmntype_t getJsmnType(const ParseCtx *parseCtx){
     return parseCtx->tokenArray[*parseCtx->index].type;
 }
 
-static UA_Boolean isJsonNull(const Ctx *ctx, const ParseCtx *parseCtx){
+ UA_Boolean isJsonNull(const Ctx *ctx, const ParseCtx *parseCtx){
     if(parseCtx->tokenArray[*parseCtx->index].type != JSMN_PRIMITIVE){
         return false;
     }
@@ -1852,7 +1852,7 @@ DECODE_JSON(UInt32) {
 
 DECODE_JSON(UInt64) {
     jsmntype_t tokenType = getJsmnType(parseCtx);
-    if(tokenType != JSMN_PRIMITIVE){
+    if(tokenType != JSMN_PRIMITIVE && tokenType != JSMN_STRING){ //TODO: HACK for DataSetWriterIdString!
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     
