@@ -2897,6 +2897,9 @@ decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames
                 (*parseCtx->index)++; //goto value
                 if(functions[i] != NULL){
                     ret = functions[i](fieldPointer[i], type, ctx, parseCtx, UA_TRUE);//Move Token True
+                    if(ret != UA_STATUSCODE_GOOD){
+                        return ret;
+                    }
                 }else{
                     //TODO overstep single value, this will not work if object or array
                     (*parseCtx->index)++;

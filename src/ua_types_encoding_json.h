@@ -47,7 +47,7 @@ status writeNull(Ctx *ctx);
 
 
 typedef struct {
-    jsmntok_t tokenArray[128];
+    jsmntok_t tokenArray[1000];
     UA_Int32 tokenCount;
     UA_UInt16 *index;
 } ParseCtx;

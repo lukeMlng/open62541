@@ -214,17 +214,32 @@ static status DataSetPayload_decodeJsonInternal(void* dsmP, const UA_DataType *t
             //TODO: handle error, free mem
         }
         
-        UA_DataValue_init(&dsm->data.keyFrameData.dataSetFields[i]);
-        ret = getDecodeSignature(UA_TYPES_VARIANT)(&dsm->data.keyFrameData.dataSetFields[i].value, type, ctx, parseCtx, UA_TRUE);
-        dsm->data.keyFrameData.dataSetFields[i].hasValue = UA_TRUE;
+        //Is field a variant or datavalue?
+        UA_Boolean isVariant = UA_TRUE;
+        size_t searchResultBody = 0;
+        UA_String searchKeyBody = UA_STRING("Type");
+        lookAheadForKey(searchKeyBody, ctx, parseCtx, &searchResultBody);
+        if(searchResultBody == 0){
+            isVariant = UA_FALSE;
+        }
         
+        if(isVariant){
+            UA_DataValue_init(&dsm->data.keyFrameData.dataSetFields[i]);
+            ret = getDecodeSignature(UA_TYPES_VARIANT)(&dsm->data.keyFrameData.dataSetFields[i].value, type, ctx, parseCtx, UA_TRUE);
+            dsm->data.keyFrameData.dataSetFields[i].hasValue = UA_TRUE;
+        }else{
+            ret = getDecodeSignature(UA_TYPES_DATAVALUE)(&dsm->data.keyFrameData.dataSetFields[i], type, ctx, parseCtx, UA_TRUE);
+            dsm->data.keyFrameData.dataSetFields[i].hasValue = UA_TRUE;
+        }
         
+
         if(ret != UA_STATUSCODE_GOOD){
             //TODO: handle error, free mem
+            return ret;
         }
     }
     
-    return 0;
+    return ret;
 }
 
 static status
@@ -250,10 +265,13 @@ DatasetMessage_Payload_decodeJsonInternal(UA_DataSetMessage* dsm, const UA_DataT
     UA_ConfigurationVersionDataType cvd;
 
     u8 fieldCount = 5;
-    UA_UInt64 dataSetWriterId; //TODO: Where to store?
+    //UA_UInt64 dataSetWriterId; //TODO: Where to store?
+    
+    dsm->header.fieldEncoding = UA_FIELDENCODING_DATAVALUE;
     
     const char* fieldNames[] = {"DataSetWriterId", "SequenceNumber", "MetaDataVersion", "Status", "Payload"};
-    void *fieldPointer[] = {&dataSetWriterId, &dsm->header.dataSetMessageSequenceNr, &cvd, &dsm->header.status, dsm};
+    UA_Boolean found[] = {UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE};
+    void *fieldPointer[] = {&dsm->header.dataSetWriterId, &dsm->header.dataSetMessageSequenceNr, &cvd, &dsm->header.status, dsm};
     decodeJsonSignature functions[] = {
         getDecodeSignature(UA_TYPES_UINT64),
         getDecodeSignature(UA_TYPES_UINT16),
@@ -262,8 +280,16 @@ DatasetMessage_Payload_decodeJsonInternal(UA_DataSetMessage* dsm, const UA_DataT
         &DataSetPayload_decodeJsonInternal
     };
     
+    
     //TODO: PAYLOAD is key value pairs of Variant. (Or DataValue as in .net impl?), set TYPE!
-    status ret = decodeFields(ctx, parseCtx, fieldCount, fieldNames, functions, fieldPointer, NULL, NULL);
+    status ret = decodeFields(ctx, parseCtx, fieldCount, fieldNames, functions, fieldPointer, NULL, found);
+    dsm->header.dataSetMessageSequenceNrEnabled = found[1];
+    dsm->header.configVersionMajorVersion = cvd.majorVersion;
+    dsm->header.configVersionMinorVersion = cvd.minorVersion;
+    dsm->header.configVersionMajorVersionEnabled = found[2];
+    dsm->header.configVersionMinorVersionEnabled = found[2];
+    dsm->header.statusEnabled = found[3];
+
     return ret;
 }
 
@@ -308,8 +334,8 @@ DatasetMessage_Array_decodeJsonInternal(void *UA_RESTRICT dst, const UA_DataType
 
 static status NetworkMessage_decodeJsonInternal(UA_NetworkMessage *dst, Ctx *ctx, ParseCtx *parseCtx){
     
-    /*UA_Boolean isArray = UA_FALSE;
-    //size_t messageCount = 0;    
+    memset(dst, 0, sizeof(UA_NetworkMessage));
+    size_t messageCount = 0;    
     {
         //Is Messages an Array? How big?
         size_t searchResultBody = 0;
@@ -318,12 +344,10 @@ static status NetworkMessage_decodeJsonInternal(UA_NetworkMessage *dst, Ctx *ctx
         if(searchResultBody != 0){
             jsmntok_t bodyToken = parseCtx->tokenArray[searchResultBody];
             if(bodyToken.type == JSMN_ARRAY){
-                isArray = UA_TRUE;
-                //messageCount = (size_t)parseCtx->tokenArray[searchResultBody].size;
-                //TODO set sizes
+                messageCount = (size_t)parseCtx->tokenArray[searchResultBody].size;
             }
         }
-    }*/
+    }
     
     /* MessageType */
     UA_Boolean isUaData = UA_TRUE;
@@ -363,6 +387,7 @@ static status NetworkMessage_decodeJsonInternal(UA_NetworkMessage *dst, Ctx *ctx
         UA_Guid guid;
         UA_String messageType;
         const char* fieldNames[] = {"MessageId", "MessageType", "PublisherId", "DataSetClassId", "Messages"};
+        UA_Boolean found[] = {UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE};
         void *fieldPointer[] = {&guid, &messageType, &dst->publisherId.publisherIdString, &dst->dataSetClassId, &dst->payload.dataSetPayload.dataSetMessages};
         decodeJsonSignature functions[] = {
             getDecodeSignature(UA_TYPES_GUID),
@@ -373,7 +398,13 @@ static status NetworkMessage_decodeJsonInternal(UA_NetworkMessage *dst, Ctx *ctx
         };
 
         //UA_Boolean found[] = {};
-        ret = decodeFields(ctx, parseCtx, fieldCount, fieldNames, functions, fieldPointer, NULL, NULL);
+        ret = decodeFields(ctx, parseCtx, fieldCount, fieldNames, functions, fieldPointer, NULL, found);
+        
+        dst->securityEnabled = found[2];
+        dst->dataSetClassIdEnabled = found[3];
+        dst->payloadHeader.dataSetPayloadHeader.count = (UA_Byte)messageCount;
+        
+        
         return ret;
     }else{
         //TODO: MetaData

@@ -2792,11 +2792,11 @@ START_TEST(UA_PubSub_EnDecode) {
     //ck_assert_str_eq(result, (char*)buffer.data);
     //"{\"MessageId\":\"D4195B44-2E0A-8D5B-46F4-BF9B1CB1BB0B\",\"MessageType\":\"ua-data\",\"Messages\":[{\"DataSetWriterId\":\"0\",\"Payload\":{\"a\":{\"Type\":6,\"Body\":27}}},{\"DataSetWriterId\":\"0\",\"Payload\":{\"a\":{\"Value\":{\"Type\":13,\"Body\":\"B7E9851D-2E4D-E71F-7107-A02AF23F5375\"}},\"b\":{\"Value\":{\"Type\":7,\"Body\":152478978534}}}}]}"
     
-    /*
-    UA_NetworkMessage m2;
+    
+   /* UA_NetworkMessage m2;
     memset(&m2, 0, sizeof(UA_NetworkMessage));
     size_t offset = 0;
-    rv = UA_NetworkMessage_decodeJson(&buffer, &offset, &m2);
+    rv = NetworkMessage_decodeJson(&buffer, &offset, &m2);
     ck_assert_int_eq(rv, UA_STATUSCODE_GOOD);
     ck_assert(m.version == m2.version);
     ck_assert(m.networkMessageType == m2.networkMessageType);
@@ -2842,7 +2842,7 @@ START_TEST(UA_PubSub_EnDecode) {
     UA_ByteString_deleteMembers(&buffer);
     UA_free(m.payload.dataSetPayload.dataSetMessages);
     //UA_Array_delete(dmkf.data.keyFrameData.dataSetFields, dmkf.data.keyFrameData.fieldCount, &UA_TYPES[UA_TYPES_DATAVALUE]);
-     * */
+    */
 }
 END_TEST
 
@@ -2875,6 +2875,26 @@ START_TEST(UA_NetworkMessage_oneMessage_twoFields_json_decode) {
     ck_assert_int_eq(dts.nanoSec, 0);
 }
 END_TEST
+
+START_TEST(UA_NetworkMessage_test_json_decode) {
+    // given
+    UA_NetworkMessage out;
+    UA_ByteString buf = UA_STRING("{ \"MessageId\": \"32235546-05d9-4fd7-97df-ea3ff3408574\", \"MessageType\": \"ua-data\", \"PublisherId\": \"MQTT-Localhost\", \"DataSetClassId\": \"2dc07ece-cab9-4470-8f8a-2c1ead207e0e\", \"Messages\": [ "
+            "{ \"DataSetWriterId\": \"1\", \"SequenceNumber\": 224, \"MetaDataVersion\": { \"MajorVersion\": 1, \"MinorVersion\": 1 }, \"Payload\": "
+            "{\"BoilerId\": { \"Value\": { \"Type\": 11,\"Body\": \"Boiler #1\"},\"SourceTimestamp\": \"2018-03-25T13:32:20Z\"},"
+            "\"DrumLevel\": { \"Value\": { \"Type\": 6,\"Body\": 99},\"SourceTimestamp\": \"2018-03-25T13:32:20Z\"},"
+            "\"DrumLevel.EURange\": { \"Value\": { \"Type\": 21,\"Body\": {\"TypeId\": { \"Id\": 0 }, \"Body\": true } },\"SourceTimestamp\": \"2018-03-25T13:07:36Z\"},"
+            "\"DrumLevel.EngineeringUnits\": { \"Value\": { \"Type\": 0,\"Body\": true }, \"SourceTimestamp\": \"2018-03-25T13:07:36Z\"},"
+            "\"FlowSetPoint\": { \"Value\": { \"Type\": 6,\"Body\": 2},\"SourceTimestamp\": \"2018-03-25T13:31:43Z\"},\"LevelSetPoint\": { \"Value\": { \"Type\": 6,\"Body\": 2},\"SourceTimestamp\": \"2018-03-25T13:31:29Z\"},"
+            "\"InputPipeFlow\": { \"Value\": { \"Type\": 6,\"Body\": 75},\"SourceTimestamp\": \"2018-03-25T13:32:19Z\"},"
+            "\"OutputPipeFlow\": { \"Value\": { \"Type\": 6,\"Body\": 85},\"SourceTimestamp\": \"2018-03-25T13:32:19Z\"} } } ] }");
+    // when
+    UA_StatusCode retval = NetworkMessage_decodeJson(&out, &buf);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+}
+END_TEST
+
 
 START_TEST(UA_UInt16_json_decode) {
     // given
@@ -3712,6 +3732,8 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_decode, UA_wrongBoolean_json_decode);
     
     tcase_add_test(tc_json_decode, UA_NetworkMessage_oneMessage_twoFields_json_decode);
+    tcase_add_test(tc_json_decode, UA_NetworkMessage_test_json_decode);
+    
     
     suite_add_tcase(s, tc_json_decode);
     return s;
