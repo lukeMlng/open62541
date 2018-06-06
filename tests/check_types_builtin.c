@@ -3173,6 +3173,27 @@ START_TEST(UA_DateTime_json_decode) {
 }
 END_TEST
 
+START_TEST(UA_DateTime_micro_json_decode) {
+    // given
+    UA_DateTime out;
+    UA_ByteString buf = UA_STRING("\"1970-01-02T01:02:03.042Z\"");
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_DATETIME], 0, 0);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    UA_DateTimeStruct dts = UA_DateTime_toStruct(out);
+    ck_assert_int_eq(dts.year, 1970);
+    ck_assert_int_eq(dts.month, 1);
+    ck_assert_int_eq(dts.day, 2);
+    ck_assert_int_eq(dts.hour, 1);
+    ck_assert_int_eq(dts.min, 2);
+    ck_assert_int_eq(dts.sec, 3);
+    ck_assert_int_eq(dts.milliSec, 42);
+    ck_assert_int_eq(dts.microSec, 0);
+    ck_assert_int_eq(dts.nanoSec, 0);
+}
+END_TEST
 
 START_TEST(UA_QualifiedName_json_decode) {
     // given
@@ -3708,6 +3729,7 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_decode, UA_String_json_decode);
     tcase_add_test(tc_json_decode, UA_ByteString_json_decode);
     tcase_add_test(tc_json_decode, UA_DateTime_json_decode);
+    tcase_add_test(tc_json_decode, UA_DateTime_micro_json_decode);
     tcase_add_test(tc_json_decode, UA_Guid_json_decode);
     tcase_add_test(tc_json_decode, UA_QualifiedName_json_decode);
     tcase_add_test(tc_json_decode, UA_LocalizedText_json_decode);

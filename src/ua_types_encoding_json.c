@@ -20,6 +20,7 @@
 #include "ua_types_encoding_binary.h"
 #include "ua_types_generated.h"
 #include "ua_types_generated_handling.h"
+#include "ua_plugin_log.h"
 
 #include "../deps/libb64/cencode.h"
 #include "../deps/libb64/cdecode.h"
@@ -824,10 +825,12 @@ printNumber(u16 n, u8 *pos, size_t digits) {
 UA_String
 UA_DateTime_toJSON(UA_DateTime t) {
     /* length of the string is 31 (plus \0 at the end) */
-    UA_String str = {20, (u8*) UA_malloc(20)};
+    UA_DateTimeStruct tSt = UA_DateTime_toStruct(t);
+
+    UA_String str = {24, (u8*) UA_malloc(24)};
     if (!str.data)
         return UA_STRING_NULL;
-    UA_DateTimeStruct tSt = UA_DateTime_toStruct(t);
+    
     printNumber(tSt.year, str.data, 4);
     str.data[4] = '-';
     printNumber(tSt.month, &str.data[5], 2);
@@ -839,7 +842,9 @@ UA_DateTime_toJSON(UA_DateTime t) {
     printNumber(tSt.min, &str.data[14], 2);
     str.data[16] = ':';
     printNumber(tSt.sec, &str.data[17], 2);
-    str.data[19] = 'Z';
+    str.data[19] = '.';
+    printNumber(tSt.milliSec, &str.data[20], 3);
+    str.data[23] = 'Z';
     return str;
 }
 
@@ -2377,8 +2382,16 @@ DECODE_JSON(DateTime) {
     
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
     const char *input = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
-    //DateTime  ISO 8601:2004 is 20 Characters
-    if(size != 20){
+    
+    //TODO: proper ISO 8601:2004 parsing, musl strptime!
+    //DateTime  ISO 8601:2004 without milli is 20 Characters, with millis 24
+    if(size != 20 && size != 24){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
+    //sanity check: 2018-06-06T03:12:43Z
+    if(input[4] != '-' || input[7] != '-' || input[10] != 'T' 
+            || input[13] != ':' || input[16] != ':' || !(input[19] == 'Z' || input[19] == '.')){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     
@@ -2404,8 +2417,14 @@ DECODE_JSON(DateTime) {
     UA_atoi(&input[17], 2, &sec);
     dts.tm_sec = (UA_UInt16)sec;
     
+    UA_UInt64 msec = 0;
+    if(size == 24){
+        UA_atoi(&input[20], 3, &msec);
+    }
+    
+    
     long long sinceunix = __tm_to_secs(&dts);
-    UA_DateTime dt = (sinceunix*UA_DATETIME_SEC + UA_DATETIME_UNIX_EPOCH);
+    UA_DateTime dt = (UA_DateTime)((UA_UInt64)(sinceunix*UA_DATETIME_SEC + UA_DATETIME_UNIX_EPOCH) + (UA_UInt64)(UA_DATETIME_MSEC * msec)); //TODO msec
     memcpy(dst, &dt, 8);
   
     if(moveToken)
