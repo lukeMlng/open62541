@@ -13,9 +13,17 @@ extern "C" {
 #endif
 
 #include "ua_plugin_pubsub.h"
-
+ 
+//mqtt network layer specific internal data
 typedef struct {
-    UA_StatusCode (*connectMqtt)(UA_String host, int port);
+    UA_String mqttClientId;
+    UA_UInt32 recvBufferSize;
+    UA_UInt32 sendBufferSize;
+    UA_UInt32 keepAliveTime;
+} UA_PubSubChannelDataMQTT;
+    
+typedef struct {
+    UA_StatusCode (*connectMqtt)(UA_String host, int port, UA_PubSubChannelDataMQTT* channelDataMQTT);
     UA_StatusCode (*disconnectMqtt)(void);
     UA_StatusCode (*publishMqtt)(UA_String topic, const UA_ByteString *buf);
     UA_StatusCode (*subscribeMqtt)(UA_String topic, UA_StatusCode (*cb)(UA_ByteString *buf));

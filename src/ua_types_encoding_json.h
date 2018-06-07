@@ -45,9 +45,9 @@ size_t encodingJsonEndArray(Ctx *ctx);
 status writeComma(Ctx *ctx);
 status writeNull(Ctx *ctx);
 
-
+#define TOKENCOUNT 1000
 typedef struct {
-    jsmntok_t tokenArray[1000];
+    jsmntok_t *tokenArray;
     UA_Int32 tokenCount;
     UA_UInt16 *index;
 } ParseCtx;

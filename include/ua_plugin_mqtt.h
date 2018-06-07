@@ -12,8 +12,9 @@
 extern "C" {
 #endif
 
-    
-UA_StatusCode connectMqtt(UA_String, int);
+#include "ua_network_pubsub_mqtt.h"
+
+UA_StatusCode connectMqtt(UA_String, int, UA_PubSubChannelDataMQTT*);
 UA_StatusCode disconnectMqtt(void);
 UA_StatusCode unSubscribeMqtt(UA_String topic);
 UA_StatusCode publishMqtt(UA_String topic, const UA_ByteString *buf);

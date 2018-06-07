@@ -55,11 +55,19 @@ addPubSubConnection(UA_Server *server){
     memset(&connectionConfig, 0, sizeof(connectionConfig));
     connectionConfig.name = UA_STRING("MQTT Connection 1");
     connectionConfig.transportProfileUri = UA_STRING("http://opcfoundation.org/UA-Profile/Transport/pubsub-mqtt-json");
-    connectionConfig.enabled = UA_TRUE;
+    connectionConfig.enabled = UA_TRUE;    
     //UA_NetworkAddressUrlDataType networkAddressUrl = {UA_STRING_NULL , UA_STRING("opc.udp://224.0.0.22:4840/")};
     UA_NetworkAddressUrlDataType networkAddressUrl = {UA_STRING_NULL , UA_STRING("opc.udp://127.0.0.1:1883/")};
     UA_Variant_setScalar(&connectionConfig.address, &networkAddressUrl, &UA_TYPES[UA_TYPES_NETWORKADDRESSURLDATATYPE]);
     connectionConfig.publisherId.numeric = UA_UInt32_random();
+    
+    UA_KeyValuePair connectionOptions[1];
+    connectionOptions[0].key = UA_QUALIFIEDNAME(0, "mqttClientId");
+    UA_String mqttClientId = UA_STRING("pub1");
+    UA_Variant_setScalar(&connectionOptions[0].value, &mqttClientId, &UA_TYPES[UA_TYPES_STRING]);
+    
+    connectionConfig.connectionProperties = connectionOptions;
+    connectionConfig.connectionPropertiesSize = 1;
     UA_Server_addPubSubConnection(server, &connectionConfig, &connectionIdent);
 }
 

@@ -12,8 +12,9 @@
 extern "C" {
 #endif
 
-#include "open62541.h"
+//#include "open62541.h"
 #include "../../include/ua_plugin_mqtt.h"
+#include "ua_statuscodes.h"
 #include <stdio.h>
 #include <mosquitto.h>
 #include <stdlib.h>
@@ -53,24 +54,54 @@ static void on_message(struct mosquitto *mosqConnection, void *obj, const struct
     printf("%s", buf->msg);
 }
 
-UA_StatusCode connectMqtt(UA_String host, int port){
-   
-    subscribeMessage = (struct messageData*)malloc(sizeof(struct messageData));
-    subscribeMessage->msg = NULL;
-    subscribeMessage->size = 0;
+UA_StatusCode connectMqtt(UA_String host, int port, UA_PubSubChannelDataMQTT* options){
+    //UA_PubSubChannelDataMQTT * channelDataMQTT = (UA_PubSubChannelDataMQTT*)options;
+    
+    //0x00007fffffffde30
+    int keepalive = 60;
+    //mosquitto can handle a NULL id.
+    char *publisherIdString = NULL;
+    /*if(options != NULL){ //TODO, this results in stackpointer override!!!
+        //size_t size = sizeof(char) * options->mqttClientId.length +1;
+        //char publisherId[size];
+        //size_t size = options->mqttClientId.length +1;
+        char publisherId[];
+        
+        memcpy(publisherId, options->mqttClientId.data, 5);
+        publisherId[options->mqttClientId.length] = 0;
+        publisherIdString = publisherId;
+        keepalive = (int)options->keepAliveTime;
+    }*/
+    
+    if(options != NULL){ //TODO
+        publisherIdString = (char*)malloc(options->mqttClientId.length +1);
+        if(!publisherIdString){
+            return UA_STATUSCODE_BADCOMMUNICATIONERROR;
+        }
+        memcpy(publisherIdString, options->mqttClientId.data, options->mqttClientId.length +1);
+        publisherIdString[options->mqttClientId.length] = 0;
+        keepalive = (int)options->keepAliveTime;
+    }
+    
+    //subscribeMessage = (struct messageData*)malloc(sizeof(struct messageData));
+    //subscribeMessage->msg = NULL;
+    //subscribeMessage->size = 0;
     
     UA_STACKARRAY(char, hostChar, sizeof(char) * host.length +1);
+    memset(hostChar, 0, host.length + 1);
     memcpy(hostChar, host.data, host.length);
     hostChar[host.length] = 0;
     
     mosquitto_lib_init();
-    mosq = mosquitto_new(NULL, true, subscribeMessage);
+    mosq = mosquitto_new(publisherIdString, true, subscribeMessage);
+    free(publisherIdString);
     if(!mosq){
         fprintf(stderr, "Error: Out of memory.\n");
         return UA_STATUSCODE_BADCOMMUNICATIONERROR;
     }
-
-    if(mosquitto_connect(mosq, hostChar, port, 1000)){
+    
+    
+    if(mosquitto_connect(mosq, hostChar, port, keepalive)){
         fprintf(stderr, "Unable to connect.\n");
         return UA_STATUSCODE_BADCOMMUNICATIONERROR;
     }
@@ -110,7 +141,9 @@ UA_StatusCode yieldMqtt(){
 
 UA_StatusCode recvMqtt(UA_ByteString *buf){
      
-
+    if(subscribeMessage){
+        
+    
     //size_t i;
     //for (i = 0; i < 10; i++) {
         printf("%s", "Check: ");
@@ -127,7 +160,7 @@ UA_StatusCode recvMqtt(UA_ByteString *buf){
         }
         printf("%s","Nada\n");
     //}
-    
+    }
     return 0;
 }
 
@@ -137,8 +170,16 @@ UA_StatusCode publishMqtt(UA_String topic, const UA_ByteString *buf){
     memcpy(topicChar, topic.data, topic.length);
     topicChar[topic.length] = 0;
     
-    mosquitto_publish(mosq, NULL, topicChar, (int)(buf->length), buf->data, 0, 0);
-    return UA_STATUSCODE_GOOD;
+    int ret = mosquitto_publish(mosq, NULL, topicChar, (int)(buf->length), buf->data, 0, 0);
+    if(ret == MOSQ_ERR_NO_CONN){
+        return UA_STATUSCODE_BADNOTCONNECTED;
+    }
+    
+    if(ret == MOSQ_ERR_SUCCESS){
+        return UA_STATUSCODE_GOOD;
+    }else{
+        return UA_STATUSCODE_BADCOMMUNICATIONERROR;
+    }
 }
 
     

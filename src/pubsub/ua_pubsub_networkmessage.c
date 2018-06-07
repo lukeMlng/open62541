@@ -239,6 +239,8 @@ static status DataSetPayload_decodeJsonInternal(void* dsmP, const UA_DataType *t
         }
     }
     
+    free(fieldNames); //TODO: Save fieldnames
+    
     return ret;
 }
 
@@ -417,6 +419,8 @@ status NetworkMessage_decodeJson(UA_NetworkMessage *dst, UA_ByteString *src){
     /* Set up the context */
     Ctx ctx;
     ParseCtx parseCtx;
+    parseCtx.tokenArray = (jsmntok_t*)malloc(sizeof(jsmntok_t) * TOKENCOUNT);
+    memset(parseCtx.tokenArray, 0, sizeof(jsmntok_t) * TOKENCOUNT);
     
     status ret = UA_STATUSCODE_GOOD;
 
@@ -427,7 +431,7 @@ status NetworkMessage_decodeJson(UA_NetworkMessage *dst, UA_ByteString *src){
     }
     
     ret = NetworkMessage_decodeJsonInternal(dst, &ctx, &parseCtx);
-    
+    free(parseCtx.tokenArray);
     return ret;
 }
 

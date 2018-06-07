@@ -65,12 +65,6 @@
 
 MQTT_Funcs mqtt_funcs;
 
-//mqtt network layer specific internal data
-typedef struct {
-    UA_UInt32 recvBufferSize;
-    UA_UInt32 sendBufferSize;
-    UA_UInt32 keepAliveTime;
-} UA_PubSubChannelDataMQTT;
 
 /**
  * Open communication socket based on the connectionConfig. Protocol specific parameters are
@@ -101,9 +95,9 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
         return NULL;
     }
     //set default values
-    memcpy(channelDataMQTT, &(UA_PubSubChannelDataMQTT){2000,2000,10}, sizeof(UA_PubSubChannelDataMQTT));
+    memcpy(channelDataMQTT, &(UA_PubSubChannelDataMQTT){UA_STRING("open62541_pub"), 2000,2000,10}, sizeof(UA_PubSubChannelDataMQTT));
     //iterate over the given KeyValuePair paramters
-    UA_String keepAliveTime = UA_STRING("keepAliveTime"), sendBuffer = UA_STRING("sendBufferSize"), recvBuffer = UA_STRING("recvBufferSize");
+    UA_String keepAliveTime = UA_STRING("keepAliveTime"), sendBuffer = UA_STRING("sendBufferSize"), recvBuffer = UA_STRING("recvBufferSize"), clientId = UA_STRING("mqttClientId");
     for(size_t i = 0; i < connectionConfig->connectionPropertiesSize; i++){
         if(UA_String_equal(&connectionConfig->connectionProperties[i].key.name, &keepAliveTime)){
             if(UA_Variant_hasScalarType(&connectionConfig->connectionProperties[i].value, &UA_TYPES[UA_TYPES_UINT32])){
@@ -117,10 +111,16 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
             if(UA_Variant_hasScalarType(&connectionConfig->connectionProperties[i].value, &UA_TYPES[UA_TYPES_UINT32])){
                 channelDataMQTT->recvBufferSize = *(UA_UInt32 *) connectionConfig->connectionProperties[i].value.data;
             }
-        } else{
+        } else if(UA_String_equal(&connectionConfig->connectionProperties[i].key.name, &clientId)){
+            if(UA_Variant_hasScalarType(&connectionConfig->connectionProperties[i].value, &UA_TYPES[UA_TYPES_STRING])){
+                channelDataMQTT->mqttClientId = *(UA_String *) connectionConfig->connectionProperties[i].value.data;
+            }
+        } else {
             UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection creation. Unknown connection parameter.");
         }
     }
+    
+    
 
     UA_PubSubChannel *newChannel = (UA_PubSubChannel *) UA_calloc(1, sizeof(UA_PubSubChannel));
     if(!newChannel){
@@ -159,13 +159,13 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
     UA_STACKARRAY(char, addressAsChar, sizeof(char) * hostname.length +1);
     memcpy(addressAsChar, hostname.data, hostname.length);
     addressAsChar[hostname.length] = 0;
-    char port[6];
-    sprintf(port, "%u", networkPort);
 
+    //link channel and internal channel data
+    newChannel->handle = channelDataMQTT;
     
     
     /* MQTT Client connect call. */
-    UA_StatusCode ret = mqtt_funcs.connectMqtt(hostname, networkPort);
+    UA_StatusCode ret = mqtt_funcs.connectMqtt(hostname, networkPort, channelDataMQTT);
     if(ret != UA_STATUSCODE_GOOD){
         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection failed");
         UA_free(newChannel);
@@ -173,9 +173,6 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
     }
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "Connection established.");
     
-    //link channel and internal channel data
-    newChannel->handle = channelDataMQTT;
-
     newChannel->state = UA_PUBSUB_CHANNEL_PUB;
     return newChannel;
 }
