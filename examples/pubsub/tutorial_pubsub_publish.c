@@ -63,11 +63,12 @@ addPubSubConnection(UA_Server *server){
     
     UA_KeyValuePair connectionOptions[1];
     connectionOptions[0].key = UA_QUALIFIEDNAME(0, "mqttClientId");
-    UA_String mqttClientId = UA_STRING("pub1");
+    UA_String mqttClientId = UA_STRING("TESTCLIENTPUBMQTT");
     UA_Variant_setScalar(&connectionOptions[0].value, &mqttClientId, &UA_TYPES[UA_TYPES_STRING]);
     
     connectionConfig.connectionProperties = connectionOptions;
     connectionConfig.connectionPropertiesSize = 1;
+    
     UA_Server_addPubSubConnection(server, &connectionConfig, &connectionIdent);
 }
 
@@ -91,7 +92,7 @@ addPublishedDataSet(UA_Server *server) {
 
 static void
 addVariable(UA_Server *server) {
-    /* Define the attribute of the myInteger variable node */
+    // Define the attribute of the myInteger variable node 
     UA_VariableAttributes attr = UA_VariableAttributes_default;
     UA_Int32 myInteger = 42;
     UA_Variant_setScalar(&attr.value, &myInteger, &UA_TYPES[UA_TYPES_INT32]);
@@ -100,7 +101,7 @@ addVariable(UA_Server *server) {
     attr.dataType = UA_TYPES[UA_TYPES_INT32].typeId;
     attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
 
-    /* Add the variable node to the information model */
+    // Add the variable node to the information model 
     UA_NodeId myIntegerNodeId = UA_NODEID_NUMERIC(1, 42);
     UA_QualifiedName myIntegerName = UA_QUALIFIEDNAME(1, "the answer");
     UA_NodeId parentNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
@@ -153,7 +154,7 @@ addWriterGroup(UA_Server *server) {
     UA_WriterGroupConfig writerGroupConfig;
     memset(&writerGroupConfig, 0, sizeof(UA_WriterGroupConfig));
     writerGroupConfig.name = UA_STRING("Demo WriterGroup");
-    writerGroupConfig.publishingInterval = 1000;
+    writerGroupConfig.publishingInterval = 500;
     writerGroupConfig.enabled = UA_FALSE;
     writerGroupConfig.writerGroupId = 100;
     writerGroupConfig.encodingMimeType = UA_PUBSUB_ENCODING_JSON;
@@ -239,6 +240,10 @@ int subCount = 0;
 
 static void
 subscriptionPollingCallback(UA_Server *server, UA_PubSubConnection *connection) {
+    
+    running = false;
+    return;
+    
     UA_ByteString buffer;
     if (UA_ByteString_allocBuffer(&buffer, 512) != UA_STATUSCODE_GOOD) {
         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER,
@@ -277,18 +282,18 @@ int main(void) {
         return -1;
     }
     
-    MQTT_Funcs funcs;
+    /*MQTT_Funcs funcs;
     funcs.connectMqtt = &connectMqtt;
     funcs.publishMqtt = &publishMqtt;
     funcs.yieldMqtt = &yieldMqtt;
     funcs.disconnectMqtt = &disconnectMqtt;
     funcs.unSubscribeMqtt = &unSubscribeMqtt;
     funcs.subscribeMqtt = &subscribeMqtt;
-    funcs.recvMqtt = &recvMqtt;
+    funcs.recvMqtt = &recvMqtt;*/
     
     //config->pubsubTransportLayers[0] = UA_PubSubTransportLayerUDPMP();
     //config->pubsubTransportLayersSize++;
-    config->pubsubTransportLayers[0] = UA_PubSubTransportLayerMQTT(funcs);
+    config->pubsubTransportLayers[0] = UA_PubSubTransportLayerMQTT();//funcs);
     config->pubsubTransportLayersSize++;
     UA_Server *server = UA_Server_new(config);
 
