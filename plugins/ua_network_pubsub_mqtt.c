@@ -87,7 +87,7 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection creation failed. Invalid Address.");
         return NULL;
     }
-    //allocate and init memory for the UDP multicast specific internal data
+    //allocate and init memory for the Mqtt specific internal data
     UA_PubSubChannelDataMQTT * channelDataMQTT =
             (UA_PubSubChannelDataMQTT *) UA_calloc(1, (sizeof(UA_PubSubChannelDataMQTT)));
     if(!channelDataMQTT){

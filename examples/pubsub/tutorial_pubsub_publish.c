@@ -241,9 +241,6 @@ int subCount = 0;
 static void
 subscriptionPollingCallback(UA_Server *server, UA_PubSubConnection *connection) {
     
-    running = false;
-    return;
-    
     UA_ByteString buffer;
     if (UA_ByteString_allocBuffer(&buffer, 512) != UA_STATUSCODE_GOOD) {
         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER,
@@ -258,13 +255,13 @@ subscriptionPollingCallback(UA_Server *server, UA_PubSubConnection *connection) 
     if(retval != UA_STATUSCODE_GOOD || buffer.length == 0) {
 
         buffer.length = 512;
-        UA_ByteString_deleteMembers(&buffer);
+        //UA_ByteString_deleteMembers(&buffer);
         return;
     }else{
         subCount++;
         printf("%d", subCount);
         buffer.length = 512;
-        UA_ByteString_deleteMembers(&buffer);
+        //UA_ByteString_deleteMembers(&buffer);
     }
 
 }

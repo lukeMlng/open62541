@@ -22,7 +22,17 @@ extern "C" {
 
 struct mosquitto *mosq = NULL;
     
+struct messageData{
+    char* msg;
+    char* topic;
+    size_t size;
+};
+
+struct messageData *subscribeMessage;
+
 UA_StatusCode disconnectMqtt(){
+    free(subscribeMessage);
+    
     int ret = mosquitto_disconnect(mosq);
     //ret = mosquitto_loop_stop(mosq, true);
     mosquitto_destroy(mosq);
@@ -32,14 +42,6 @@ UA_StatusCode disconnectMqtt(){
     }
     return UA_STATUSCODE_GOOD;
 }
-
-struct messageData{
-    char* msg;
-    char* topic;
-    size_t size;
-};
-
-struct messageData *subscribeMessage;
 
 static void on_message(struct mosquitto *mosqConnection, void *obj, const struct mosquitto_message *message)
 {
@@ -56,20 +58,9 @@ static void on_message(struct mosquitto *mosqConnection, void *obj, const struct
 }
 
 UA_StatusCode connectMqtt(UA_String *host, int port, UA_PubSubChannelDataMQTT* options){
-    //UA_PubSubChannelDataMQTT * channelDataMQTT = (UA_PubSubChannelDataMQTT*)options;
-    
-    //UA_String host = UA_STRING("127.0.0.1");
-    //int port = 1883; 
-    //char* t = "asdfasdf";
-    //UA_String a = UA_STRING("asdf");
-    //UA_PubSubChannelDataMQTT* options = &(UA_PubSubChannelDataMQTT){&a};
-    
     int keepalive = 60;
     
-    
     char* pubIdPointer = NULL;
-    //options = &(UA_PubSubChannelDataMQTT){2000,2000,10,&a};
-    
     if(options == NULL){
         fprintf(stdout, "No config, using default\n");
     }else{
@@ -79,9 +70,9 @@ UA_StatusCode connectMqtt(UA_String *host, int port, UA_PubSubChannelDataMQTT* o
         keepalive = (int)options->keepAliveTime;
     }
      
-    //subscribeMessage = (struct messageData*)malloc(sizeof(struct messageData));
-    //subscribeMessage->msg = NULL;
-    //subscribeMessage->size = 0;
+    subscribeMessage = (struct messageData*)malloc(sizeof(struct messageData));
+    subscribeMessage->msg = NULL;
+    subscribeMessage->size = 0;
     
         
     //SET HOST
@@ -120,7 +111,7 @@ UA_StatusCode connectMqtt(UA_String *host, int port, UA_PubSubChannelDataMQTT* o
 
 UA_StatusCode subscribeMqtt(UA_String topic, UA_StatusCode (*cb)(UA_ByteString *buf)){
     int mid;
-    if(mosquitto_subscribe(mosq, &mid, "test", 0)){
+    if(mosquitto_subscribe(mosq, &mid, "customTopic", 0)){
         return UA_STATUSCODE_BADCOMMUNICATIONERROR;
     }
     return UA_STATUSCODE_GOOD;
