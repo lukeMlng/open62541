@@ -57,7 +57,6 @@ static UA_Boolean UA_DataSetMessageHeader_DataSetFlags2Enabled(const UA_DataSetM
 
 
 //TEST with: socat UDP-RECV:4840,ip-add-membership=224.0.0.22:eth0,reuseaddr -
-
 UA_StatusCode
 UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_UInt16 dataSetWriterId, UA_Byte **bufPos,
                                const UA_Byte *bufEnd, UA_Boolean useReversible, UA_String **dataSetMessageFieldNames) {

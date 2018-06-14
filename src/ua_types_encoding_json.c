@@ -2025,15 +2025,22 @@ DECODE_JSON(ByteString) {
     return ret;
 }
 
+struct DecodeContext{
+    const char ** fieldNames;
+    void ** fieldPointer;
+    decodeJsonSignature ** functions;
+    UA_Boolean ** found;
+};
+
 DECODE_JSON(LocalizedText) {
     if(getJsmnType(parseCtx) != JSMN_OBJECT){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     UA_StatusCode ret = UA_STATUSCODE_GOOD;
-    const char* fieldNames[] = {"Locale", "Text"};
-    void *fieldPointer[] = {&dst->locale, &dst->text};
-    decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) String_decodeJson};
-    ret = decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, NULL);
+    const char* fieldNames[2] = {"Locale", "Text"};
+    void *fieldPointer[2] = {&dst->locale, &dst->text};
+    decodeJsonSignature functions[2] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) String_decodeJson};
+    ret = decodeFields(ctx, parseCtx, 2, fieldNames, functions, fieldPointer, type, NULL);
     return ret ;
 }
 
@@ -2774,7 +2781,9 @@ status DiagnosticInfoInner_decodeJson(UA_DiagnosticInfo* dst, const UA_DataType*
 }
 
 status 
-decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames[], decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type, UA_Boolean found[]) {
+decodeFields(/*TODO const*/ Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames[],
+             decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type,
+             UA_Boolean found[]) {
     size_t objectCount = (size_t)(parseCtx->tokenArray[(*parseCtx->index)].size);
     status ret = UA_STATUSCODE_GOOD;
     
@@ -2788,44 +2797,39 @@ decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames
     
     (*parseCtx->index)++; //go to first key
 
-    size_t foundCount = 0;
-    size_t currentObjectCout = 0;
-    while (currentObjectCout < objectCount && *parseCtx->index < parseCtx->tokenCount) {
+    for (size_t currentObjectCount = 0; currentObjectCount < objectCount && *parseCtx->index < parseCtx->tokenCount; currentObjectCount++) {
 
-        size_t i;//TODO: consider to jump over already searched tokens
-        for (i = 0; i < memberSize; i++) { //Search for KEY, if found outer loop will be one less. Best case is objectCount if in order!
+        // start searching at the index of currentObjectCount
+        for (size_t i = currentObjectCount; i < memberSize + currentObjectCount; i++) {
+            //Search for KEY, if found outer loop will be one less. Best case is objectCount if in order!
             
-            if (jsoneq((char*)ctx->pos, &parseCtx->tokenArray[*parseCtx->index], fieldNames[i]) == 0) {
+            size_t index = i % memberSize;
+            
+            if (jsoneq((char*) ctx->pos, &parseCtx->tokenArray[*parseCtx->index], fieldNames[index]) != 0)
+                continue;
 
-                if(found && found[i]){
-                    //Duplicate Key found, abort.
-                    return UA_STATUSCODE_BADDECODINGERROR;
-                }
-                if(found != NULL){
-                    found[i] = UA_TRUE;
-                }
-                
-                (*parseCtx->index)++; //goto value
-                if(functions[i] != NULL){
-                    ret = functions[i](fieldPointer[i], type, ctx, parseCtx, UA_TRUE);//Move Token True
-                    if(ret != UA_STATUSCODE_GOOD){
-                        return ret;
-                    }
-                }else{
-                    //TODO overstep single value, this will not work if object or array
-                    //Only used not to double parse pre looked up type, but it has to be overstepped
-                    (*parseCtx->index)++;
-                }
-                
-                currentObjectCout++;
+            if (found && found[index]) {
+                //Duplicate Key found, abort.
+                return UA_STATUSCODE_BADDECODINGERROR;
             }
-        }
+            if (found != NULL) {
+                found[index] = UA_TRUE;
+            }
 
-        if (currentObjectCout == foundCount) {
-            break; //nothing found
+            (*parseCtx->index)++; //goto value
+            if (functions[index] != NULL) {
+                ret = functions[index](fieldPointer[index], type, ctx, parseCtx, UA_TRUE); //Move Token True
+                if (ret != UA_STATUSCODE_GOOD) {
+                    return ret;
+                }
+            } else {
+                //TODO overstep single value, this will not work if object or array
+                //Only used not to double parse pre looked up type, but it has to be overstepped
+                (*parseCtx->index)++;
+            }
+
+            break;
         }
-        foundCount = currentObjectCout;
-       
     }
 
     /* TODO needed? DataValue with missing
