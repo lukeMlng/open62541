@@ -1616,33 +1616,343 @@ START_TEST(UA_String_escapeutf_json_encode) {
 }
 END_TEST
 
+/* Byte */
+START_TEST(UA_Byte_Max_Number_json_encode) {
 
-START_TEST(UA_UInt16_PosNumber_json_encode) {
-
-    UA_UInt16 *src = UA_UInt16_new();
-    *src = 12346;
-    const UA_DataType *type = &UA_TYPES[UA_TYPES_UINT16];
+    UA_Byte *src = UA_Byte_new();
+    *src = 255;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_BYTE];
 
     UA_ByteString buf;
 
-    UA_ByteString_allocBuffer(&buf, 1000);
+    UA_ByteString_allocBuffer(&buf, 5);
 
     UA_Byte *bufPos = &buf.data[0];
-    const UA_Byte *bufEnd = &buf.data[1000];
+    const UA_Byte *bufEnd = &buf.data[5];
 
     status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
 
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "12346";
+    char* result = "255";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf); UA_free(src);
 }
 END_TEST
 
+START_TEST(UA_Byte_Min_Number_json_encode) {
 
-START_TEST(UA_UInt32_PosNumber_json_encode) {
+    UA_Byte *src = UA_Byte_new();
+    *src = 0;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_BYTE];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 5);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[5];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "0";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_Byte_smallbuf_Number_json_encode) {
+
+    UA_Byte *src = UA_Byte_new();
+    *src = 255;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_BYTE];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 2);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[2];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+/* sByte */
+START_TEST(UA_SByte_Max_Number_json_encode) {
+
+    UA_SByte *src = UA_SByte_new();
+    *src = 127;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_SBYTE];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 5);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[5];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "127";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_SByte_Min_Number_json_encode) {
+
+    UA_SByte *src = UA_SByte_new();
+    *src = -128;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_SBYTE];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 5);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[5];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "-128";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_SByte_Zero_Number_json_encode) {
+
+    UA_SByte *src = UA_SByte_new();
+    *src = 0;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_SBYTE];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 5);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[5];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "0";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_SByte_smallbuf_Number_json_encode) {
+
+    UA_SByte *src = UA_SByte_new();
+    *src = 127;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_SBYTE];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 2);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[2];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+
+/* UInt16 */
+START_TEST(UA_UInt16_Max_Number_json_encode) {
+
+    UA_UInt16 *src = UA_UInt16_new();
+    *src = 65535;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_UINT16];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 5);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[5];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "65535";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_UInt16_Min_Number_json_encode) {
+
+    UA_UInt16 *src = UA_UInt16_new();
+    *src = 0;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_UINT16];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 5);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[5];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "0";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_UInt16_smallbuf_Number_json_encode) {
+
+    UA_UInt16 *src = UA_UInt16_new();
+    *src = 255;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_UINT16];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 2);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[2];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+/* Int16 */
+START_TEST(UA_Int16_Max_Number_json_encode) {
+
+    UA_Int16 *src = UA_Int16_new();
+    *src = 32767;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_INT16];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 5);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[5];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "32767";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_Int16_Min_Number_json_encode) {
+
+    UA_Int16 *src = UA_Int16_new();
+    *src = -32768;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_INT16];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 10);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[10];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "-32768";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_Int16_Zero_Number_json_encode) {
+
+    UA_Int16 *src = UA_Int16_new();
+    *src = 0;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_INT16];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 5);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[5];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "0";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_Int16_smallbuf_Number_json_encode) {
+
+    UA_Int16 *src = UA_Int16_new();
+    *src = 127;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_INT16];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 2);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[2];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+
+
+/* UInt32 */
+START_TEST(UA_UInt32_Max_Number_json_encode) {
 
     UA_UInt32 *src = UA_UInt32_new();
     *src = 4294967295;
@@ -1650,12 +1960,13 @@ START_TEST(UA_UInt32_PosNumber_json_encode) {
 
     UA_ByteString buf;
 
-    UA_ByteString_allocBuffer(&buf, 1000);
+    UA_ByteString_allocBuffer(&buf, 20);
 
     UA_Byte *bufPos = &buf.data[0];
-    const UA_Byte *bufEnd = &buf.data[1000];
+    const UA_Byte *bufEnd = &buf.data[20];
 
     status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
@@ -1665,73 +1976,95 @@ START_TEST(UA_UInt32_PosNumber_json_encode) {
 }
 END_TEST
 
+START_TEST(UA_UInt32_Min_Number_json_encode) {
 
-START_TEST(UA_UInt64_PosNumber_json_encode) {
-
-    UA_UInt64 *src = UA_UInt64_new();
-    *src = 1844674407370955161;
-    const UA_DataType *type = &UA_TYPES[UA_TYPES_UINT64];
+    UA_UInt32 *src = UA_UInt32_new();
+    *src = 0;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_UINT32];
 
     UA_ByteString buf;
 
-    UA_ByteString_allocBuffer(&buf, 1000);
+    UA_ByteString_allocBuffer(&buf, 5);
 
     UA_Byte *bufPos = &buf.data[0];
-    const UA_Byte *bufEnd = &buf.data[1000];
+    const UA_Byte *bufEnd = &buf.data[5];
 
     status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
 
     *bufPos = 0;
-    
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "1844674407370955161";
+    char* result = "0";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf); UA_free(src);
 }
 END_TEST
 
-START_TEST(UA_Int16_NegNumber_json_encode) {
-    
-    UA_Int16 *src = UA_Int16_new();
-    *src = -4242;
-    const UA_DataType *type = &UA_TYPES[UA_TYPES_INT16];
+START_TEST(UA_UInt32_smallbuf_Number_json_encode) {
+
+    UA_UInt32 *src = UA_UInt32_new();
+    *src = 255;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_UINT32];
 
     UA_ByteString buf;
 
-    UA_ByteString_allocBuffer(&buf, 1000);
+    UA_ByteString_allocBuffer(&buf, 2);
 
     UA_Byte *bufPos = &buf.data[0];
-    const UA_Byte *bufEnd = &buf.data[1000];
+    const UA_Byte *bufEnd = &buf.data[2];
 
     status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
 
     *bufPos = 0;
-    
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+
+
+/* Int32 */
+START_TEST(UA_Int32_Max_Number_json_encode) {
+
+    UA_Int32 *src = UA_Int32_new();
+    *src = 2147483647;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_INT32];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 20);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[20];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "-4242";
+    char* result = "2147483647";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf); UA_free(src);
 }
 END_TEST
 
-START_TEST(UA_Int32_NegNumber_json_encode) {
+START_TEST(UA_Int32_Min_Number_json_encode) {
+
     UA_Int32 *src = UA_Int32_new();
     *src = -2147483648;
     const UA_DataType *type = &UA_TYPES[UA_TYPES_INT32];
 
     UA_ByteString buf;
 
-    UA_ByteString_allocBuffer(&buf, 1000);
+    UA_ByteString_allocBuffer(&buf, 20);
 
     UA_Byte *bufPos = &buf.data[0];
-    const UA_Byte *bufEnd = &buf.data[1000];
+    const UA_Byte *bufEnd = &buf.data[20];
 
     status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
 
     *bufPos = 0;
-    
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
     char* result = "-2147483648";
@@ -1740,28 +2073,260 @@ START_TEST(UA_Int32_NegNumber_json_encode) {
 }
 END_TEST
 
-START_TEST(UA_Int64_NegNumber_json_encode) {
-    UA_Int64 *src = UA_Int64_new();
-    *src = ((int64_t)-9223372036854775807);
-    const UA_DataType *type = &UA_TYPES[UA_TYPES_INT64];
+START_TEST(UA_Int32_Zero_Number_json_encode) {
+
+    UA_Int32 *src = UA_Int32_new();
+    *src = 0;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_INT32];
 
     UA_ByteString buf;
 
-    UA_ByteString_allocBuffer(&buf, 1000);
+    UA_ByteString_allocBuffer(&buf, 5);
 
     UA_Byte *bufPos = &buf.data[0];
-    const UA_Byte *bufEnd = &buf.data[1000];
+    const UA_Byte *bufEnd = &buf.data[5];
 
     status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
 
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "-9223372036854775807";
+    char* result = "0";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf); UA_free(src);
 }
 END_TEST
+
+START_TEST(UA_Int32_smallbuf_Number_json_encode) {
+
+    UA_Int32 *src = UA_Int32_new();
+    *src = 127;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_INT32];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 2);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[2];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+
+
+/* UINT64*/
+START_TEST(UA_UInt64_Max_Number_json_encode) {
+
+    UA_UInt64 *src = UA_UInt64_new();
+    //*src = 18446744073709551615;
+    ((u8*)src)[0] = 0xFF;
+    ((u8*)src)[1] = 0xFF;
+    ((u8*)src)[2] = 0xFF;
+    ((u8*)src)[3] = 0xFF;
+    ((u8*)src)[4] = 0xFF;
+    ((u8*)src)[5] = 0xFF;
+    ((u8*)src)[6] = 0xFF;
+    ((u8*)src)[7] = 0xFF;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_UINT64];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 50);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[50];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "18446744073709551615";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_UInt64_Min_Number_json_encode) {
+
+    UA_UInt64 *src = UA_UInt64_new();
+    *src = 0;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_UINT64];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 50);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[50];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "0";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_UInt64_smallbuf_Number_json_encode) {
+
+    UA_UInt64 *src = UA_UInt64_new();
+    //*src = -9223372036854775808;
+    ((u8*)src)[0] = 0x00;
+    ((u8*)src)[1] = 0x00;
+    ((u8*)src)[2] = 0x00;
+    ((u8*)src)[3] = 0x00;
+    ((u8*)src)[4] = 0x00;
+    ((u8*)src)[5] = 0x00;
+    ((u8*)src)[6] = 0x00;
+    ((u8*)src)[7] = 0x80;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_UINT64];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 2);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[2];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+/* Int64 */
+START_TEST(UA_Int64_Max_Number_json_encode) {
+
+    UA_Int64 *src = UA_Int64_new();
+    //*src = 9223372036854775808;
+    ((u8*)src)[0] = 0xFF;
+    ((u8*)src)[1] = 0xFF;
+    ((u8*)src)[2] = 0xFF;
+    ((u8*)src)[3] = 0xFF;
+    ((u8*)src)[4] = 0xFF;
+    ((u8*)src)[5] = 0xFF;
+    ((u8*)src)[6] = 0xFF;
+    ((u8*)src)[7] = 0x7F;
+    
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_INT64];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 50);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[50];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "9223372036854775807";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_Int64_Min_Number_json_encode) {
+
+    UA_Int64 *src = UA_Int64_new();
+    
+    // TODO: compiler error: integer constant is so large that it is unsigned [-Werror]
+    //*src = -9223372036854775808;
+  
+    ((u8*)src)[0] = 0x00;
+    ((u8*)src)[1] = 0x00;
+    ((u8*)src)[2] = 0x00;
+    ((u8*)src)[3] = 0x00;
+    ((u8*)src)[4] = 0x00;
+    ((u8*)src)[5] = 0x00;
+    ((u8*)src)[6] = 0x00;
+    ((u8*)src)[7] = 0x80;
+    
+    
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_INT64];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 50);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[50];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "-9223372036854775808";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_Int64_Zero_Number_json_encode) {
+
+    UA_Int64 *src = UA_Int64_new();
+    *src = 0;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_INT64];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 50);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[50];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "0";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_Int64_smallbuf_Number_json_encode) {
+
+    UA_Int64 *src = UA_Int64_new();
+    *src = 127;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_INT64];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 2);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[2];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+
+
 
 START_TEST(UA_Double_json_encode) {
     UA_Double src = 1.1234;
@@ -1780,7 +2345,7 @@ START_TEST(UA_Double_json_encode) {
     
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "1.1233999999999999";
+    char* result = "1.1234";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf);
 }
@@ -2777,7 +3342,7 @@ START_TEST(UA_null_json_encode) {
     status s;
 
     int i;
-    for (i = 0; i < 25; i++) {
+    for (i = 1; i < 25; i++) {
         bufPos = &buf.data[0];
         src = NULL;
         type = &UA_TYPES[i];
@@ -3788,20 +4353,53 @@ static Suite *testSuite_builtin(void) {
     TCase *tc_json_encode = tcase_create("json_encode");
     tcase_add_test(tc_json_encode, UA_Boolean_true_json_encode);
     tcase_add_test(tc_json_encode, UA_Boolean_false_json_encode);
-      tcase_add_test(tc_json_encode, UA_Boolean_null_json_encode);
-        tcase_add_test(tc_json_encode, UA_Boolean_true_bufferTooSmall_json_encode);
+    tcase_add_test(tc_json_encode, UA_Boolean_null_json_encode);
+    tcase_add_test(tc_json_encode, UA_Boolean_true_bufferTooSmall_json_encode);
     
     tcase_add_test(tc_json_encode, UA_String_json_encode);
     tcase_add_test(tc_json_encode, UA_String_escapesimple_json_encode);
     tcase_add_test(tc_json_encode, UA_String_escapeutf_json_encode);
     
+    tcase_add_test(tc_json_encode, UA_Byte_Max_Number_json_encode);
+    tcase_add_test(tc_json_encode, UA_Byte_Min_Number_json_encode);
+    tcase_add_test(tc_json_encode, UA_Byte_smallbuf_Number_json_encode);
     
-    tcase_add_test(tc_json_encode, UA_UInt16_PosNumber_json_encode);
-    tcase_add_test(tc_json_encode, UA_UInt32_PosNumber_json_encode);
-    tcase_add_test(tc_json_encode, UA_UInt64_PosNumber_json_encode);
-    tcase_add_test(tc_json_encode, UA_Int16_NegNumber_json_encode);
-    tcase_add_test(tc_json_encode, UA_Int32_NegNumber_json_encode);
-    tcase_add_test(tc_json_encode, UA_Int64_NegNumber_json_encode);
+    tcase_add_test(tc_json_encode, UA_SByte_Max_Number_json_encode);
+    tcase_add_test(tc_json_encode, UA_SByte_Min_Number_json_encode);
+    tcase_add_test(tc_json_encode, UA_SByte_Zero_Number_json_encode);
+    tcase_add_test(tc_json_encode, UA_SByte_smallbuf_Number_json_encode);
+    
+ 
+    tcase_add_test(tc_json_encode, UA_UInt16_Max_Number_json_encode);
+    tcase_add_test(tc_json_encode, UA_UInt16_Min_Number_json_encode);
+    tcase_add_test(tc_json_encode, UA_UInt16_smallbuf_Number_json_encode);
+    
+    tcase_add_test(tc_json_encode, UA_Int16_Max_Number_json_encode);
+    tcase_add_test(tc_json_encode, UA_Int16_Min_Number_json_encode);
+    tcase_add_test(tc_json_encode, UA_Int16_Zero_Number_json_encode);
+    tcase_add_test(tc_json_encode, UA_Int16_smallbuf_Number_json_encode);
+    
+    
+    tcase_add_test(tc_json_encode, UA_UInt32_Max_Number_json_encode);
+    tcase_add_test(tc_json_encode, UA_UInt32_Min_Number_json_encode);
+    tcase_add_test(tc_json_encode, UA_UInt32_smallbuf_Number_json_encode);
+    
+    tcase_add_test(tc_json_encode, UA_Int32_Max_Number_json_encode);
+    tcase_add_test(tc_json_encode, UA_Int32_Min_Number_json_encode);
+    tcase_add_test(tc_json_encode, UA_Int32_Zero_Number_json_encode);
+    tcase_add_test(tc_json_encode, UA_Int32_smallbuf_Number_json_encode);
+    
+    
+    tcase_add_test(tc_json_encode, UA_UInt64_Max_Number_json_encode);
+    tcase_add_test(tc_json_encode, UA_UInt64_Min_Number_json_encode);
+    tcase_add_test(tc_json_encode, UA_UInt64_smallbuf_Number_json_encode);
+    
+    tcase_add_test(tc_json_encode, UA_Int64_Max_Number_json_encode);
+    tcase_add_test(tc_json_encode, UA_Int64_Min_Number_json_encode);
+    tcase_add_test(tc_json_encode, UA_Int64_Zero_Number_json_encode);
+    tcase_add_test(tc_json_encode, UA_Int64_smallbuf_Number_json_encode);
+    
+    
     
     tcase_add_test(tc_json_encode, UA_Double_json_encode);
     tcase_add_test(tc_json_encode, UA_Double_onesmallest_json_encode);
