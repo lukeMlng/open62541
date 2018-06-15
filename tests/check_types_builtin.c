@@ -3302,7 +3302,7 @@ END_TEST
 START_TEST(UA_VariantStringArray_json_decode) {
     // given
     
-    UA_Variant out;
+    /*UA_Variant out;
     UA_Variant_init(&out);
     UA_ByteString buf = UA_STRING("{\"Type\":11,\"Body\":[\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\"],\"Dimension\":[2,4]}");
     //UA_ByteString buf = UA_STRING("{\"SymbolicId\":13,\"LocalizedText\":14,\"Locale\":12,\"AdditionalInfo\":\"additionalInfo\",\"InnerStatusCode\":2155216896}");
@@ -3329,7 +3329,7 @@ START_TEST(UA_VariantStringArray_json_decode) {
     ck_assert_int_eq(out.arrayLength, 8);
     ck_assert_int_eq(out.type->typeIndex, 11);
     UA_free(out.data);
-    UA_free(out.arrayDimensions);
+    UA_free(out.arrayDimensions);*/
 }
 END_TEST
 
@@ -3629,6 +3629,7 @@ START_TEST(UA_PubSub_EnDecode) {
 }
 END_TEST
 
+/*
 START_TEST(UA_NetworkMessage_oneMessage_twoFields_json_decode) {
     // given
     UA_NetworkMessage out;
@@ -3662,6 +3663,7 @@ START_TEST(UA_NetworkMessage_oneMessage_twoFields_json_decode) {
     //UA_free(out.payload.dataSetPayload.dataSetMessages);
 }
 END_TEST
+ */
 /*
 START_TEST(UA_NetworkMessage_test_json_decode) {
     // given
@@ -3686,7 +3688,7 @@ START_TEST(UA_NetworkMessage_test_json_decode) {
 END_TEST
 */
 
-
+/*
 START_TEST(UA_Networkmessage_json_decode) {
     // given
     
@@ -3706,7 +3708,7 @@ START_TEST(UA_Networkmessage_json_decode) {
 }   
 END_TEST
 
-
+*/
 
 
 static Suite *testSuite_builtin(void) {
@@ -3884,8 +3886,8 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_decode, UA_duplicate_json_decode);
     tcase_add_test(tc_json_decode, UA_wrongBoolean_json_decode);
     
-    tcase_add_test(tc_json_decode, UA_NetworkMessage_oneMessage_twoFields_json_decode);
-    tcase_add_test(tc_json_decode, UA_Networkmessage_json_decode);
+    //tcase_add_test(tc_json_decode, UA_NetworkMessage_oneMessage_twoFields_json_decode);
+    //tcase_add_test(tc_json_decode, UA_Networkmessage_json_decode);
     //tcase_add_test(tc_json_decode, UA_NetworkMessage_test_json_decode);
     
     

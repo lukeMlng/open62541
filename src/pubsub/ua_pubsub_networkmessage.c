@@ -265,7 +265,7 @@ DatasetMessage_Payload_decodeJsonInternal(UA_DataSetMessage* dsm, const UA_DataT
 
     UA_ConfigurationVersionDataType cvd;
 
-    u8 fieldCount = 5;
+    //u8 fieldCount = 5;
     //UA_UInt64 dataSetWriterId; //TODO: Where to store?
     
     dsm->header.fieldEncoding = UA_FIELDENCODING_DATAVALUE;
@@ -283,7 +283,8 @@ DatasetMessage_Payload_decodeJsonInternal(UA_DataSetMessage* dsm, const UA_DataT
     
     
     //TODO: PAYLOAD is key value pairs of Variant. (Or DataValue as in .net impl?), set TYPE!
-    status ret = decodeFields(ctx, parseCtx, fieldCount, fieldNames, functions, fieldPointer, NULL, found);
+    DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 6};
+    status ret = decodeFields(ctx, parseCtx, &decodeCtx, NULL);
     dsm->header.dataSetMessageSequenceNrEnabled = found[1];
     dsm->header.configVersionMajorVersion = cvd.majorVersion;
     dsm->header.configVersionMinorVersion = cvd.minorVersion;
@@ -384,22 +385,21 @@ static status NetworkMessage_decodeJsonInternal(UA_NetworkMessage *dst, Ctx *ctx
         /* Network Message */
         status ret = UA_STATUSCODE_GOOD;
 
-        u8 fieldCount = 5;
         UA_Guid guid;
         UA_String messageType;
-        const char* fieldNames[] = {"MessageId", "MessageType", "PublisherId", "DataSetClassId", "Messages"};
-        UA_Boolean found[] = {UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE};
-        void *fieldPointer[] = {&guid, &messageType, &dst->publisherId.publisherIdString, &dst->dataSetClassId, &dst->payload.dataSetPayload.dataSetMessages};
-        decodeJsonSignature functions[] = {
+        const char* fieldNames[5] = {"MessageId", "MessageType", "PublisherId", "DataSetClassId", "Messages"};
+        UA_Boolean found[5] = {UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE};
+        void *fieldPointer[5] = {&guid, &messageType, &dst->publisherId.publisherIdString, &dst->dataSetClassId, &dst->payload.dataSetPayload.dataSetMessages};
+        decodeJsonSignature functions[5] = {
             getDecodeSignature(UA_TYPES_GUID),
             getDecodeSignature(UA_TYPES_STRING),
             getDecodeSignature(UA_TYPES_STRING),
             getDecodeSignature(UA_TYPES_GUID),
             &DatasetMessage_Array_decodeJsonInternal
         };
-
-        //UA_Boolean found[] = {};
-        ret = decodeFields(ctx, parseCtx, fieldCount, fieldNames, functions, fieldPointer, NULL, found);
+        DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 5};
+        
+        ret = decodeFields(ctx, parseCtx, &decodeCtx, NULL);
         
         dst->securityEnabled = found[2];
         dst->dataSetClassIdEnabled = found[3];

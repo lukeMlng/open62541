@@ -35,7 +35,8 @@ typedef struct {
     UA_exchangeEncodeBuffer exchangeBufferCallback;
     void *exchangeBufferCallbackHandle;
 } Ctx;
-    
+
+
 status writeKey_UA_String(Ctx *ctx, UA_String *key);
 status writeKey(Ctx *ctx, const char* key);
 status encodingJsonStartObject(Ctx *ctx);
@@ -57,8 +58,17 @@ typedef status(*encodeJsonSignature)(const void *UA_RESTRICT src, const UA_DataT
 typedef status (*decodeJsonSignature)(void *UA_RESTRICT dst, const UA_DataType *type,
                                         Ctx *UA_RESTRICT ctx, ParseCtx *parseCtx, UA_Boolean moveToken);
 
+typedef struct {
+    const char ** fieldNames;
+    void ** fieldPointer;
+    decodeJsonSignature * functions;
+    UA_Boolean * found;
+    u8 memberSize;
+} DecodeContext;
+
+
 status 
-decodeFields(Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames[], decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type, UA_Boolean found[]);
+decodeFields(Ctx *ctx, ParseCtx *parseCtx, DecodeContext *decodeContext, const UA_DataType *type);
 
 /* workaround: TODO generate functions for UA_xxx_decodeJson */
 decodeJsonSignature getDecodeSignature(u8 index);

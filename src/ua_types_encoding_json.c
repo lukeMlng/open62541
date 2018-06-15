@@ -142,7 +142,8 @@ status writeKey_UA_String(Ctx *ctx, UA_String *key){
     if(!key || key->length < 1){
         return UA_STATUSCODE_BADENCODINGERROR;
     }
-    char fieldKeyString[key->length + 1];
+    UA_STACKARRAY(char, fieldKeyString, key->length + 1);
+    //char fieldKeyString[key->length + 1];
     memset(&fieldKeyString, 0, key->length + 1);
     memcpy(&fieldKeyString, key->data, key->length);
     return writeKey(ctx, fieldKeyString);
@@ -320,7 +321,7 @@ ENCODE_JSON(Byte) {
     if(!src){
         return writeNull(ctx);
     }
-    char buf[3]; //TODO size
+    char buf[3];
     UA_UInt16 digits = itoaUnsigned(*src, buf, 10);
     if (ctx->pos + digits > ctx->end)
         return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
@@ -334,7 +335,7 @@ ENCODE_JSON(SByte) {
     if(!src){
         return writeNull(ctx);
     }
-    char buf[4]; //TODO size
+    char buf[4];
     UA_UInt16 digits = itoa(*src, buf);
     if (ctx->pos + digits > ctx->end)
         return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
@@ -348,7 +349,7 @@ ENCODE_JSON(UInt16) {
     if(!src){
         return writeNull(ctx);
     }
-    char buf[50]; //TODO size
+    char buf[5];
     UA_UInt16 digits = itoaUnsigned(*src, buf, 10);
 
     if (ctx->pos + digits > ctx->end)
@@ -364,7 +365,7 @@ ENCODE_JSON(Int16) {
     if(!src){
         return writeNull(ctx);
     }
-    char buf[50]; //TODO size
+    char buf[6];
     UA_UInt16 digits = itoa(*src, buf);
 
     if (ctx->pos + digits > ctx->end)
@@ -380,7 +381,7 @@ ENCODE_JSON(UInt32) {
     if(!src){
         return writeNull(ctx);
     }
-    char buf[50]; //TODO size
+    char buf[10];
     UA_UInt16 digits = itoaUnsigned(*src, buf, 10);
 
     if (ctx->pos + digits > ctx->end)
@@ -396,7 +397,7 @@ ENCODE_JSON(Int32) {
     if(!src){
         return writeNull(ctx);
     }
-    char buf[50]; //TODO size
+    char buf[11];
     UA_UInt16 digits = itoa(*src, buf);
 
     if (ctx->pos + digits > ctx->end)
@@ -412,7 +413,7 @@ ENCODE_JSON(UInt64) {
     if(!src){
         return writeNull(ctx);
     }
-    char buf[50]; //TODO size
+    char buf[20];
     UA_UInt16 digits = itoaUnsigned(*src, buf, 10);
 
     if (ctx->pos + digits > ctx->end)
@@ -429,7 +430,7 @@ ENCODE_JSON(Int64) {
         return writeNull(ctx);
     }
 
-    char buf[50]; //TODO size
+    char buf[20]; //TODO size
     UA_UInt16 digits = itoa(*src, buf);
 
     if (ctx->pos + digits > ctx->end)
@@ -448,8 +449,8 @@ ENCODE_JSON(Float) {
     if(!src){
         return writeNull(ctx);
     }
-    char buffer[256];
-    memset(buffer, 0, 256);
+    char buffer[50]; //TODO: minimize stack size
+    memset(buffer, 0, 50);
     fmt_fp(buffer, *src, 0, -1, 0, 'g');
     size_t len = strlen(buffer);
 
@@ -466,8 +467,8 @@ ENCODE_JSON(Double) {
     if(!src){
         return writeNull(ctx);
     }
-    char buffer[256];
-    memset(buffer, 0, 256);
+    char buffer[50]; //TODO: minimize stack size
+    memset(buffer, 0, 50);
     fmt_fp(buffer, *src, 0, 17, 0, 'g');
     size_t len = strlen(buffer);
 
@@ -749,7 +750,9 @@ ENCODE_JSON(String) {
     const char *pos, *end, *lim;
     UA_Int32 codepoint;
     const char *str = (char*)src->data;
-    WRITE(Quote);
+    ret |= WRITE(Quote);
+    if(ret != UA_STATUSCODE_GOOD)
+        return ret;
     
 
     end = pos = str;
@@ -2326,12 +2329,7 @@ DECODE_JSON(ByteString) {
     return ret;
 }
 
-struct DecodeContext{
-    const char ** fieldNames;
-    void ** fieldPointer;
-    decodeJsonSignature ** functions;
-    UA_Boolean ** found;
-};
+
 
 DECODE_JSON(LocalizedText) {
     if(getJsmnType(parseCtx) != JSMN_OBJECT){
@@ -2341,7 +2339,10 @@ DECODE_JSON(LocalizedText) {
     const char* fieldNames[2] = {"Locale", "Text"};
     void *fieldPointer[2] = {&dst->locale, &dst->text};
     decodeJsonSignature functions[2] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) String_decodeJson};
-    ret = decodeFields(ctx, parseCtx, 2, fieldNames, functions, fieldPointer, type, NULL);
+    UA_Boolean found[2] = {UA_FALSE, UA_FALSE};
+    DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 2};
+    
+    ret = decodeFields(ctx, parseCtx, &decodeCtx, type);
     return ret ;
 }
 
@@ -2353,7 +2354,9 @@ DECODE_JSON(QualifiedName) {
     const char* fieldNames[] = {"Name", "Uri"};
     void *fieldPointer[] = {&dst->name, &dst->namespaceIndex};
     decodeJsonSignature functions[] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) UInt16_decodeJson};
-    ret = decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, NULL);
+    UA_Boolean found[2] = {UA_FALSE, UA_FALSE};
+    DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 2};
+    ret = decodeFields(ctx, parseCtx, &decodeCtx, type);
     return ret;
 }
 
@@ -2522,7 +2525,9 @@ DECODE_JSON(NodeId) {
       fieldCount++;  
     }
     
-    status ret = decodeFields(ctx, parseCtx, fieldCount, fieldNames, functions, fieldPointer, type, NULL);
+    UA_Boolean found[3] = {UA_FALSE, UA_FALSE, UA_FALSE};
+    DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 3};
+    status ret = decodeFields(ctx, parseCtx, &decodeCtx, type);
     return ret;
 }
 
@@ -2588,7 +2593,9 @@ DECODE_JSON(ExpandedNodeId) {
         fieldCount++;  
     }
     
-    status ret = decodeFields(ctx, parseCtx, fieldCount, fieldNames, functions, fieldPointer, type, NULL);
+    UA_Boolean found[4] = {UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE};
+    DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, fieldCount};
+    status ret = decodeFields(ctx, parseCtx, &decodeCtx, type);
     
     if(hasServerUri){
         //User namespaceUriIndex to lookup namespaceUri
@@ -2655,9 +2662,10 @@ DECODE_JSON(DateTime) {
 }
 
 DECODE_JSON(StatusCode) {
-    //TODO: Switch to UInt32?
     UA_UInt32 d;
-    DECODE_DIRECT(&d, UInt32);
+    status ret = DECODE_DIRECT(&d, UInt32);
+    if(ret != UA_STATUSCODE_GOOD)
+        return ret;
     memcpy(dst, &d, 4);
 
     if(moveToken)
@@ -2774,14 +2782,15 @@ DECODE_JSON(Variant) {
                 void *fieldPointer[] = {NULL, &dst->data};
                 decodeJsonSignature functions[] = {NULL, (decodeJsonSignature) Array_decodeJson};
                 UA_Boolean found[] = {UA_FALSE, UA_FALSE};
-                ret = decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, BodyType, found);
+                DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 2};
+                ret = decodeFields(ctx, parseCtx, &decodeCtx, BodyType);
             }else{
                 const char* fieldNames[] = {"Type", "Body", "Dimension"};
                 void *fieldPointer[] = {NULL, &dst->data, &dst->arrayDimensions};
                 decodeJsonSignature functions[] = {NULL, (decodeJsonSignature) Array_decodeJson, (decodeJsonSignature) VariantDimension_decodeJson};
                 UA_Boolean found[] = {UA_FALSE, UA_FALSE, UA_FALSE};
-
-                ret = decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, BodyType, found);
+                DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 3};
+                ret = decodeFields(ctx, parseCtx, &decodeCtx, BodyType);
             }
             
         }else if(idTypeDecoded != UA_TYPES_EXTENSIONOBJECT){
@@ -2793,15 +2802,16 @@ DECODE_JSON(Variant) {
             void *fieldPointer[] = {NULL, bodyPointer};
             decodeJsonSignature functions[] = {NULL, (decodeJsonSignature) decodeJsonInternal};
             UA_Boolean found[] = {UA_FALSE, UA_FALSE};
-
-            ret = decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, BodyType, found);
+            DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 2};
+            ret = decodeFields(ctx, parseCtx, &decodeCtx, BodyType);
         }else {
             const char* fieldNames[] = {"Type", "Body"};
             void *fieldPointer[] = {NULL, dst};
             decodeJsonSignature functions[] = {NULL, (decodeJsonSignature) Variant_decodeJsonUnwrapExtensionObject};
             UA_Boolean found[] = {UA_FALSE, UA_FALSE};
             //ret = Variant_decodeJsonUnwrapExtensionObject(dst, ctx, parseCtx, isArray, hasDimension, searchResultBody);
-            ret = decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, BodyType, found);
+            DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 2};
+            ret = decodeFields(ctx, parseCtx, &decodeCtx, BodyType);
         }
     }
     
@@ -2838,7 +2848,8 @@ DECODE_JSON(DataValue) {
         (decodeJsonSignature) UInt16_decodeJson};
     
     UA_Boolean found[] = {UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE};
-    ret = decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, found);
+    DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 6};
+    ret = decodeFields(ctx, parseCtx, &decodeCtx, type);
     dst->hasValue = found[0];
     dst->hasStatus = found[1];
     dst->hasSourceTimestamp = found[2];
@@ -2915,7 +2926,8 @@ DECODE_JSON(ExtensionObject) {
                 (decodeJsonSignature) NodeId_decodeJson, 
                 decodeJsonJumpTable[decode_index]};
 
-            return decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, typeOfBody, found);
+            DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 2};
+            return decodeFields(ctx, parseCtx, &decodeCtx, typeOfBody);
         }else{
            return UA_STATUSCODE_BADDECODINGERROR;
         }
@@ -2945,7 +2957,8 @@ DECODE_JSON(ExtensionObject) {
                 (decodeJsonSignature) ByteString_decodeJson, 
                 (decodeJsonSignature) NodeId_decodeJson};
             
-            return decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, found);
+            DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 3};
+            return decodeFields(ctx, parseCtx, &decodeCtx, type);
         } else if(encoding == 2) {
             /* XmlElement in Json Body */
             dst->encoding = UA_EXTENSIONOBJECT_ENCODED_XML;
@@ -2964,7 +2977,8 @@ DECODE_JSON(ExtensionObject) {
                 (decodeJsonSignature) String_decodeJson, 
                 (decodeJsonSignature) NodeId_decodeJson};
             
-            return decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, found);
+            DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 3};
+            return decodeFields(ctx, parseCtx, &decodeCtx, type);
         } else {
             //UA_NodeId_deleteMembers(&typeId);
             return UA_STATUSCODE_BADDECODINGERROR;
@@ -3042,7 +3056,8 @@ Variant_decodeJsonUnwrapExtensionObject(UA_Variant *dst, const UA_DataType *type
         decodeJsonSignature functions[] = {(decodeJsonSignature) NodeId_decodeJson, decodeJsonJumpTable[decode_index]};
         UA_Boolean found[] = {UA_FALSE, UA_FALSE};
         
-        ret = decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, dst->type, found);
+        DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 2};
+        ret = decodeFields(ctx, parseCtx, &decodeCtx, type);
 
     }else{
         /* decode as ExtensionObject */
@@ -3061,38 +3076,41 @@ Variant_decodeJsonUnwrapExtensionObject(UA_Variant *dst, const UA_DataType *type
 status DiagnosticInfoInner_decodeJson(UA_DiagnosticInfo* dst, const UA_DataType* type, Ctx* ctx, ParseCtx* parseCtx);
 
 DECODE_JSON(DiagnosticInfo) {
+    status ret = UA_STATUSCODE_GOOD;
     const char* fieldNames[] = {"SymbolicId", "LocalizedText", "Locale", "AdditionalInfo", "InnerStatusCode", "InnerDiagnosticInfo"};
     void *fieldPointer[] = {&dst->symbolicId, &dst->localizedText, &dst->locale, &dst->additionalInfo, &dst->innerStatusCode, &dst->innerDiagnosticInfo};
     decodeJsonSignature functions[] = {(decodeJsonSignature) Int32_decodeJson, (decodeJsonSignature) Int32_decodeJson,(decodeJsonSignature) Int32_decodeJson,(decodeJsonSignature) String_decodeJson,(decodeJsonSignature) StatusCode_decodeJson, (decodeJsonSignature) DiagnosticInfoInner_decodeJson};
     UA_Boolean found[] = {UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE};
-    decodeFields(ctx, parseCtx, sizeof(fieldNames)/ sizeof(fieldNames[0]), fieldNames, functions, fieldPointer, type, found);
+    DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 6};
+    ret = decodeFields(ctx, parseCtx, &decodeCtx, type);
     dst->hasSymbolicId = found[0];
     dst->hasLocalizedText = found[1];
     dst->hasLocale = found[2];
     dst->hasAdditionalInfo = found[3];
     dst->hasInnerStatusCode = found[4];
     dst->hasInnerDiagnosticInfo = found[5];
-    return UA_STATUSCODE_GOOD;
+    return ret;
 }
 
 status DiagnosticInfoInner_decodeJson(UA_DiagnosticInfo* dst, const UA_DataType* type, Ctx* ctx, ParseCtx* parseCtx){
     UA_DiagnosticInfo *inner = (UA_DiagnosticInfo*)UA_calloc(1, sizeof(UA_DiagnosticInfo));
+    if(inner == NULL){
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+    }
     memcpy(dst, &inner, sizeof(UA_DiagnosticInfo*)); //Copy new Pointer do dest
     return DiagnosticInfo_decodeJson(inner, type, ctx, parseCtx, UA_TRUE);
 }
 
 status 
-decodeFields(/*TODO const*/ Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const char* fieldNames[],
-             decodeJsonSignature functions[], void *fieldPointer[], const UA_DataType *type,
-             UA_Boolean found[]) {
+decodeFields(/*TODO const*/ Ctx *ctx, ParseCtx *parseCtx, DecodeContext *decodeContext, const UA_DataType *type) {
     size_t objectCount = (size_t)(parseCtx->tokenArray[(*parseCtx->index)].size);
     status ret = UA_STATUSCODE_GOOD;
     
-    if(memberSize == 1){ // TODO
-        if(*fieldNames[0] == 0){ //No MemberName
-            return functions[0](fieldPointer[0], type, ctx, parseCtx, UA_TRUE); //ENCODE DIRECT
+    if(decodeContext->memberSize == 1){ // TODO
+        if(*decodeContext->fieldNames[0]  == 0){ //No MemberName
+            return decodeContext->functions[0](decodeContext->fieldPointer[0], type, ctx, parseCtx, UA_TRUE); //ENCODE DIRECT
         }
-    }else if(memberSize == 0){
+    }else if(decodeContext->memberSize == 0){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     
@@ -3101,25 +3119,25 @@ decodeFields(/*TODO const*/ Ctx *ctx, ParseCtx *parseCtx, u8 memberSize, const c
     for (size_t currentObjectCount = 0; currentObjectCount < objectCount && *parseCtx->index < parseCtx->tokenCount; currentObjectCount++) {
 
         // start searching at the index of currentObjectCount
-        for (size_t i = currentObjectCount; i < memberSize + currentObjectCount; i++) {
+        for (size_t i = currentObjectCount; i < decodeContext->memberSize + currentObjectCount; i++) {
             //Search for KEY, if found outer loop will be one less. Best case is objectCount if in order!
             
-            size_t index = i % memberSize;
+            size_t index = i % decodeContext->memberSize;
             
-            if (jsoneq((char*) ctx->pos, &parseCtx->tokenArray[*parseCtx->index], fieldNames[index]) != 0)
+            if (jsoneq((char*) ctx->pos, &parseCtx->tokenArray[*parseCtx->index], decodeContext->fieldNames[index]) != 0)
                 continue;
 
-            if (found && found[index]) {
+            if (decodeContext->found && decodeContext->found[index]) {
                 //Duplicate Key found, abort.
                 return UA_STATUSCODE_BADDECODINGERROR;
             }
-            if (found != NULL) {
-                found[index] = UA_TRUE;
+            if (decodeContext->found != NULL) {
+                decodeContext->found[index] = UA_TRUE;
             }
 
             (*parseCtx->index)++; //goto value
-            if (functions[index] != NULL) {
-                ret = functions[index](fieldPointer[index], type, ctx, parseCtx, UA_TRUE); //Move Token True
+            if (decodeContext->functions[index] != NULL) {
+                ret = decodeContext->functions[index](decodeContext->fieldPointer[index], type, ctx, parseCtx, UA_TRUE); //Move Token True
                 if (ret != UA_STATUSCODE_GOOD) {
                     return ret;
                 }
@@ -3228,10 +3246,10 @@ decodeJsonInternal(void *dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parse
     const UA_DataType *typelists[2] = { UA_TYPES, &type[-type->typeIndex] };
     
     /* For decode Fields */
-    const char* fieldNames[membersSize];
-    void *fieldPointer[membersSize];
-    decodeJsonSignature functions[membersSize];
-    UA_Boolean found[membersSize];
+    UA_STACKARRAY(const char*, fieldNames, membersSize);
+    UA_STACKARRAY(void *, fieldPointer, membersSize);
+    UA_STACKARRAY(decodeJsonSignature, functions, membersSize);
+    UA_STACKARRAY(UA_Boolean, found, membersSize);
     memset(found, 0, membersSize);
     
     for(size_t i = 0; i < membersSize && ret == UA_STATUSCODE_GOOD; ++i) {
@@ -3260,7 +3278,8 @@ decodeJsonInternal(void *dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parse
         }
     }
     
-    ret = decodeFields(ctx, parseCtx, membersSize, fieldNames, functions, fieldPointer, type, found);
+    DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, membersSize};
+    ret = decodeFields(ctx, parseCtx, &decodeCtx, type);
 
     ctx->depth--;
     return ret;
