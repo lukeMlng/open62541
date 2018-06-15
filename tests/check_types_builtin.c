@@ -1456,6 +1456,10 @@ END_TEST
 
 
 /* ------------------------------ENCODE---------------------------------------- */
+
+
+
+/* Test Boolean */
 START_TEST(UA_Boolean_true_json_encode) {
    
     UA_Boolean *src = UA_Boolean_new();
@@ -1506,6 +1510,52 @@ START_TEST(UA_Boolean_false_json_encode) {
 }
 END_TEST
 
+START_TEST(UA_Boolean_null_json_encode) {
+   
+    UA_Boolean *src = NULL;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_BOOLEAN];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 10);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[10];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    
+    ck_assert_int_eq(s, UA_STATUSCODE_BADENCODINGERROR);
+    UA_ByteString_deleteMembers(&buf);
+}
+END_TEST
+
+START_TEST(UA_Boolean_true_bufferTooSmall_json_encode) {
+   
+    UA_Boolean *src = UA_Boolean_new();
+    *src = UA_FALSE;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_BOOLEAN];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 2);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[2];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    
+    ck_assert_int_eq(s, UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+    char* result = "";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+/* Test String */
 START_TEST(UA_String_json_encode) {
     // given
     UA_String src = UA_STRING("hello");
@@ -1525,6 +1575,47 @@ START_TEST(UA_String_json_encode) {
     UA_ByteString_deleteMembers(&buf);
 }
 END_TEST
+
+START_TEST(UA_String_escapesimple_json_encode) {
+    // given
+    UA_String src = UA_STRING("\b\th\"e\fl\nl\\o\r");
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 50);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[50];
+    // when
+    status s = UA_encodeJson(&src, &UA_TYPES[UA_TYPES_STRING], &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "\"\\b\\th\\\"e\\fl\\nl\\\\o\\r\"";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf);
+}
+END_TEST
+
+START_TEST(UA_String_escapeutf_json_encode) {
+    // given
+    UA_String src = UA_STRING("he\\zsdl\alo€ \x26\x3A asdasd");
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 50);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[50];
+    // when
+    status s = UA_encodeJson(&src, &UA_TYPES[UA_TYPES_STRING], &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "\"he\\\\zsdl\\u0007lo€ &: asdasd\"";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf);
+}
+END_TEST
+
 
 START_TEST(UA_UInt16_PosNumber_json_encode) {
 
@@ -3695,7 +3786,14 @@ static Suite *testSuite_builtin(void) {
     TCase *tc_json_encode = tcase_create("json_encode");
     tcase_add_test(tc_json_encode, UA_Boolean_true_json_encode);
     tcase_add_test(tc_json_encode, UA_Boolean_false_json_encode);
+      tcase_add_test(tc_json_encode, UA_Boolean_null_json_encode);
+        tcase_add_test(tc_json_encode, UA_Boolean_true_bufferTooSmall_json_encode);
+    
     tcase_add_test(tc_json_encode, UA_String_json_encode);
+    tcase_add_test(tc_json_encode, UA_String_escapesimple_json_encode);
+    tcase_add_test(tc_json_encode, UA_String_escapeutf_json_encode);
+    
+    
     tcase_add_test(tc_json_encode, UA_UInt16_PosNumber_json_encode);
     tcase_add_test(tc_json_encode, UA_UInt32_PosNumber_json_encode);
     tcase_add_test(tc_json_encode, UA_UInt64_PosNumber_json_encode);
