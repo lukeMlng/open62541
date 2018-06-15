@@ -927,6 +927,8 @@ ENCODE_JSON(ByteString) {
     return UA_STATUSCODE_GOOD;
 }
 
+#undef hexCharlowerCase
+
 /* Guid */
 ENCODE_JSON(Guid) {
     if(!src){
@@ -934,14 +936,16 @@ ENCODE_JSON(Guid) {
     }
     
     status ret = UA_STATUSCODE_GOOD;
-    const u8 *hexmap = hexmapUpper; //TODO: Define 
-
+#ifdef hexCharlowerCase
+    const u8 *hexmap = hexmapLower;
+#else
+    const u8 *hexmap = hexmapUpper;
+#endif
     if (ctx->pos + 38 > ctx->end)
         return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
 
-    WRITE(Quote);
-    u8 buf[36];
-    memset(&buf, 0, 20);
+    ret |= WRITE(Quote);
+    u8 *buf = ctx->pos;
 
     UA_Byte b1 = (UA_Byte)(src->data1 >> 24);
     UA_Byte b2 = (UA_Byte)(src->data1 >> 16);
@@ -1008,9 +1012,8 @@ ENCODE_JSON(Guid) {
     buf[34] = hexmap[(b16 & 0xF0) >> 4];
     buf[35] = hexmap[b16 & 0x0F];
 
-    memcpy(ctx->pos, buf, 36); //TODO: removable, wirte direct to dest
     ctx->pos += 36;
-    WRITE(Quote);
+    ret |= WRITE(Quote);
 
     return ret;
 }
@@ -1342,22 +1345,27 @@ ENCODE_JSON(StatusCode) {
     status ret = UA_STATUSCODE_GOOD;
 
     if (!useReversible) {
-        ret |= WRITE(ObjStart);
-        commaNeeded = UA_FALSE;
-        ret |= writeKey(ctx, "Code");
-        ret |= ENCODE_DIRECT(src, UInt32);
-        if (ret != UA_STATUSCODE_GOOD)
-            return ret;
-        ret |= writeKey(ctx, "Symbol");
-        /* encode the full name of error */
-        UA_String statusDescription = UA_String_fromChars(UA_StatusCode_name(*src));
-        if(statusDescription.data == NULL && statusDescription.length == 0){
-            return UA_STATUSCODE_BADENCODINGERROR;
+        if(*src != 0){
+            ret |= WRITE(ObjStart);
+            commaNeeded = UA_FALSE;
+            ret |= writeKey(ctx, "Code");
+            ret |= ENCODE_DIRECT(src, UInt32);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+            ret |= writeKey(ctx, "Symbol");
+            /* encode the full name of error */
+            UA_String statusDescription = UA_String_fromChars(UA_StatusCode_name(*src));
+            if(statusDescription.data == NULL && statusDescription.length == 0){
+                return UA_STATUSCODE_BADENCODINGERROR;
+            }
+            ret |= ENCODE_DIRECT(&statusDescription, String);
+            UA_String_deleteMembers(&statusDescription);
+
+            ret |= WRITE(ObjEnd);
+        }else{
+            /* A StatusCode of Good (0) is treated like a NULL and not encoded. */
+            ret |= writeNull(ctx);
         }
-        ret |= ENCODE_DIRECT(&statusDescription, String);
-        UA_String_delete(&statusDescription);
-        
-        ret |= WRITE(ObjEnd);
     } else {
         ret |= ENCODE_DIRECT(src, UInt32);
     }
@@ -1707,7 +1715,18 @@ ENCODE_JSON(DiagnosticInfo) {
     if(!src){
         return writeNull(ctx);
     }
-    status ret = UA_STATUSCODE_GOOD; 
+ 
+    status ret = UA_STATUSCODE_GOOD;
+    if(!src->hasSymbolicId 
+            && !src->hasNamespaceUri 
+            && !src->hasLocalizedText
+            && !src->hasLocale
+            && !src->hasAdditionalInfo
+            && !src->hasInnerDiagnosticInfo
+            && !src->hasInnerStatusCode){
+        //no element present, encode as null.
+        return writeNull(ctx);
+    }
     
     commaNeeded = UA_FALSE;
     ret |= WRITE(ObjStart);

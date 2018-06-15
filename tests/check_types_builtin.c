@@ -2399,9 +2399,9 @@ END_TEST
 
 START_TEST(UA_LocText_json_encode) {
 
-      UA_LocalizedText *src = UA_LocalizedText_new();
-    src->locale = UA_STRING("asdf");
-    src->text = UA_STRING("jklö");
+    UA_LocalizedText *src = UA_LocalizedText_new();
+    src->locale = UA_STRING("theLocale");
+    src->text = UA_STRING("theText");
     const UA_DataType *type = &UA_TYPES[UA_TYPES_LOCALIZEDTEXT];
 
     UA_ByteString buf;
@@ -2416,16 +2416,19 @@ START_TEST(UA_LocText_json_encode) {
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"Locale\":\"asdf\",\"Text\":\"jklö\"}";
+    char* result = "{\"Locale\":\"theLocale\",\"Text\":\"theText\"}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf); UA_free(src);
 }
 END_TEST
 
-START_TEST(UA_Guid_json_encode) {
-    UA_Guid *src = UA_Guid_new();
-    *src = UA_Guid_random();
-    const UA_DataType *type = &UA_TYPES[UA_TYPES_GUID];
+
+START_TEST(UA_LocText_NonReversible_json_encode) {
+
+      UA_LocalizedText *src = UA_LocalizedText_new();
+    src->locale = UA_STRING("theLocale");
+    src->text = UA_STRING("theText");
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_LOCALIZEDTEXT];
 
     UA_ByteString buf;
 
@@ -2434,12 +2437,82 @@ START_TEST(UA_Guid_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_FALSE);
+
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "\"152CA78D-6003-027C-F3BF-BB7BEEFEEFBE\"";
+    char* result = "\"theText\"";
     ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+
+START_TEST(UA_LocText_smallBuffer_json_encode) {
+
+    UA_LocalizedText *src = UA_LocalizedText_new();
+    src->locale = UA_STRING("theLocale");
+    src->text = UA_STRING("theText");
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_LOCALIZEDTEXT];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 4);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[4];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+
+
+
+
+START_TEST(UA_Guid_json_encode) {
+    UA_Guid src = {3, 9, 10, {8, 7, 6, 5, 4, 3, 2, 1}};
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_GUID];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 40);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[40];
+
+    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "\"00000003-0009-000A-0807-060504030201\"";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf);
+}
+END_TEST
+
+START_TEST(UA_Guid_smallbuf_json_encode) {
+    UA_Guid *src = UA_Guid_new();
+    *src = UA_Guid_random();
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_GUID];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
     UA_ByteString_deleteMembers(&buf); UA_free(src);
 }
 END_TEST
@@ -2467,6 +2540,8 @@ START_TEST(UA_DateTime_json_encode) {
 }
 END_TEST
 
+
+/* Statuscode */
 START_TEST(UA_StatusCode_json_encode) {
     UA_StatusCode *src = UA_StatusCode_new();
     *src = UA_STATUSCODE_BADAGGREGATECONFIGURATIONREJECTED;
@@ -2491,6 +2566,76 @@ START_TEST(UA_StatusCode_json_encode) {
 }
 END_TEST
 
+START_TEST(UA_StatusCode_nonReversible_json_encode) {
+    UA_StatusCode *src = UA_StatusCode_new();
+    *src = UA_STATUSCODE_BADAGGREGATECONFIGURATIONREJECTED;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_STATUSCODE];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_FALSE);
+
+     *bufPos = 0;
+    
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "{\"Code\":2161770496,\"Symbol\":\"BadAggregateConfigurationRejected\"}";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_StatusCode_nonReversible_good_json_encode) {
+    UA_StatusCode *src = UA_StatusCode_new();
+    *src = UA_STATUSCODE_GOOD;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_STATUSCODE];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_FALSE);
+
+     *bufPos = 0;
+    
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "null";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+
+START_TEST(UA_StatusCode_smallbuf_json_encode) {
+    UA_StatusCode *src = UA_StatusCode_new();
+    *src = UA_STATUSCODE_BADAGGREGATECONFIGURATIONREJECTED;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_STATUSCODE];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_FALSE);
+
+     *bufPos = 0;
+    
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
 START_TEST(UA_NodeId_Nummeric_json_encode) {
     UA_NodeId *src = UA_NodeId_new();
     *src = UA_NODEID_NUMERIC(0, 5555);
@@ -2583,7 +2728,50 @@ START_TEST(UA_NodeId_ByteString_json_encode) {
 }
 END_TEST
 
+
+/* Diagnostic Info */
 START_TEST(UA_DiagInfo_json_encode) {
+    UA_DiagnosticInfo *src = UA_DiagnosticInfo_new();
+
+    src->hasAdditionalInfo = UA_TRUE;
+    src->hasInnerDiagnosticInfo = UA_FALSE;
+    src->hasInnerStatusCode = UA_TRUE;
+    src->hasLocale = UA_TRUE;
+    src->hasSymbolicId = UA_TRUE;
+    src->hasLocalizedText = UA_TRUE;
+    src->hasNamespaceUri = UA_FALSE;
+
+    UA_StatusCode statusCode = UA_STATUSCODE_BADARGUMENTSMISSING;
+    src->additionalInfo = UA_STRING("additionalInfo");
+    src->innerStatusCode = statusCode;
+    src->locale = 12;
+    src->symbolicId = 13;
+    src->localizedText = 14;
+
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_DIAGNOSTICINFO];
+
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "{\"SymbolicId\":13,\"LocalizedText\":14,\"Locale\":12,\"AdditionalInfo\":\"additionalInfo\",\"InnerStatusCode\":2155216896}";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+
+
+START_TEST(UA_DiagInfo_withInner_json_encode) {
     UA_DiagnosticInfo *innerDiag = UA_DiagnosticInfo_new();
     innerDiag->hasAdditionalInfo = UA_TRUE;
     innerDiag->additionalInfo = UA_STRING("INNER ADDITION INFO");
@@ -2632,6 +2820,129 @@ START_TEST(UA_DiagInfo_json_encode) {
     UA_ByteString_deleteMembers(&buf); UA_free(src); UA_free(innerDiag);
 }
 END_TEST
+
+START_TEST(UA_DiagInfo_withTwoInner_json_encode) {
+    
+    UA_DiagnosticInfo *innerDiag2 = UA_DiagnosticInfo_new();
+    innerDiag2->hasAdditionalInfo = UA_TRUE;
+    innerDiag2->additionalInfo = UA_STRING("INNER ADDITION INFO2");
+    innerDiag2->hasInnerDiagnosticInfo = UA_FALSE;
+    innerDiag2->hasInnerStatusCode = UA_FALSE;
+    innerDiag2->hasLocale = UA_FALSE;
+    innerDiag2->hasSymbolicId = UA_FALSE;
+    innerDiag2->hasLocalizedText = UA_FALSE;
+    innerDiag2->hasNamespaceUri = UA_FALSE;
+    
+    UA_DiagnosticInfo *innerDiag = UA_DiagnosticInfo_new();
+    innerDiag->hasAdditionalInfo = UA_TRUE;
+    innerDiag->additionalInfo = UA_STRING("INNER ADDITION INFO");
+    innerDiag->hasInnerDiagnosticInfo = UA_TRUE;
+    innerDiag->innerDiagnosticInfo = innerDiag2;
+    innerDiag->hasInnerStatusCode = UA_FALSE;
+    innerDiag->hasLocale = UA_FALSE;
+    innerDiag->hasSymbolicId = UA_FALSE;
+    innerDiag->hasLocalizedText = UA_FALSE;
+    innerDiag->hasNamespaceUri = UA_FALSE;
+
+    UA_DiagnosticInfo *src = UA_DiagnosticInfo_new();
+
+    src->hasAdditionalInfo = UA_TRUE;
+    src->hasInnerDiagnosticInfo = UA_TRUE;
+    src->hasInnerStatusCode = UA_TRUE;
+    src->hasLocale = UA_TRUE;
+    src->hasSymbolicId = UA_TRUE;
+    src->hasLocalizedText = UA_TRUE;
+    src->hasNamespaceUri = UA_FALSE;
+
+    UA_StatusCode statusCode = UA_STATUSCODE_BADARGUMENTSMISSING;
+    src->additionalInfo = UA_STRING("additionalInfo");
+    src->innerDiagnosticInfo = innerDiag;
+    src->innerStatusCode = statusCode;
+    src->locale = 12;
+    src->symbolicId = 13;
+    src->localizedText = 14;
+
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_DIAGNOSTICINFO];
+
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "{\"SymbolicId\":13,\"LocalizedText\":14,\"Locale\":12,\"AdditionalInfo\":\"additionalInfo\",\"InnerStatusCode\":2155216896,\"InnerDiagnosticInfo\":{\"AdditionalInfo\":\"INNER ADDITION INFO\",\"InnerDiagnosticInfo\":{\"AdditionalInfo\":\"INNER ADDITION INFO2\"}}}";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src); UA_free(innerDiag);
+}
+END_TEST
+
+START_TEST(UA_DiagInfo_noFields_json_encode) {
+    UA_DiagnosticInfo *src = UA_DiagnosticInfo_new();
+    
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_DIAGNOSTICINFO];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "null";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_DiagInfo_smallBuffer_json_encode) {
+    UA_DiagnosticInfo *src = UA_DiagnosticInfo_new();
+
+    src->hasAdditionalInfo = UA_TRUE;
+    src->hasInnerDiagnosticInfo = UA_FALSE;
+    src->hasInnerStatusCode = UA_TRUE;
+    src->hasLocale = UA_TRUE;
+    src->hasSymbolicId = UA_TRUE;
+    src->hasLocalizedText = UA_TRUE;
+    src->hasNamespaceUri = UA_FALSE;
+
+    UA_StatusCode statusCode = UA_STATUSCODE_BADARGUMENTSMISSING;
+    src->additionalInfo = UA_STRING("additionalInfo");
+    src->innerStatusCode = statusCode;
+    src->locale = 12;
+    src->symbolicId = 13;
+    src->localizedText = 14;
+
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_DIAGNOSTICINFO];
+
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 20);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[20];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
 
 START_TEST(UA_ByteString_json_encode) {
     UA_ByteString *src = UA_ByteString_new();
@@ -4400,21 +4711,39 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_encode, UA_Int64_smallbuf_Number_json_encode);
     
     
-    
     tcase_add_test(tc_json_encode, UA_Double_json_encode);
     tcase_add_test(tc_json_encode, UA_Double_onesmallest_json_encode);
     tcase_add_test(tc_json_encode, UA_Float_json_encode);
     
-    
+
     tcase_add_test(tc_json_encode, UA_LocText_json_encode);
+    tcase_add_test(tc_json_encode, UA_LocText_NonReversible_json_encode);
+    tcase_add_test(tc_json_encode, UA_LocText_smallBuffer_json_encode);
+    
     tcase_add_test(tc_json_encode, UA_Guid_json_encode);
+    tcase_add_test(tc_json_encode, UA_Guid_smallbuf_json_encode);
+    
     tcase_add_test(tc_json_encode, UA_DateTime_json_encode);
+    
+    
     tcase_add_test(tc_json_encode, UA_StatusCode_json_encode);
+    tcase_add_test(tc_json_encode, UA_StatusCode_nonReversible_json_encode);
+    tcase_add_test(tc_json_encode, UA_StatusCode_nonReversible_good_json_encode);
+    tcase_add_test(tc_json_encode, UA_StatusCode_smallbuf_json_encode);
+    
     tcase_add_test(tc_json_encode, UA_NodeId_Nummeric_json_encode);
     tcase_add_test(tc_json_encode, UA_NodeId_String_json_encode);
     tcase_add_test(tc_json_encode, UA_NodeId_Guid_json_encode);
     tcase_add_test(tc_json_encode, UA_NodeId_ByteString_json_encode);
+    
+    
     tcase_add_test(tc_json_encode, UA_DiagInfo_json_encode);
+    tcase_add_test(tc_json_encode, UA_DiagInfo_withInner_json_encode);
+    tcase_add_test(tc_json_encode, UA_DiagInfo_withTwoInner_json_encode);
+    tcase_add_test(tc_json_encode, UA_DiagInfo_noFields_json_encode);
+    tcase_add_test(tc_json_encode, UA_DiagInfo_smallBuffer_json_encode);
+    
+    
     tcase_add_test(tc_json_encode, UA_ByteString_json_encode);
     tcase_add_test(tc_json_encode, UA_QualName_json_encode);
     tcase_add_test(tc_json_encode, UA_Variant_Bool_json_encode);
