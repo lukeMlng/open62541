@@ -1792,10 +1792,10 @@ START_TEST(UA_UInt16_Max_Number_json_encode) {
 
     UA_ByteString buf;
 
-    UA_ByteString_allocBuffer(&buf, 5);
+    UA_ByteString_allocBuffer(&buf, 6);
 
     UA_Byte *bufPos = &buf.data[0];
-    const UA_Byte *bufEnd = &buf.data[5];
+    const UA_Byte *bufEnd = &buf.data[6];
 
     status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
 
@@ -1863,10 +1863,10 @@ START_TEST(UA_Int16_Max_Number_json_encode) {
 
     UA_ByteString buf;
 
-    UA_ByteString_allocBuffer(&buf, 5);
+    UA_ByteString_allocBuffer(&buf, 6);
 
     UA_Byte *bufPos = &buf.data[0];
-    const UA_Byte *bufEnd = &buf.data[5];
+    const UA_Byte *bufEnd = &buf.data[6];
 
     status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
 
@@ -2628,9 +2628,6 @@ START_TEST(UA_StatusCode_smallbuf_json_encode) {
     const UA_Byte *bufEnd = &buf.data[1];
 
     status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_FALSE);
-
-     *bufPos = 0;
-    
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
     UA_ByteString_deleteMembers(&buf); UA_free(src);
@@ -2773,8 +2770,9 @@ END_TEST
 
 START_TEST(UA_DiagInfo_withInner_json_encode) {
     UA_DiagnosticInfo *innerDiag = UA_DiagnosticInfo_new();
+    UA_DiagnosticInfo_init(innerDiag);
     innerDiag->hasAdditionalInfo = UA_TRUE;
-    innerDiag->additionalInfo = UA_STRING("INNER ADDITION INFO");
+    innerDiag->additionalInfo = UA_STRING_ALLOC("INNER ADDITION INFO");
     innerDiag->hasInnerDiagnosticInfo = UA_FALSE;
     innerDiag->hasInnerStatusCode = UA_FALSE;
     innerDiag->hasLocale = UA_FALSE;
@@ -2783,7 +2781,7 @@ START_TEST(UA_DiagInfo_withInner_json_encode) {
     innerDiag->hasNamespaceUri = UA_FALSE;
 
     UA_DiagnosticInfo *src = UA_DiagnosticInfo_new();
-
+    UA_DiagnosticInfo_init(src);
     src->hasAdditionalInfo = UA_TRUE;
     src->hasInnerDiagnosticInfo = UA_TRUE;
     src->hasInnerStatusCode = UA_TRUE;
@@ -2793,7 +2791,7 @@ START_TEST(UA_DiagInfo_withInner_json_encode) {
     src->hasNamespaceUri = UA_FALSE;
 
     UA_StatusCode statusCode = UA_STATUSCODE_BADARGUMENTSMISSING;
-    src->additionalInfo = UA_STRING("additionalInfo");
+    src->additionalInfo = UA_STRING_ALLOC("additionalInfo");
     src->innerDiagnosticInfo = innerDiag;
     src->innerStatusCode = statusCode;
     src->locale = 12;
@@ -2817,15 +2815,16 @@ START_TEST(UA_DiagInfo_withInner_json_encode) {
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
     char* result = "{\"SymbolicId\":13,\"LocalizedText\":14,\"Locale\":12,\"AdditionalInfo\":\"additionalInfo\",\"InnerStatusCode\":2155216896,\"InnerDiagnosticInfo\":{\"AdditionalInfo\":\"INNER ADDITION INFO\"}}";
     ck_assert_str_eq(result, (char*)buf.data);
-    UA_ByteString_deleteMembers(&buf); UA_free(src); UA_free(innerDiag);
+    UA_ByteString_deleteMembers(&buf); UA_DiagnosticInfo_delete(src);
 }
 END_TEST
 
 START_TEST(UA_DiagInfo_withTwoInner_json_encode) {
     
     UA_DiagnosticInfo *innerDiag2 = UA_DiagnosticInfo_new();
+    UA_DiagnosticInfo_init(innerDiag2);
     innerDiag2->hasAdditionalInfo = UA_TRUE;
-    innerDiag2->additionalInfo = UA_STRING("INNER ADDITION INFO2");
+    innerDiag2->additionalInfo = UA_STRING_ALLOC("INNER ADDITION INFO2");
     innerDiag2->hasInnerDiagnosticInfo = UA_FALSE;
     innerDiag2->hasInnerStatusCode = UA_FALSE;
     innerDiag2->hasLocale = UA_FALSE;
@@ -2834,8 +2833,9 @@ START_TEST(UA_DiagInfo_withTwoInner_json_encode) {
     innerDiag2->hasNamespaceUri = UA_FALSE;
     
     UA_DiagnosticInfo *innerDiag = UA_DiagnosticInfo_new();
+    UA_DiagnosticInfo_init(innerDiag);
     innerDiag->hasAdditionalInfo = UA_TRUE;
-    innerDiag->additionalInfo = UA_STRING("INNER ADDITION INFO");
+    innerDiag->additionalInfo = UA_STRING_ALLOC("INNER ADDITION INFO");
     innerDiag->hasInnerDiagnosticInfo = UA_TRUE;
     innerDiag->innerDiagnosticInfo = innerDiag2;
     innerDiag->hasInnerStatusCode = UA_FALSE;
@@ -2845,6 +2845,7 @@ START_TEST(UA_DiagInfo_withTwoInner_json_encode) {
     innerDiag->hasNamespaceUri = UA_FALSE;
 
     UA_DiagnosticInfo *src = UA_DiagnosticInfo_new();
+    UA_DiagnosticInfo_init(src);
 
     src->hasAdditionalInfo = UA_TRUE;
     src->hasInnerDiagnosticInfo = UA_TRUE;
@@ -2855,7 +2856,7 @@ START_TEST(UA_DiagInfo_withTwoInner_json_encode) {
     src->hasNamespaceUri = UA_FALSE;
 
     UA_StatusCode statusCode = UA_STATUSCODE_BADARGUMENTSMISSING;
-    src->additionalInfo = UA_STRING("additionalInfo");
+    src->additionalInfo = UA_STRING_ALLOC("additionalInfo");
     src->innerDiagnosticInfo = innerDiag;
     src->innerStatusCode = statusCode;
     src->locale = 12;
@@ -2879,7 +2880,8 @@ START_TEST(UA_DiagInfo_withTwoInner_json_encode) {
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
     char* result = "{\"SymbolicId\":13,\"LocalizedText\":14,\"Locale\":12,\"AdditionalInfo\":\"additionalInfo\",\"InnerStatusCode\":2155216896,\"InnerDiagnosticInfo\":{\"AdditionalInfo\":\"INNER ADDITION INFO\",\"InnerDiagnosticInfo\":{\"AdditionalInfo\":\"INNER ADDITION INFO2\"}}}";
     ck_assert_str_eq(result, (char*)buf.data);
-    UA_ByteString_deleteMembers(&buf); UA_free(src); UA_free(innerDiag);
+    UA_ByteString_deleteMembers(&buf); 
+    UA_DiagnosticInfo_delete(src);
 }
 END_TEST
 
@@ -3010,7 +3012,7 @@ START_TEST(UA_Variant_Bool_json_encode) {
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"Type\":0,\"Body\":true}";
+    char* result = "{\"Type\":1,\"Body\":true}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf); UA_free(src);
 }
@@ -3035,7 +3037,7 @@ START_TEST(UA_Variant_Number_json_encode) {
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"Type\":8,\"Body\":345634563456}";
+    char* result = "{\"Type\":9,\"Body\":345634563456}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf); UA_free(src);
 }
@@ -3061,7 +3063,7 @@ START_TEST(UA_Variant_NodeId_json_encode) {
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"Type\":16,\"Body\":{\"IdType\":1,\"Id\":\"theID\",\"Namespace\":1}}";
+    char* result = "{\"Type\":17,\"Body\":{\"IdType\":1,\"Id\":\"theID\",\"Namespace\":1}}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf); UA_free(src);
 }
@@ -3088,7 +3090,7 @@ START_TEST(UA_Variant_LocText_json_encode) {
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"Type\":20,\"Body\":{\"Locale\":\"localeString\",\"Text\":\"textString\"}}";
+    char* result = "{\"Type\":21,\"Body\":{\"Locale\":\"localeString\",\"Text\":\"textString\"}}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf); UA_free(src);
 }
@@ -3118,7 +3120,7 @@ START_TEST(UA_Variant_QualName_json_encode) {
     
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"Type\":19,\"Body\":{\"Name\":\"derName\",\"Uri\":1}}";
+    char* result = "{\"Type\":20,\"Body\":{\"Name\":\"derName\",\"Uri\":1}}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf); UA_free(src); UA_free(variantContent);
 }
@@ -3243,7 +3245,7 @@ START_TEST(UA_DataValue_json_encode) {
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"Value\":{\"Type\":0,\"Body\":true},\"Status\":2153250816,\"SourceTimestamp\":\"1970-01-15T06:56:07.000Z\",\"SourcePicoseconds\":0,\"ServerTimestamp\":\"1970-01-15T06:56:07.000Z\",\"ServerPicoseconds\":0}";
+    char* result = "{\"Value\":{\"Type\":1,\"Body\":true},\"Status\":2153250816,\"SourceTimestamp\":\"1970-01-15T06:56:07.000Z\",\"SourcePicoseconds\":0,\"ServerTimestamp\":\"1970-01-15T06:56:07.000Z\",\"ServerPicoseconds\":0}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf);UA_free(src);UA_free(variant);
 }
@@ -3341,7 +3343,7 @@ START_TEST(UA_MessageReadResponse_json_encode) {
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"ResponseHeader\":{\"Timestamp\":\"1970-01-15T06:56:07.000Z\",\"RequestHandle\":123123,\"ServiceResult\":0,\"ServiceDiagnostics\":{\"AdditionalInfo\":\"serverDiag\"},\"StringTable\":[],\"AdditionalHeader\":{\"TypeId\":{\"Id\":0},\"Encoding\":0,\"Body\":false}},\"Results\":[{\"Value\":{\"Type\":0,\"Body\":true},\"Status\":2153250816,\"SourceTimestamp\":\"1970-01-15T06:56:07.000Z\",\"SourcePicoseconds\":0,\"ServerTimestamp\":\"1970-01-15T06:56:07.000Z\",\"ServerPicoseconds\":0}],\"DiagnosticInfos\":[{\"AdditionalInfo\":\"INNER ADDITION INFO\"}]}";
+    char* result = "{\"ResponseHeader\":{\"Timestamp\":\"1970-01-15T06:56:07.000Z\",\"RequestHandle\":123123,\"ServiceResult\":0,\"ServiceDiagnostics\":{\"AdditionalInfo\":\"serverDiag\"},\"StringTable\":[],\"AdditionalHeader\":{\"TypeId\":{\"Id\":0},\"Encoding\":0,\"Body\":false}},\"Results\":[{\"Value\":{\"Type\":1,\"Body\":true},\"Status\":2153250816,\"SourceTimestamp\":\"1970-01-15T06:56:07.000Z\",\"SourcePicoseconds\":0,\"ServerTimestamp\":\"1970-01-15T06:56:07.000Z\",\"ServerPicoseconds\":0}],\"DiagnosticInfos\":[{\"AdditionalInfo\":\"INNER ADDITION INFO\"}]}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf);UA_free(variant);UA_free(innerDiag);UA_free(serverDiag);UA_free(e);UA_free(dv);
 }
@@ -3481,7 +3483,7 @@ START_TEST(UA_WriteRequest_json_encode) {
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"RequestHeader\":{\"AuthenticationToken\":{\"IdType\":1,\"Id\":\"authToken\"},\"Timestamp\":\"1970-01-15T06:56:07.000Z\",\"RequestHandle\":123123,\"ReturnDiagnostics\":1,\"AuditEntryId\":\"Auditentryid\",\"TimeoutHint\":120,\"AdditionalHeader\":{\"TypeId\":{\"Id\":0},\"Encoding\":0,\"Body\":false}},\"NodesToWrite\":[{\"NodeId\":{\"IdType\":1,\"Id\":\"a1111\"},\"AttributeId\":12,\"IndexRange\":\"BLOAB\",\"Value\":{\"Value\":{\"Type\":0,\"Body\":true},\"Status\":2153250816,\"SourceTimestamp\":\"1970-01-15T06:56:07.000Z\",\"SourcePicoseconds\":0,\"ServerTimestamp\":\"1970-01-15T06:56:07.000Z\",\"ServerPicoseconds\":0}},{\"NodeId\":{\"IdType\":1,\"Id\":\"a2222\"},\"AttributeId\":12,\"IndexRange\":\"BLOAB\",\"Value\":{\"Value\":{\"Type\":0,\"Body\":true},\"Status\":2153250816,\"SourceTimestamp\":\"1970-01-15T06:56:07.000Z\",\"SourcePicoseconds\":0,\"ServerTimestamp\":\"1970-01-15T06:56:07.000Z\",\"ServerPicoseconds\":0}}]}";
+    char* result = "{\"RequestHeader\":{\"AuthenticationToken\":{\"IdType\":1,\"Id\":\"authToken\"},\"Timestamp\":\"1970-01-15T06:56:07.000Z\",\"RequestHandle\":123123,\"ReturnDiagnostics\":1,\"AuditEntryId\":\"Auditentryid\",\"TimeoutHint\":120,\"AdditionalHeader\":{\"TypeId\":{\"Id\":0},\"Encoding\":0,\"Body\":false}},\"NodesToWrite\":[{\"NodeId\":{\"IdType\":1,\"Id\":\"a1111\"},\"AttributeId\":12,\"IndexRange\":\"BLOAB\",\"Value\":{\"Value\":{\"Type\":1,\"Body\":true},\"Status\":2153250816,\"SourceTimestamp\":\"1970-01-15T06:56:07.000Z\",\"SourcePicoseconds\":0,\"ServerTimestamp\":\"1970-01-15T06:56:07.000Z\",\"ServerPicoseconds\":0}},{\"NodeId\":{\"IdType\":1,\"Id\":\"a2222\"},\"AttributeId\":12,\"IndexRange\":\"BLOAB\",\"Value\":{\"Value\":{\"Type\":1,\"Body\":true},\"Status\":2153250816,\"SourceTimestamp\":\"1970-01-15T06:56:07.000Z\",\"SourcePicoseconds\":0,\"ServerTimestamp\":\"1970-01-15T06:56:07.000Z\",\"ServerPicoseconds\":0}}]}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf);
 }
@@ -3507,7 +3509,7 @@ START_TEST(UA_Variant_Array_UInt16_json_encode) {
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"Type\":4,\"Body\":[42,43]}";
+    char* result = "{\"Type\":5,\"Body\":[42,43]}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf);UA_free(src);
 }
@@ -3533,7 +3535,7 @@ START_TEST(UA_Variant_Array_Byte_json_encode) {
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"Type\":2,\"Body\":[42,43]}";
+    char* result = "{\"Type\":3,\"Body\":[42,43]}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf);UA_free(src);
 }
@@ -3560,7 +3562,7 @@ START_TEST(UA_Variant_Array_String_json_encode) {
     
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"Type\":11,\"Body\":[\"eins\",\"zwei\"]}";
+    char* result = "{\"Type\":12,\"Body\":[\"eins\",\"zwei\"]}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf);UA_free(src);
 }
@@ -3597,7 +3599,7 @@ START_TEST(UA_Variant_Matrix_UInt16_json_encode) {
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"Type\":4,\"Body\":[1,2,3,4,5,6,7,8,9],\"Dimension\":[3,3]}";
+    char* result = "{\"Type\":5,\"Body\":[1,2,3,4,5,6,7,8,9],\"Dimension\":[3,3]}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf);UA_free(src.arrayDimensions);UA_free(src.data);
 }
@@ -4163,7 +4165,7 @@ END_TEST
 START_TEST(UA_VariantBool_json_decode) {
     // given
     UA_Variant out;
-    UA_ByteString buf = UA_STRING("{\"Type\":0,\"Body\":false}");
+    UA_ByteString buf = UA_STRING("{\"Type\":1,\"Body\":false}");
     // when
     size_t offset = 0;
     UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_VARIANT], 0, 0);
@@ -4180,7 +4182,7 @@ START_TEST(UA_VariantStringArray_json_decode) {
     
     /*UA_Variant out;
     UA_Variant_init(&out);
-    UA_ByteString buf = UA_STRING("{\"Type\":11,\"Body\":[\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\"],\"Dimension\":[2,4]}");
+    UA_ByteString buf = UA_STRING("{\"Type\":12,\"Body\":[\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\"],\"Dimension\":[2,4]}");
     //UA_ByteString buf = UA_STRING("{\"SymbolicId\":13,\"LocalizedText\":14,\"Locale\":12,\"AdditionalInfo\":\"additionalInfo\",\"InnerStatusCode\":2155216896}");
 
     // when
@@ -4214,7 +4216,7 @@ START_TEST(UA_DataValue_json_decode) {
     
     UA_DataValue out;
     UA_DataValue_init(&out);
-    UA_ByteString buf = UA_STRING("{\"Value\":{\"Type\":0,\"Body\":true},\"Status\":2153250816,\"SourceTimestamp\":\"1970-01-15T06:56:07Z\",\"SourcePicoseconds\":0,\"ServerTimestamp\":\"1970-01-15T06:56:07Z\",\"ServerPicoseconds\":0}");
+    UA_ByteString buf = UA_STRING("{\"Value\":{\"Type\":1,\"Body\":true},\"Status\":2153250816,\"SourceTimestamp\":\"1970-01-15T06:56:07Z\",\"SourcePicoseconds\":0,\"ServerTimestamp\":\"1970-01-15T06:56:07Z\",\"ServerPicoseconds\":0}");
 
     // when
     size_t offset = 0;
@@ -4241,7 +4243,7 @@ START_TEST(UA_DataValueMissingFields_json_decode) {
     
     UA_DataValue out;
     UA_DataValue_init(&out);
-    UA_ByteString buf = UA_STRING("{\"Value\":{\"Type\":0,\"Body\":true}}");
+    UA_ByteString buf = UA_STRING("{\"Value\":{\"Type\":1,\"Body\":true}}");
 
     // when
     size_t offset = 0;
@@ -4265,7 +4267,7 @@ START_TEST(UA_ExtensionObject_json_decode) {
     
     UA_ExtensionObject out;
     UA_ExtensionObject_init(&out);
-    UA_ByteString buf = UA_STRING("{\"TypeId\":{\"Id\":0},\"Body\":true}");
+    UA_ByteString buf = UA_STRING("{\"TypeId\":{\"Id\":1},\"Body\":true}");
 
     // when
     size_t offset = 0;
@@ -4303,7 +4305,7 @@ START_TEST(UA_ExtensionObjectWrap_json_decode) {
     
     UA_Variant out;
     UA_Variant_init(&out);
-    UA_ByteString buf = UA_STRING("{\"Type\":21,\"Body\":{\"TypeId\":{\"Id\":0},\"Body\":true}}");
+    UA_ByteString buf = UA_STRING("{\"Type\":23,\"Body\":{\"TypeId\":{\"Id\":1},\"Body\":true}}");
 
     // when
     size_t offset = 0;
@@ -4322,7 +4324,7 @@ START_TEST(UA_ExtensionObjectWrapString_json_decode) {
     
     UA_Variant out;
     UA_Variant_init(&out);
-    UA_ByteString buf = UA_STRING("{\"Type\":21,\"Body\":{\"TypeId\":{\"Id\":11},\"Body\":\"true\"}}");
+    UA_ByteString buf = UA_STRING("{\"Type\":22,\"Body\":{\"TypeId\":{\"Id\":11},\"Body\":\"true\"}}");
 
     // when
     size_t offset = 0;
@@ -4337,7 +4339,7 @@ END_TEST
 START_TEST(UA_duplicate_json_decode) {
     // given
     UA_Variant out;
-    UA_ByteString buf = UA_STRING("{\"Type\":0, \"Body\":false, \"Type\":0}");
+    UA_ByteString buf = UA_STRING("{\"Type\":1, \"Body\":false, \"Type\":1}");
     // when
     size_t offset = 0;
     UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_VARIANT], 0, 0);
@@ -4350,7 +4352,7 @@ END_TEST
 START_TEST(UA_wrongBoolean_json_decode) {
     // given
     UA_Variant out;
-    UA_ByteString buf = UA_STRING("{\"Type\":0, \"Body\":\"asdfaaaaaaaaaaaaaaaaaaaa\"}");
+    UA_ByteString buf = UA_STRING("{\"Type\":1, \"Body\":\"asdfaaaaaaaaaaaaaaaaaaaa\"}");
     // when
     size_t offset = 0;
     UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_VARIANT], 0, 0);
@@ -4441,9 +4443,9 @@ START_TEST(UA_PubSub_EnDecode) {
     *bufPos = 0;
     // then
     ck_assert_int_eq(rv, UA_STATUSCODE_GOOD);
-    //char* result = "{\"MessageId\":\"D4195B44-2E0A-8D5B-46F4-BF9B1CB1BB0B\",\"MessageType\":\"ua-data\",\"Messages\":[{\"DataSetWriterId\":\"4\",\"Payload\":[{\"Type\":6,\"Body\":27}]},{\"DataSetWriterId\":\"7\",\"Payload\":[{\"Value\":{\"Type\":13,\"Body\":\"B7E9851D-2E4D-E71F-7107-A02AF23F5375\"}},{\"Value\":{\"Type\":7,\"Body\":152478978534}}]}]}";
+    //char* result = "{\"MessageId\":\"D4195B44-2E0A-8D5B-46F4-BF9B1CB1BB0B\",\"MessageType\":\"ua-data\",\"Messages\":[{\"DataSetWriterId\":\"4\",\"Payload\":[{\"Type\":8,\"Body\":27}]},{\"DataSetWriterId\":\"7\",\"Payload\":[{\"Value\":{\"Type\":13,\"Body\":\"B7E9851D-2E4D-E71F-7107-A02AF23F5375\"}},{\"Value\":{\"Type\":7,\"Body\":152478978534}}]}]}";
     //ck_assert_str_eq(result, (char*)buffer.data);
-    //"{\"MessageId\":\"D4195B44-2E0A-8D5B-46F4-BF9B1CB1BB0B\",\"MessageType\":\"ua-data\",\"Messages\":[{\"DataSetWriterId\":\"0\",\"Payload\":{\"a\":{\"Type\":6,\"Body\":27}}},{\"DataSetWriterId\":\"0\",\"Payload\":{\"a\":{\"Value\":{\"Type\":13,\"Body\":\"B7E9851D-2E4D-E71F-7107-A02AF23F5375\"}},\"b\":{\"Value\":{\"Type\":7,\"Body\":152478978534}}}}]}"
+    //"{\"MessageId\":\"D4195B44-2E0A-8D5B-46F4-BF9B1CB1BB0B\",\"MessageType\":\"ua-data\",\"Messages\":[{\"DataSetWriterId\":\"0\",\"Payload\":{\"a\":{\"Type\":7,\"Body\":27}}},{\"DataSetWriterId\":\"0\",\"Payload\":{\"a\":{\"Value\":{\"Type\":13,\"Body\":\"B7E9851D-2E4D-E71F-7107-A02AF23F5375\"}},\"b\":{\"Value\":{\"Type\":7,\"Body\":152478978534}}}}]}"
     
     /*
     UA_NetworkMessage m2;

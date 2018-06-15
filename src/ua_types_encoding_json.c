@@ -1576,7 +1576,7 @@ ENCODE_JSON(Variant) {
             //commaNeeded = UA_FALSE;
             ret |= writeKey(ctx, "Type", UA_FALSE);
             //TODO TypeINDEX or NodeID ???
-            ret |= ENCODE_DIRECT(&src->type->typeIndex, UInt16);
+            ret |= ENCODE_DIRECT(&src->type->typeId.identifier.numeric, UInt32);
 
             ret |= writeKey(ctx, "Body", UA_TRUE);
             ret |= Variant_encodeJsonWrapExtensionObject(src, isArray, ctx,useReversible);
@@ -1584,7 +1584,7 @@ ENCODE_JSON(Variant) {
             //-------REVERSIBLE:  BUILTIN, single value.------------
             //commaNeeded = UA_FALSE;
             ret |= writeKey(ctx, "Type", UA_FALSE);
-            ret |= ENCODE_DIRECT(&src->type->typeIndex, UInt16);
+            ret |= ENCODE_DIRECT(&src->type->typeId.identifier.numeric, UInt32);
 
             ret |= writeKey(ctx, "Body", UA_TRUE);
             ret |= encodeJsonInternal(src->data, src->type, ctx, useReversible);
@@ -1592,7 +1592,7 @@ ENCODE_JSON(Variant) {
             //-------REVERSIBLE:   BUILTIN, array.------------
             //commaNeeded = UA_FALSE;
             ret |= writeKey(ctx, "Type", UA_FALSE);
-            ret |= ENCODE_DIRECT(&src->type->typeIndex, UInt16);
+            ret |= ENCODE_DIRECT(&src->type->typeId.identifier.numeric, UInt32);
 
             ret |= writeKey(ctx, "Body", UA_TRUE);
             ret |= Array_encodeJson(src->data, src->arrayLength, src->type, ctx, UA_TRUE, useReversible);
@@ -1619,7 +1619,7 @@ ENCODE_JSON(Variant) {
             //-------NON REVERSIBLE:  NOT BUILTIN, can it be encoded? Wrap in extension object .------------
             //commaNeeded = UA_FALSE;
             ret |= writeKey(ctx, "Type", UA_FALSE);
-            ret |= ENCODE_DIRECT(&src->type->typeIndex, UInt16);
+            ret |= ENCODE_DIRECT(&src->type->typeId.identifier.numeric, UInt32);
             ret |= writeKey(ctx, "Body", UA_TRUE);
             ret |= Variant_encodeJsonWrapExtensionObject(src, isArray, ctx, useReversible);
         } else if (!isArray) {
@@ -2716,31 +2716,6 @@ DECODE_JSON(StatusCode) {
     return UA_STATUSCODE_GOOD;
 }
 
-static const UA_DataType *
-UA_findDataTypeByBinaryInternal(const UA_NodeId *typeId, Ctx *ctx) {
-    /* We only store a numeric identifier for the encoding nodeid of data types */
-    if(typeId->identifierType != UA_NODEIDTYPE_NUMERIC)
-        return NULL;
-
-    /* Always look in built-in types first
-     * (may contain data types from all namespaces) */
-    for(size_t i = 0; i < UA_TYPES_COUNT; ++i) {
-        if(UA_TYPES[i].binaryEncodingId == typeId->identifier.numeric &&
-           UA_TYPES[i].typeId.namespaceIndex == typeId->namespaceIndex)
-            return &UA_TYPES[i];
-    }
-
-    /* When other namespace look in custom types, too */
-    if(typeId->namespaceIndex != 0) {
-        for(size_t i = 0; i < ctx->customTypesArraySize; ++i) {
-            if(ctx->customTypesArray[i].binaryEncodingId == typeId->identifier.numeric &&
-               ctx->customTypesArray[i].typeId.namespaceIndex == typeId->namespaceIndex)
-                return &ctx->customTypesArray[i];
-        }
-    }
-
-    return NULL;
-}
 
 static status
 VariantDimension_decodeJson(void *UA_RESTRICT dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parseCtx, UA_Boolean moveToken) {
@@ -2814,8 +2789,14 @@ DECODE_JSON(Variant) {
             return UA_STATUSCODE_BADDECODINGERROR;
         
         
-        //Set the type
-        const UA_DataType *BodyType = &UA_TYPES[idTypeDecoded];
+        //Set the type, TODO: Get the Type by nodeID!
+        UA_NodeId typeNodeId = UA_NODEID_NUMERIC(0, (UA_UInt32)idTypeDecoded);
+        const UA_DataType *BodyType = UA_findDataType(&typeNodeId);
+        
+        if(BodyType == NULL){
+            return UA_STATUSCODE_BADDECODINGERROR;
+        }
+        //const UA_DataType *BodyType = &dataTypeByTypeNodeId;
         dst->type = BodyType;
         
         if(isArray){
@@ -2916,6 +2897,9 @@ DECODE_JSON(ExtensionObject) {
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     
+    status ret = UA_STATUSCODE_GOOD;
+    
+    
     //Search for Encoding
     size_t searchEncodingResult = 0;
     UA_String searchEncodingKey = UA_STRING("Encoding");
@@ -2937,10 +2921,16 @@ DECODE_JSON(ExtensionObject) {
         //for restore
         UA_UInt16 index = *parseCtx->index;
         *parseCtx->index = (UA_UInt16)searchTypeIdResult;
-        NodeId_decodeJson(&typeId, &UA_TYPES[UA_TYPES_NODEID], ctx, parseCtx, UA_TRUE);
+        ret = NodeId_decodeJson(&typeId, &UA_TYPES[UA_TYPES_NODEID], ctx, parseCtx, UA_TRUE);
+        if(ret != UA_STATUSCODE_GOOD)
+            return ret;
+        
         //restore
         *parseCtx->index = index;
-        const UA_DataType *typeOfBody = UA_findDataTypeByBinaryInternal(&typeId, ctx);
+        
+        //TODO: OR this one??? const UA_DataType *typeOfBody = UA_findDataTypeByBinaryInternal(&typeId, ctx);
+        const UA_DataType *typeOfBody = UA_findDataType(&typeId);
+        
         if(!typeOfBody){
             return UA_STATUSCODE_BADDECODINGERROR;
         }
@@ -3079,7 +3069,8 @@ Variant_decodeJsonUnwrapExtensionObject(UA_Variant *dst, const UA_DataType *type
         }
     }
 
-    const UA_DataType *typeOfBody = UA_findDataTypeByBinaryInternal(&typeId, ctx);
+    const UA_DataType *typeOfBody = UA_findDataType(&typeId);
+    //const UA_DataType *typeOfBody = UA_findDataTypeByBinaryInternal(&typeId, ctx);
     
     if(typeOfBody != NULL && isStructure){
         /* Found a valid type and it is structure encoded so it can be unwrapped */
