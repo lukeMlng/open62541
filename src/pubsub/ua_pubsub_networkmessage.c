@@ -73,7 +73,7 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_UInt16 dataSetWrit
     dataSetWriterId = src->header.dataSetWriterId;
     
     // TODO: DataSetWriterId should be a string in json
-    rv = writeKey(&ctx, "DataSetWriterId");
+    rv = writeKey(&ctx, "DataSetWriterId", UA_FALSE);
     *(ctx.pos++) = '"';
     rv = UA_encodeJson(&dataSetWriterId, &UA_TYPES[UA_TYPES_UINT16], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
     *(ctx.pos++) = '"';
@@ -83,7 +83,7 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_UInt16 dataSetWrit
     
     // DataSetMessageSequenceNr
     if(src->header.dataSetMessageSequenceNrEnabled) { 
-        rv = writeKey(&ctx, "SequenceNumber");
+        rv = writeKey(&ctx, "SequenceNumber", UA_TRUE);
         rv = UA_encodeJson(&(src->header.dataSetMessageSequenceNr), &UA_TYPES[UA_TYPES_UINT16], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
         if(rv != UA_STATUSCODE_GOOD)
             return rv;
@@ -92,7 +92,7 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_UInt16 dataSetWrit
     
     // TODO: MetaDataVersion
     if(src->header.configVersionMajorVersionEnabled || src->header.configVersionMinorVersionEnabled) {
-        rv = writeKey(&ctx, "MetaDataVersion");
+        rv = writeKey(&ctx, "MetaDataVersion", UA_TRUE);
         UA_ConfigurationVersionDataType cvd;
         cvd.majorVersion = src->header.configVersionMajorVersion;
         cvd.minorVersion = src->header.configVersionMinorVersion;
@@ -103,7 +103,7 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_UInt16 dataSetWrit
     
     // Timestamp
     if(src->header.timestampEnabled) {
-        rv = writeKey(&ctx, "Timestamp");
+        rv = writeKey(&ctx, "Timestamp", UA_TRUE);
         rv = UA_encodeJson(&(src->header.timestamp), &UA_TYPES[UA_TYPES_DATETIME], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
         if(rv != UA_STATUSCODE_GOOD)
             return rv;
@@ -111,13 +111,13 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_UInt16 dataSetWrit
 
     // Status
     if(src->header.statusEnabled) {
-        rv = writeKey(&ctx, "Status");
+        rv = writeKey(&ctx, "Status", UA_TRUE);
         rv = UA_encodeJson(&(src->header.status), &UA_TYPES[UA_TYPES_STATUSCODE], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
         if(rv != UA_STATUSCODE_GOOD)
             return rv;
     }
     
-    rv = writeKey(&ctx, "Payload");
+    rv = writeKey(&ctx, "Payload", UA_TRUE);
     encodingJsonStartObject(&ctx); //Payload
     
     if(src->header.dataSetMessageType == UA_DATASETMESSAGE_DATAKEYFRAME) {
@@ -125,7 +125,7 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_UInt16 dataSetWrit
 
             for (UA_UInt16 i = 0; i < src->data.keyFrameData.fieldCount; i++) {
                 UA_String *fieldKey = dataSetMessageFieldNames[i];
-                writeKey_UA_String(&ctx, fieldKey); //TODO: replace with field key
+                writeKey_UA_String(&ctx, fieldKey, i==0?UA_FALSE: UA_TRUE); //TODO: replace with field key
                 rv = UA_encodeJson(&(src->data.keyFrameData.dataSetFields[i].value), &UA_TYPES[UA_TYPES_VARIANT], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
                 if(rv != UA_STATUSCODE_GOOD)
                     return rv;
@@ -136,7 +136,7 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_UInt16 dataSetWrit
         } else if(src->header.fieldEncoding == UA_FIELDENCODING_DATAVALUE) {
             for (UA_UInt16 i = 0; i < src->data.keyFrameData.fieldCount; i++) {
                 UA_String *fieldKey = dataSetMessageFieldNames[i];
-                writeKey_UA_String(&ctx, fieldKey); //TODO: replace with field key
+                writeKey_UA_String(&ctx, fieldKey, i==0?UA_FALSE: UA_TRUE); //TODO: replace with field key
                 rv = UA_encodeJson(&(src->data.keyFrameData.dataSetFields[i]), &UA_TYPES[UA_TYPES_DATAVALUE], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
                 if(rv != UA_STATUSCODE_GOOD)
                     return rv;
@@ -146,7 +146,7 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_UInt16 dataSetWrit
         if(src->header.fieldEncoding == UA_FIELDENCODING_VARIANT) {
              for (UA_UInt16 i = 0; i < src->data.deltaFrameData.fieldCount; i++) {
                 UA_String *fieldKey = dataSetMessageFieldNames[i];
-                writeKey_UA_String(&ctx, fieldKey); //TODO: replace with field key
+                writeKey_UA_String(&ctx, fieldKey, i==0?UA_FALSE: UA_TRUE); //TODO: replace with field key
                 rv = UA_encodeJson(&(src->data.deltaFrameData.deltaFrameFields[i].fieldValue.value), &UA_TYPES[UA_TYPES_VARIANT], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
                 if(rv != UA_STATUSCODE_GOOD)
                     return rv;
@@ -157,7 +157,7 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_UInt16 dataSetWrit
         } else if(src->header.fieldEncoding == UA_FIELDENCODING_DATAVALUE) {
             for (UA_UInt16 i = 0; i < src->data.deltaFrameData.fieldCount; i++) {
                 UA_String *fieldKey = dataSetMessageFieldNames[i];
-                writeKey_UA_String(&ctx, fieldKey); //TODO: replace with field key
+                writeKey_UA_String(&ctx, fieldKey, i==0?UA_FALSE: UA_TRUE); //TODO: replace with field key
                 rv = UA_encodeJson(&(src->data.deltaFrameData.deltaFrameFields[i].fieldValue), &UA_TYPES[UA_TYPES_DATAVALUE], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
                 if(rv != UA_STATUSCODE_GOOD)
                     return rv;
@@ -448,19 +448,19 @@ UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src, UA_Byte **bufPos,
     
     
     // TODO: MessageId
-    rv = writeKey(&ctx, "MessageId");
+    rv = writeKey(&ctx, "MessageId", UA_FALSE);
     UA_Guid guid = UA_Guid_random();
     rv = UA_encodeJson(&guid, &UA_TYPES[UA_TYPES_GUID], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
     
     // MessageType
-    rv = writeKey(&ctx, "MessageType");
+    rv = writeKey(&ctx, "MessageType", UA_TRUE);
     UA_String s = UA_STRING("ua-data");
     rv = UA_encodeJson(&s, &UA_TYPES[UA_TYPES_STRING], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
     
     // PublisherId
     if(src->publisherIdEnabled) {
         
-        rv = writeKey(&ctx, "PublisherId");
+        rv = writeKey(&ctx, "PublisherId", UA_TRUE);
         
         switch (src->publisherIdType) {
         case UA_PUBLISHERDATATYPE_BYTE:
@@ -495,7 +495,7 @@ UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src, UA_Byte **bufPos,
     
     // DataSetClassId
     if(src->dataSetClassIdEnabled) {
-        rv = writeKey(&ctx, "DataSetClassId");
+        rv = writeKey(&ctx, "DataSetClassId", UA_TRUE);
         rv = UA_encodeJson(&src->dataSetClassId, &UA_TYPES[UA_TYPES_GUID], &ctx.pos, &ctx.end, NULL, NULL, useReversible);
         if(rv != UA_STATUSCODE_GOOD)
             return rv;
@@ -519,11 +519,12 @@ UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src, UA_Byte **bufPos,
             }
             
             //src->payloadHeader.dataSetPayloadHeader.dataSetWriterIds ???
-            
-            rv = writeKey(&ctx, "Messages");
+            UA_Boolean commaNeeded = UA_FALSE;
+            rv = writeKey(&ctx, "Messages", UA_TRUE);
             encodingJsonStartArray(&ctx);
             for (UA_UInt16 i = indexKeyArrayField; i < (indexKeyArrayField + count); i++) {
-                writeComma(&ctx);
+                writeComma(&ctx, commaNeeded);
+                commaNeeded = UA_TRUE;
                 rv = UA_DataSetMessage_encodeJson(&(src->payload.dataSetPayload.dataSetMessages[i]), dataSetWriterIds[i], &ctx.pos, ctx.end, useReversible, dataSetMessageFieldNames[i]);
                 if(rv != UA_STATUSCODE_GOOD)
                     return rv;

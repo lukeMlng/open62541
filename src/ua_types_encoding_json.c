@@ -54,8 +54,8 @@ const u8 hexmapUpper[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A
 
 #define JSON(ELEM) static status writeJson##ELEM(Ctx *UA_RESTRICT ctx)
 
-static UA_Boolean commaNeeded = UA_FALSE;
-static UA_UInt32 innerObject = 0;
+//static UA_Boolean commaNeeded = UA_FALSE;
+//static UA_UInt32 innerObject = 0;
 
 JSON(Quote) {
     if (ctx->pos + 1 > ctx->end)
@@ -70,7 +70,7 @@ JSON(ObjStart) {
         return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
     
     *(ctx->pos++) = '{';
-    innerObject++;
+    //innerObject++;
     return UA_STATUSCODE_GOOD;
 }
 
@@ -79,8 +79,8 @@ JSON(ObjEnd) {
         return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
         
     *(ctx->pos++) = '}';
-    innerObject--;
-    commaNeeded = UA_TRUE;
+    //innerObject--;
+    //commaNeeded = UA_TRUE;
     return UA_STATUSCODE_GOOD;
 }
 
@@ -116,7 +116,7 @@ JSON(dPoint) {
     return UA_STATUSCODE_GOOD;
 }
 
-status writeComma(Ctx *ctx) {
+status writeComma(Ctx *ctx, UA_Boolean commaNeeded) {
     if (commaNeeded) {
         return WRITE(Comma);
     }
@@ -135,7 +135,7 @@ status writeNull(Ctx *ctx) {
     return UA_STATUSCODE_GOOD;
 }
 
-status writeKey_UA_String(Ctx *ctx, UA_String *key){
+status writeKey_UA_String(Ctx *ctx, UA_String *key, UA_Boolean commaNeeded){
     if (ctx->pos + key->length + 1 > ctx->end)
         return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
     
@@ -146,17 +146,17 @@ status writeKey_UA_String(Ctx *ctx, UA_String *key){
     //char fieldKeyString[key->length + 1];
     memset(&fieldKeyString, 0, key->length + 1);
     memcpy(&fieldKeyString, key->data, key->length);
-    return writeKey(ctx, fieldKeyString);
+    return writeKey(ctx, fieldKeyString, commaNeeded);
 }
 
-status writeKey(Ctx *ctx, const char* key) {
+status writeKey(Ctx *ctx, const char* key, UA_Boolean commaNeeded) {
     
     size_t size = strlen(key);
     if (ctx->pos + size + 4 > ctx->end) //4 because of " " : and ,
         return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
     
     status ret = UA_STATUSCODE_GOOD;
-    ret |= writeComma(ctx);
+    ret |= writeComma(ctx, commaNeeded);
     ret |= WRITE(Quote);
     for (size_t i = 0; i < size; i++) {
         *(ctx->pos++) = (u8)key[i];
@@ -164,13 +164,13 @@ status writeKey(Ctx *ctx, const char* key) {
     ret |= WRITE(Quote);
     ret |= WRITE(dPoint);
 
-    commaNeeded = UA_TRUE;
+    //commaNeeded = UA_TRUE;
     return ret;
 }
 
 status encodingJsonStartObject(Ctx *ctx) {
     status ret = WRITE(ObjStart);
-    commaNeeded = UA_FALSE;
+    //commaNeeded = UA_FALSE;
     return ret;
 }
 
@@ -180,7 +180,7 @@ size_t encodingJsonEndObject(Ctx *ctx) {
 
 status encodingJsonStartArray(Ctx *ctx) {
     status ret = WRITE(ArrayStart);
-    commaNeeded = UA_FALSE;
+    //commaNeeded = UA_FALSE;
     return ret;
 }
 
@@ -496,7 +496,7 @@ Array_encodeJsonComplex(uintptr_t ptr, size_t length, const UA_DataType *type, C
     encodeJsonSignature encodeType = encodeJsonJumpTable[encode_index];
 
     WRITE(ArrayStart);
-    commaNeeded = false;
+    UA_Boolean commaNeeded = false;
 
     /* Encode every element */
     for (size_t i = 0; i < length; ++i) {
@@ -514,7 +514,7 @@ Array_encodeJsonComplex(uintptr_t ptr, size_t length, const UA_DataType *type, C
         commaNeeded = true;
     }
 
-    commaNeeded = true;
+    //commaNeeded = true;
     WRITE(ArrayEnd);
     return ret;
 }
@@ -1087,9 +1087,7 @@ NodeId_encodeJsonWithEncodingMask(UA_NodeId const *src, u8 encoding, Ctx *ctx, U
     switch (src->identifierType) {
         case UA_NODEIDTYPE_NUMERIC:
         {
-            commaNeeded = UA_FALSE;
-
-            ret |= writeKey(ctx, "Id");
+            ret |= writeKey(ctx, "Id", UA_FALSE);
             ret |= ENCODE_DIRECT(&src->identifier.numeric, UInt32);
             if (ret != UA_STATUSCODE_GOOD)
                 return ret;
@@ -1098,14 +1096,12 @@ NodeId_encodeJsonWithEncodingMask(UA_NodeId const *src, u8 encoding, Ctx *ctx, U
         }
         case UA_NODEIDTYPE_STRING:
         {
-            commaNeeded = UA_FALSE;
-
-            ret |= writeKey(ctx, "IdType");
+            ret |= writeKey(ctx, "IdType", UA_FALSE);
             UA_UInt16 typeNumber = 1;
             ret |= ENCODE_DIRECT(&typeNumber, UInt16);
             if (ret != UA_STATUSCODE_GOOD)
                 return ret;
-            ret |= writeKey(ctx, "Id");
+            ret |= writeKey(ctx, "Id", UA_TRUE);
             ret |= ENCODE_DIRECT(&src->identifier.string, String);
             if (ret != UA_STATUSCODE_GOOD)
                 return ret;
@@ -1113,15 +1109,13 @@ NodeId_encodeJsonWithEncodingMask(UA_NodeId const *src, u8 encoding, Ctx *ctx, U
         }
         case UA_NODEIDTYPE_GUID:
         {
-            commaNeeded = UA_FALSE;
-         
-            ret |= writeKey(ctx, "IdType");
+            ret |= writeKey(ctx, "IdType", UA_FALSE);
             UA_UInt16 typeNumber = 2;
             ret |= ENCODE_DIRECT(&typeNumber, UInt16);
             if (ret != UA_STATUSCODE_GOOD)
                 return ret;
             /* Id */
-            ret |= writeKey(ctx, "Id");
+            ret |= writeKey(ctx, "Id", UA_TRUE);
             ret |= ENCODE_DIRECT(&src->identifier.guid, Guid);
             if (ret != UA_STATUSCODE_GOOD)
                 return ret;
@@ -1130,16 +1124,15 @@ NodeId_encodeJsonWithEncodingMask(UA_NodeId const *src, u8 encoding, Ctx *ctx, U
         }
         case UA_NODEIDTYPE_BYTESTRING:
         {
-            commaNeeded = UA_FALSE;
             // {"IdType":0,"Text":"Text"}
 
-            ret |= writeKey(ctx, "IdType");
+            ret |= writeKey(ctx, "IdType", UA_FALSE);
             UA_UInt16 typeNumber = 3;
             ret |= ENCODE_DIRECT(&typeNumber, UInt16);
             if (ret != UA_STATUSCODE_GOOD)
                 return ret;
             /* Id */
-            ret |= writeKey(ctx, "Id");
+            ret |= writeKey(ctx, "Id", UA_TRUE);
             ret |= ENCODE_DIRECT(&src->identifier.byteString, ByteString);
             if (ret != UA_STATUSCODE_GOOD)
                 return ret;
@@ -1152,7 +1145,7 @@ NodeId_encodeJsonWithEncodingMask(UA_NodeId const *src, u8 encoding, Ctx *ctx, U
 
     if (useReversible) {
         if (src->namespaceIndex > 0) {
-            ret |= writeKey(ctx, "Namespace");
+            ret |= writeKey(ctx, "Namespace", UA_TRUE);
             ret |= ENCODE_DIRECT(&src->namespaceIndex, UInt16);
         }
     } else {
@@ -1164,10 +1157,10 @@ NodeId_encodeJsonWithEncodingMask(UA_NodeId const *src, u8 encoding, Ctx *ctx, U
         //@TODO LOOKUP namespace uri and check if unknown
         UA_String namespaceUri = UA_STRING("dummy");
         if (src->namespaceIndex == 1 || namespaceUri.length) {
-            writeKey(ctx, "Namespace");
+            writeKey(ctx, "Namespace", UA_TRUE);
             ret |= ENCODE_DIRECT(&src->namespaceIndex, UInt16);
         } else {
-            writeKey(ctx, "Namespace");
+            writeKey(ctx, "Namespace", UA_TRUE);
             ret |= WRITE(Quote);
             ret |= ENCODE_DIRECT(&src->namespaceIndex, String);
             if (ret != UA_STATUSCODE_GOOD)
@@ -1214,7 +1207,7 @@ ENCODE_JSON(ExpandedNodeId) {
         return ret;
     
     if ((void*) src->namespaceUri.data > UA_EMPTY_ARRAY_SENTINEL) {
-        writeKey(ctx, "Namespace");
+        writeKey(ctx, "Namespace", UA_TRUE);
         WRITE(Quote);
         ret = ENCODE_DIRECT(&src->namespaceUri, String);
         if (ret != UA_STATUSCODE_GOOD)
@@ -1227,7 +1220,7 @@ ENCODE_JSON(ExpandedNodeId) {
 
     /* Encode the serverIndex */
     if (src->serverIndex > 0) {
-        writeKey(ctx, "ServerUri");
+        writeKey(ctx, "ServerUri", UA_TRUE);
         ret = ENCODE_DIRECT(&src->serverIndex, UInt32);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
@@ -1244,20 +1237,20 @@ ENCODE_JSON(LocalizedText) {
     status ret = UA_STATUSCODE_GOOD;
 
     if (useReversible) {
-        commaNeeded = UA_FALSE;
+        //commaNeeded = UA_FALSE;
 
         ret = WRITE(ObjStart);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
         // {"Locale":"asd","Text":"Text"}
-        ret = writeKey(ctx, "Locale");
+        ret = writeKey(ctx, "Locale", UA_FALSE);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
         ret |= ENCODE_DIRECT(&src->locale, String);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
         
-        ret = writeKey(ctx, "Text");
+        ret = writeKey(ctx, "Text", UA_TRUE);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
         ret |= ENCODE_DIRECT(&src->text, String);
@@ -1280,12 +1273,12 @@ ENCODE_JSON(QualifiedName) {
     
     status ret = UA_STATUSCODE_GOOD;
 
-    commaNeeded = UA_FALSE;
+    //commaNeeded = UA_FALSE;
 
     ret = WRITE(ObjStart);
     if (ret != UA_STATUSCODE_GOOD)
         return ret;
-    ret = writeKey(ctx, "Name");
+    ret = writeKey(ctx, "Name", UA_FALSE);
     
     if (ret != UA_STATUSCODE_GOOD)
         return ret;
@@ -1295,7 +1288,7 @@ ENCODE_JSON(QualifiedName) {
     
     if (useReversible) {
         if (src->namespaceIndex != 0) {
-            ret = writeKey(ctx, "Uri");
+            ret = writeKey(ctx, "Uri", UA_TRUE);
             if (ret != UA_STATUSCODE_GOOD)
                 return ret;
             ret |= ENCODE_DIRECT(&src->namespaceIndex, UInt16);
@@ -1312,14 +1305,14 @@ ENCODE_JSON(QualifiedName) {
         //@TODO LOOKUP namespace uri and check if unknown
         UA_String namespaceUri = UA_STRING("dummy");
         if (src->namespaceIndex == 1 || namespaceUri.length) {
-            ret = writeKey(ctx, "Uri");
+            ret = writeKey(ctx, "Uri", UA_TRUE);
             if (ret != UA_STATUSCODE_GOOD)
                 return ret;
             ret |= ENCODE_DIRECT(&src->namespaceIndex, UInt16);
             if (ret != UA_STATUSCODE_GOOD)
                 return ret;
         } else {
-            ret = writeKey(ctx, "Uri");
+            ret = writeKey(ctx, "Uri", UA_TRUE);
             if (ret != UA_STATUSCODE_GOOD)
                 return ret;
             ret |= WRITE(Quote);
@@ -1347,12 +1340,12 @@ ENCODE_JSON(StatusCode) {
     if (!useReversible) {
         if(*src != 0){
             ret |= WRITE(ObjStart);
-            commaNeeded = UA_FALSE;
-            ret |= writeKey(ctx, "Code");
+            //commaNeeded = UA_FALSE;
+            ret |= writeKey(ctx, "Code", UA_FALSE);
             ret |= ENCODE_DIRECT(src, UInt32);
             if (ret != UA_STATUSCODE_GOOD)
                 return ret;
-            ret |= writeKey(ctx, "Symbol");
+            ret |= writeKey(ctx, "Symbol", UA_TRUE);
             /* encode the full name of error */
             UA_String statusDescription = UA_String_fromChars(UA_StatusCode_name(*src));
             if(statusDescription.data == NULL && statusDescription.length == 0){
@@ -1384,28 +1377,29 @@ ENCODE_JSON(ExtensionObject) {
     
     /* No content or already encoded content.*/
     if (encoding <= UA_EXTENSIONOBJECT_ENCODED_XML) {
-        commaNeeded = UA_FALSE;
+        //commaNeeded = UA_FALSE;
 
         ret |= WRITE(ObjStart);
 
-        ret |= writeKey(ctx, "TypeId");
+        ret |= writeKey(ctx, "TypeId", UA_FALSE);
         ret |= ENCODE_DIRECT(&src->content.encoded.typeId, NodeId);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
 
-        ret |= writeKey(ctx, "Encoding");
+        ret |= writeKey(ctx, "Encoding", UA_TRUE);
         ret |= ENCODE_DIRECT(&encoding, Byte);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
         switch (src->encoding) {
             case UA_EXTENSIONOBJECT_ENCODED_NOBODY:
+                ret |= writeNull(ctx);
                 break;
             case UA_EXTENSIONOBJECT_ENCODED_BYTESTRING:
-                ret |= writeKey(ctx, "Body");
+                ret |= writeKey(ctx, "Body", UA_TRUE);
                 ret |= ENCODE_DIRECT(&src->content.encoded.body, ByteString);
                 break;
             case UA_EXTENSIONOBJECT_ENCODED_XML:
-                ret |= writeKey(ctx, "Body");
+                ret |= writeKey(ctx, "Body", UA_TRUE);
                 ret |= ENCODE_DIRECT(&src->content.encoded.body, String);
                 break;
             default:
@@ -1413,60 +1407,60 @@ ENCODE_JSON(ExtensionObject) {
         }
 
         ret |= WRITE(ObjEnd);
-        return ret;
-    }
+    }else{ /* DECODE CONTENT */
+        
+        /* Cannot encode with no data or no type description */
+        if (!src->content.decoded.type || !src->content.decoded.data)
+            return UA_STATUSCODE_BADENCODINGERROR;
 
-    /* Cannot encode with no data or no type description */
-    if (!src->content.decoded.type || !src->content.decoded.data)
-        return UA_STATUSCODE_BADENCODINGERROR;
+        UA_NodeId typeId = src->content.decoded.type->typeId;
+        if (typeId.identifierType != UA_NODEIDTYPE_NUMERIC)
+            return UA_STATUSCODE_BADENCODINGERROR;
+        typeId.identifier.numeric = src->content.decoded.type->binaryEncodingId;
 
-    UA_NodeId typeId = src->content.decoded.type->typeId;
-    if (typeId.identifierType != UA_NODEIDTYPE_NUMERIC)
-        return UA_STATUSCODE_BADENCODINGERROR;
-    typeId.identifier.numeric = src->content.decoded.type->binaryEncodingId;
+        if (useReversible) {
+            //-----------REVERSIBLE-------------------
+            ret |= WRITE(ObjStart);
 
-    if (useReversible) {
+            //commaNeeded = UA_FALSE;
+            ret |= writeKey(ctx, "TypeId", UA_FALSE);
+            ret |= ENCODE_DIRECT(&typeId, NodeId);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
 
-        ret |= WRITE(ObjStart);
+            /* Write the encoding byte */
+            encoding = 0; //TODO: encoding
+            ret |= writeKey(ctx, "Encoding", UA_TRUE);
+            ret |= ENCODE_DIRECT(&encoding, Byte);
 
-        commaNeeded = UA_FALSE;
-        ret |= writeKey(ctx, "TypeId");
-        ret |= ENCODE_DIRECT(&typeId, NodeId);
-        if (ret != UA_STATUSCODE_GOOD)
-            return ret;
+            /* Return early upon failures (no buffer exchange until here) */
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
 
-        /* Write the encoding byte */
-        encoding = 0; //TODO: encoding
-        ret |= writeKey(ctx, "Encoding");
-        ret |= ENCODE_DIRECT(&encoding, Byte);
+            const UA_DataType *contentType = src->content.decoded.type;
 
-        /* Return early upon failures (no buffer exchange until here) */
-        if (ret != UA_STATUSCODE_GOOD)
-            return ret;
+            /* Encode the content */
+            ret |= writeKey(ctx, "Body", UA_TRUE);
+            ret |= encodeJsonInternal(src->content.decoded.data, contentType, ctx, useReversible);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
 
-        const UA_DataType *contentType = src->content.decoded.type;
-
-        /* Encode the content */
-        ret |= writeKey(ctx, "Body");
-        ret |= encodeJsonInternal(src->content.decoded.data, contentType, ctx, useReversible);
-        if (ret != UA_STATUSCODE_GOOD)
-            return ret;
-
-        ret |= WRITE(ObjEnd);
-    } else {
-
-        /* For the non-reversible form, ExtensionObject values 
-         * shall be encoded as a JSON object containing only the 
-         * value of the Body field. The TypeId and Encoding fields are dropped.
-         * 
-         * TODO: Does this mean there is a "Body" in the ExtensionObject?
-         */
-        commaNeeded = UA_FALSE;
-        ret |= WRITE(ObjStart);
-        const UA_DataType *contentType = src->content.decoded.type;
-        ret |= writeKey(ctx, "Body");
-        ret |= encodeJsonInternal(src->content.decoded.data, contentType, ctx, useReversible);
-        ret |= WRITE(ObjEnd);
+            ret |= WRITE(ObjEnd);
+        } else {
+            //-----------NON-REVERSIBLE-------------------
+            /* For the non-reversible form, ExtensionObject values 
+             * shall be encoded as a JSON object containing only the 
+             * value of the Body field. The TypeId and Encoding fields are dropped.
+             * 
+             * TODO: Does this mean there is a "Body" key in the ExtensionObject?
+             */
+            //commaNeeded = UA_FALSE;
+            ret |= WRITE(ObjStart);
+            const UA_DataType *contentType = src->content.decoded.type;
+            ret |= writeKey(ctx, "Body", UA_FALSE);
+            ret |= encodeJsonInternal(src->content.decoded.data, contentType, ctx, useReversible);
+            ret |= WRITE(ObjEnd);
+        }
     }
     return ret;
 }
@@ -1507,7 +1501,7 @@ addMatrixContentJSON(Ctx *ctx, void* array, const UA_DataType *type, size_t *ind
     
     if (dimensionIndex == (dimensionSize - 1)) {
         //The inner Arrays are written
-        commaNeeded = UA_FALSE;
+        UA_Boolean commaNeeded = UA_FALSE;
 
         ret |= WRITE(ArrayStart);
 
@@ -1529,7 +1523,7 @@ addMatrixContentJSON(Ctx *ctx, void* array, const UA_DataType *type, size_t *ind
         UA_UInt32 currentDimensionSize = arrayDimensions[dimensionIndex];
         dimensionIndex++;
 
-        commaNeeded = UA_FALSE;
+        UA_Boolean commaNeeded = UA_FALSE;
         ret |= WRITE(ArrayStart);
         for (size_t i = 0; i < currentDimensionSize; i++) {
             if (commaNeeded) {
@@ -1577,62 +1571,67 @@ ENCODE_JSON(Variant) {
 
         /* Encode the content */
         if (!isBuiltin && !isAlias){
-            commaNeeded = UA_FALSE;
-            ret |= writeKey(ctx, "Type");
+            //-------REVERSIBLE:  NOT BUILTIN, can it be encoded? Wrap in extension object .------------
+            
+            //commaNeeded = UA_FALSE;
+            ret |= writeKey(ctx, "Type", UA_FALSE);
             //TODO TypeINDEX or NodeID ???
             ret |= ENCODE_DIRECT(&src->type->typeIndex, UInt16);
 
-            ret |= writeKey(ctx, "Body");
+            ret |= writeKey(ctx, "Body", UA_TRUE);
             ret |= Variant_encodeJsonWrapExtensionObject(src, isArray, ctx,useReversible);
         } else if (!isArray) {
-
-            commaNeeded = UA_FALSE;
-            ret |= writeKey(ctx, "Type");
+            //-------REVERSIBLE:  BUILTIN, single value.------------
+            //commaNeeded = UA_FALSE;
+            ret |= writeKey(ctx, "Type", UA_FALSE);
             ret |= ENCODE_DIRECT(&src->type->typeIndex, UInt16);
 
-            ret |= writeKey(ctx, "Body");
+            ret |= writeKey(ctx, "Body", UA_TRUE);
             ret |= encodeJsonInternal(src->data, src->type, ctx, useReversible);
         } else {
-            //Variant Array
-            commaNeeded = UA_FALSE;
-            ret |= writeKey(ctx, "Type");
+            //-------REVERSIBLE:   BUILTIN, array.------------
+            //commaNeeded = UA_FALSE;
+            ret |= writeKey(ctx, "Type", UA_FALSE);
             ret |= ENCODE_DIRECT(&src->type->typeIndex, UInt16);
 
-            ret |= writeKey(ctx, "Body");
+            ret |= writeKey(ctx, "Body", UA_TRUE);
             ret |= Array_encodeJson(src->data, src->arrayLength, src->type, ctx, UA_TRUE, useReversible);
         }
         
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
         
-        /* Encode the array dimensions */
+        /* REVERSIBLE:  Encode the array dimensions */
         if (hasDimensions && ret == UA_STATUSCODE_GOOD) {
             //TODO: Variant Dimension
-            ret |= writeKey(ctx, "Dimension");
+            ret |= writeKey(ctx, "Dimension", UA_TRUE);
             ret |= Array_encodeJson(src->arrayDimensions, src->arrayDimensionsSize, &UA_TYPES[UA_TYPES_INT32], ctx, UA_FALSE, useReversible);
             if (ret != UA_STATUSCODE_GOOD)
                 return ret;
         }
 
         ret |= WRITE(ObjEnd);
-        commaNeeded = UA_TRUE;
+        //commaNeeded = UA_TRUE;
     } else { //NON-REVERSIBLE
 
         /* Encode the content */
         if (!isBuiltin && !isAlias){
-            commaNeeded = UA_FALSE;
-            ret |= writeKey(ctx, "Type");
+            //-------NON REVERSIBLE:  NOT BUILTIN, can it be encoded? Wrap in extension object .------------
+            //commaNeeded = UA_FALSE;
+            ret |= writeKey(ctx, "Type", UA_FALSE);
             ret |= ENCODE_DIRECT(&src->type->typeIndex, UInt16);
-            ret |= writeKey(ctx, "Body");
+            ret |= writeKey(ctx, "Body", UA_TRUE);
             ret |= Variant_encodeJsonWrapExtensionObject(src, isArray, ctx, useReversible);
         } else if (!isArray) {
+            //-------NON REVERSIBLE:   BUILTIN, single value.------------
             ret |= WRITE(ObjStart);
-            commaNeeded = UA_FALSE;
-            ret |= writeKey(ctx, "Body");
+            //commaNeeded = UA_FALSE;
+            ret |= writeKey(ctx, "Body", UA_FALSE);
             ret |= encodeJsonInternal(src->data, src->type, ctx, useReversible);
             ret |= WRITE(ObjEnd);
-            commaNeeded = UA_TRUE;
+            //commaNeeded = UA_TRUE;
         } else {
+            //-------NON REVERSIBLE:   BUILTIN, array.------------
             size_t dimensionSize = src->arrayDimensionsSize;
             if (dimensionSize > 1) {
                 //nonreversible multidimensional array
@@ -1644,11 +1643,11 @@ ENCODE_JSON(Variant) {
             } else {
                 //nonreversible simple array
                 ret |= WRITE(ObjStart);
-                commaNeeded = UA_FALSE;
-                ret |= writeKey(ctx, "Body");
+                //commaNeeded = UA_FALSE;
+                ret |= writeKey(ctx, "Body", UA_FALSE);
                 ret |=  Array_encodeJson(src->data, src->arrayLength, src->type, ctx, UA_TRUE, useReversible);
                 ret |= WRITE(ObjEnd);
-                commaNeeded = UA_TRUE;
+                //commaNeeded = UA_TRUE;
             }
         }
     }
@@ -1660,47 +1659,65 @@ ENCODE_JSON(DataValue) {
     if(!src){
         return writeNull(ctx);
     }
+    
+    if(!src->hasServerPicoseconds &&
+            !src->hasServerTimestamp &&
+            !src->hasSourcePicoseconds &&
+            !src->hasSourceTimestamp &&
+            !src->hasStatus &&
+            !src->hasValue){
+        //no element, encode as null
+        return writeNull(ctx);
+    }
+    
+    
     status ret = UA_STATUSCODE_GOOD; 
     ret |= WRITE(ObjStart);
-    commaNeeded = UA_FALSE;
+    UA_Boolean commaNeeded = UA_FALSE;
     
     if (src->hasValue) {
-        ret |= writeKey(ctx, "Value");
+        ret |= writeKey(ctx, "Value", commaNeeded);
+        commaNeeded = UA_TRUE;
         ret |= ENCODE_DIRECT(&src->value, Variant);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
     }
 
     if (src->hasStatus) {
-        ret |= writeKey(ctx, "Status");
+        ret |= writeKey(ctx, "Status", commaNeeded);
+        commaNeeded = UA_TRUE;
         ret |= ENCODE_DIRECT(&src->status, StatusCode);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
     }
     
     if (src->hasSourceTimestamp) {
-        ret |= writeKey(ctx, "SourceTimestamp");
+        ret |= writeKey(ctx, "SourceTimestamp", commaNeeded);
+        commaNeeded = UA_TRUE;
         ret |= ENCODE_DIRECT(&src->sourceTimestamp, DateTime);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
     }
     
     if (src->hasSourcePicoseconds) {
-        ret |= writeKey(ctx, "SourcePicoseconds");
+        ret |= writeKey(ctx, "SourcePicoseconds", commaNeeded);
+        commaNeeded = UA_TRUE;
         ret |= ENCODE_DIRECT(&src->sourcePicoseconds, UInt16);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
     }
     
     if (src->hasServerTimestamp) {
-        ret |= writeKey(ctx, "ServerTimestamp");
+        ret |= writeKey(ctx, "ServerTimestamp", commaNeeded);
+        commaNeeded = UA_TRUE;
         ret |= ENCODE_DIRECT(&src->serverTimestamp, DateTime);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
     }
     
     if (src->hasServerPicoseconds) {
-        ret |= writeKey(ctx, "ServerPicoseconds");
+        ret |= writeKey(ctx, "ServerPicoseconds", commaNeeded);
+        commaNeeded = UA_TRUE;
         ret |= ENCODE_DIRECT(&src->serverPicoseconds, UInt16);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
@@ -1728,54 +1745,60 @@ ENCODE_JSON(DiagnosticInfo) {
         return writeNull(ctx);
     }
     
-    commaNeeded = UA_FALSE;
+    UA_Boolean commaNeeded = UA_FALSE;
     ret |= WRITE(ObjStart);
     
     if (src->hasSymbolicId) {
-        ret |= writeKey(ctx, "SymbolicId");
+        ret |= writeKey(ctx, "SymbolicId", commaNeeded);
+        commaNeeded = UA_TRUE;
         ret |= ENCODE_DIRECT(&src->symbolicId, UInt32);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
     }
 
     if (src->hasNamespaceUri) {
-        ret |= writeKey(ctx, "NamespaceUri");
+        ret |= writeKey(ctx, "NamespaceUri", commaNeeded);
+        commaNeeded = UA_TRUE;
         ret |= ENCODE_DIRECT(&src->namespaceUri, UInt32);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
     }
     
     if (src->hasLocalizedText) {
-        ret |= writeKey(ctx, "LocalizedText");
+        ret |= writeKey(ctx, "LocalizedText", commaNeeded);
+        commaNeeded = UA_TRUE;
         ret |= ENCODE_DIRECT(&src->localizedText, UInt32);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
     }
     
     if (src->hasLocale) {
-        ret |= writeKey(ctx, "Locale");
+        ret |= writeKey(ctx, "Locale", commaNeeded);
+        commaNeeded = UA_TRUE;
         ret |= ENCODE_DIRECT(&src->locale, UInt32);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
     }
     
     if (src->hasAdditionalInfo) {
-        ret |= writeKey(ctx, "AdditionalInfo");
+        ret |= writeKey(ctx, "AdditionalInfo", commaNeeded);
+        commaNeeded = UA_TRUE;
         ret |= ENCODE_DIRECT(&src->additionalInfo, String);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
     }
 
     if (src->hasInnerStatusCode) {
-        ret |= writeKey(ctx, "InnerStatusCode");
+        ret |= writeKey(ctx, "InnerStatusCode", commaNeeded);
+        commaNeeded = UA_TRUE;
         ret |= ENCODE_DIRECT(&src->innerStatusCode, StatusCode);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
     }
 
     if (src->hasInnerDiagnosticInfo) {
-        ret |= writeKey(ctx, "InnerDiagnosticInfo");
-        
+        ret |= writeKey(ctx, "InnerDiagnosticInfo", commaNeeded);
+        commaNeeded = UA_TRUE;
         //Check recursion depth in encodeJsonInternal
         ret |= encodeJsonInternal(src->innerDiagnosticInfo, &UA_TYPES[UA_TYPES_DIAGNOSTICINFO], ctx, useReversible);
         if (ret != UA_STATUSCODE_GOOD)
@@ -1836,7 +1859,7 @@ encodeJsonInternal(const void *src, const UA_DataType *type, Ctx *ctx, UA_Boolea
         ret |= WRITE(ObjStart);
     }
 
-    commaNeeded = false;
+    UA_Boolean commaNeeded = UA_FALSE;
 
     uintptr_t ptr = (uintptr_t) src;
     u8 membersSize = type->membersSize;
@@ -1846,7 +1869,8 @@ encodeJsonInternal(const void *src, const UA_DataType *type, Ctx *ctx, UA_Boolea
         const UA_DataType *membertype = &typelists[!member->namespaceZero][member->memberTypeIndex];
 
         if (member->memberName != NULL && *member->memberName != 0) {
-            writeKey(ctx, member->memberName);
+            writeKey(ctx, member->memberName, commaNeeded);
+            commaNeeded = UA_TRUE;
         }
 
         if (!member->isArray) {
@@ -1876,7 +1900,7 @@ encodeJsonInternal(const void *src, const UA_DataType *type, Ctx *ctx, UA_Boolea
         ret |= WRITE(ObjEnd);
     }
     
-    commaNeeded = true;
+    //commaNeeded = true;
 
     UA_assert(ret != UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
     ctx->depth--;

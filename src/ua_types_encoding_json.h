@@ -37,13 +37,13 @@ typedef struct {
 } Ctx;
 
 
-status writeKey_UA_String(Ctx *ctx, UA_String *key);
-status writeKey(Ctx *ctx, const char* key);
+status writeKey_UA_String(Ctx *ctx, UA_String *key, UA_Boolean commaNeeded);
+status writeKey(Ctx *ctx, const char* key, UA_Boolean commaNeeded);
 status encodingJsonStartObject(Ctx *ctx);
 size_t encodingJsonEndObject(Ctx *ctx);
 status encodingJsonStartArray(Ctx *ctx);
 size_t encodingJsonEndArray(Ctx *ctx);
-status writeComma(Ctx *ctx);
+status writeComma(Ctx *ctx, UA_Boolean commaNeeded);
 status writeNull(Ctx *ctx);
 
 #define TOKENCOUNT 1000
