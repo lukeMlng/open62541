@@ -1473,7 +1473,7 @@ START_TEST(UA_Boolean_true_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     
@@ -1499,7 +1499,7 @@ START_TEST(UA_Boolean_false_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     
@@ -1522,7 +1522,7 @@ START_TEST(UA_Boolean_null_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[10];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     
@@ -1544,7 +1544,7 @@ START_TEST(UA_Boolean_true_bufferTooSmall_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[2];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     
@@ -1566,11 +1566,51 @@ START_TEST(UA_String_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[10];
     // when
-    status s = UA_encodeJson(&src, &UA_TYPES[UA_TYPES_STRING], &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson(&src, &UA_TYPES[UA_TYPES_STRING], &bufPos, &bufEnd, NULL, 0, UA_TRUE);
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
     char* result = "\"hello\"";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf);
+}
+END_TEST
+
+START_TEST(UA_String_Empty_json_encode) {
+    // given
+    UA_String src = UA_STRING("");
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 10);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[10];
+    // when
+    status s = UA_encodeJson(&src, &UA_TYPES[UA_TYPES_STRING], &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "\"\"";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf);
+}
+END_TEST
+
+START_TEST(UA_String_Null_json_encode) {
+    // given
+    UA_String src = UA_STRING_NULL;
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 10);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[10];
+    // when
+    status s = UA_encodeJson(&src, &UA_TYPES[UA_TYPES_STRING], &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "null";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf);
 }
@@ -1586,7 +1626,7 @@ START_TEST(UA_String_escapesimple_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[50];
     // when
-    status s = UA_encodeJson(&src, &UA_TYPES[UA_TYPES_STRING], &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson(&src, &UA_TYPES[UA_TYPES_STRING], &bufPos, &bufEnd, NULL, 0, UA_TRUE);
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
@@ -1606,7 +1646,7 @@ START_TEST(UA_String_escapeutf_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[50];
     // when
-    status s = UA_encodeJson(&src, &UA_TYPES[UA_TYPES_STRING], &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson(&src, &UA_TYPES[UA_TYPES_STRING], &bufPos, &bufEnd, NULL, 0, UA_TRUE);
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
@@ -1630,7 +1670,7 @@ START_TEST(UA_Byte_Max_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[5];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1654,7 +1694,7 @@ START_TEST(UA_Byte_Min_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[5];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1678,7 +1718,7 @@ START_TEST(UA_Byte_smallbuf_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[2];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1701,7 +1741,7 @@ START_TEST(UA_SByte_Max_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[5];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1725,7 +1765,7 @@ START_TEST(UA_SByte_Min_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[5];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1749,7 +1789,7 @@ START_TEST(UA_SByte_Zero_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[5];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1773,7 +1813,7 @@ START_TEST(UA_SByte_smallbuf_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[2];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1797,7 +1837,7 @@ START_TEST(UA_UInt16_Max_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[6];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1821,7 +1861,7 @@ START_TEST(UA_UInt16_Min_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[5];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1845,7 +1885,7 @@ START_TEST(UA_UInt16_smallbuf_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[2];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1868,7 +1908,7 @@ START_TEST(UA_Int16_Max_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[6];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1892,7 +1932,7 @@ START_TEST(UA_Int16_Min_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[10];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1916,7 +1956,7 @@ START_TEST(UA_Int16_Zero_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[5];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1940,7 +1980,7 @@ START_TEST(UA_Int16_smallbuf_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[2];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1965,7 +2005,7 @@ START_TEST(UA_UInt32_Max_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[20];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1989,7 +2029,7 @@ START_TEST(UA_UInt32_Min_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[5];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2013,7 +2053,7 @@ START_TEST(UA_UInt32_smallbuf_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[2];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2038,7 +2078,7 @@ START_TEST(UA_Int32_Max_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[20];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2062,7 +2102,7 @@ START_TEST(UA_Int32_Min_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[20];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2086,7 +2126,7 @@ START_TEST(UA_Int32_Zero_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[5];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2110,7 +2150,7 @@ START_TEST(UA_Int32_smallbuf_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[2];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2143,7 +2183,7 @@ START_TEST(UA_UInt64_Max_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[50];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2167,7 +2207,7 @@ START_TEST(UA_UInt64_Min_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[50];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2199,7 +2239,7 @@ START_TEST(UA_UInt64_smallbuf_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[2];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2231,7 +2271,7 @@ START_TEST(UA_Int64_Max_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[50];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2268,7 +2308,7 @@ START_TEST(UA_Int64_Min_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[50];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2292,7 +2332,7 @@ START_TEST(UA_Int64_Zero_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[50];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2316,7 +2356,7 @@ START_TEST(UA_Int64_smallbuf_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[2];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2339,7 +2379,7 @@ START_TEST(UA_Double_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson(&src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson(&src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     
@@ -2362,7 +2402,7 @@ START_TEST(UA_Double_onesmallest_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson(&src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson(&src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     
@@ -2385,7 +2425,7 @@ START_TEST(UA_Float_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson(&src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson(&src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     
@@ -2397,6 +2437,10 @@ START_TEST(UA_Float_json_encode) {
 }
 END_TEST
 
+
+
+
+/* -------------------------LocalizedText------------------------- */
 START_TEST(UA_LocText_json_encode) {
 
     UA_LocalizedText *src = UA_LocalizedText_new();
@@ -2411,7 +2455,7 @@ START_TEST(UA_LocText_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2437,7 +2481,7 @@ START_TEST(UA_LocText_NonReversible_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_FALSE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
 
     *bufPos = 0;
     // then
@@ -2463,7 +2507,7 @@ START_TEST(UA_LocText_smallBuffer_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[4];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2472,10 +2516,7 @@ START_TEST(UA_LocText_smallBuffer_json_encode) {
 }
 END_TEST
 
-
-
-
-
+/* --------------------------------GUID----------------------------------- */
 START_TEST(UA_Guid_json_encode) {
     UA_Guid src = {3, 9, 10, {8, 7, 6, 5, 4, 3, 2, 1}};
     const UA_DataType *type = &UA_TYPES[UA_TYPES_GUID];
@@ -2487,7 +2528,7 @@ START_TEST(UA_Guid_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[40];
 
-    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
@@ -2509,7 +2550,7 @@ START_TEST(UA_Guid_smallbuf_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
@@ -2517,6 +2558,9 @@ START_TEST(UA_Guid_smallbuf_json_encode) {
 }
 END_TEST
 
+
+
+/* -------------------------DateTime--------------------------------------*/
 START_TEST(UA_DateTime_json_encode) {
     UA_DateTime *src = UA_DateTime_new();
     *src = UA_DateTime_fromUnixTime(1234567);
@@ -2529,19 +2573,19 @@ START_TEST(UA_DateTime_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "\"1970-01-15T06:56:07.000Z\""; //TODO
+    char* result = "\"1970-01-15T06:56:07.000Z\"";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf); UA_free(src);
 }
 END_TEST
 
 
-/* Statuscode */
+/* ------------------------Statuscode--------------------------------- */
 START_TEST(UA_StatusCode_json_encode) {
     UA_StatusCode *src = UA_StatusCode_new();
     *src = UA_STATUSCODE_BADAGGREGATECONFIGURATIONREJECTED;
@@ -2554,7 +2598,7 @@ START_TEST(UA_StatusCode_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
      *bufPos = 0;
     
@@ -2578,7 +2622,7 @@ START_TEST(UA_StatusCode_nonReversible_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_FALSE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
 
      *bufPos = 0;
     
@@ -2602,7 +2646,7 @@ START_TEST(UA_StatusCode_nonReversible_good_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_FALSE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
 
      *bufPos = 0;
     
@@ -2627,13 +2671,18 @@ START_TEST(UA_StatusCode_smallbuf_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_FALSE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
     UA_ByteString_deleteMembers(&buf); UA_free(src);
 }
 END_TEST
-START_TEST(UA_NodeId_Nummeric_json_encode) {
+
+
+/* -------------------------------NodeId--------------------------------*/
+
+/* Numeric */
+START_TEST(UA_NodeId_Numeric_json_encode) {
     UA_NodeId *src = UA_NodeId_new();
     *src = UA_NODEID_NUMERIC(0, 5555);
     const UA_DataType *type = &UA_TYPES[UA_TYPES_NODEID];
@@ -2645,7 +2694,7 @@ START_TEST(UA_NodeId_Nummeric_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2656,6 +2705,30 @@ START_TEST(UA_NodeId_Nummeric_json_encode) {
 }
 END_TEST
 
+START_TEST(UA_NodeId_Numeric_Namespace_json_encode) {
+    UA_NodeId *src = UA_NodeId_new();
+    *src = UA_NODEID_NUMERIC(4, 5555);
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_NODEID];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "{\"Id\":5555,\"Namespace\":4}";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+/* String */
 START_TEST(UA_NodeId_String_json_encode) {
     UA_NodeId *src = UA_NodeId_new();
     *src = UA_NODEID_STRING(0, "foobar");
@@ -2668,7 +2741,7 @@ START_TEST(UA_NodeId_String_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2679,9 +2752,9 @@ START_TEST(UA_NodeId_String_json_encode) {
 }
 END_TEST
 
-START_TEST(UA_NodeId_Guid_json_encode) {
+START_TEST(UA_NodeId_String_Namespace_json_encode) {
     UA_NodeId *src = UA_NodeId_new();
-    *src = UA_NODEID_GUID(0, UA_Guid_random());
+    *src = UA_NODEID_STRING(5, "foobar");
     const UA_DataType *type = &UA_TYPES[UA_TYPES_NODEID];
 
     UA_ByteString buf;
@@ -2691,17 +2764,67 @@ START_TEST(UA_NodeId_Guid_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"IdType\":2,\"Id\":\"1CD777E3-9590-A4E2-6DB6-4BE40EE09EB9\"}";
+    char* result = "{\"IdType\":1,\"Id\":\"foobar\",\"Namespace\":5}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf); UA_free(src);
 }
 END_TEST
 
+/* Guid */
+START_TEST(UA_NodeId_Guid_json_encode) {
+    UA_NodeId *src = UA_NodeId_new();
+    UA_Guid g = {3, 9, 10, {8, 7, 6, 5, 4, 3, 2, 1}};
+    *src = UA_NODEID_GUID(0, g);
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_NODEID];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "{\"IdType\":2,\"Id\":\"00000003-0009-000A-0807-060504030201\"}";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_NodeId_Guid_Namespace_json_encode) {
+    UA_NodeId *src = UA_NodeId_new();
+    UA_Guid g = {3, 9, 10, {8, 7, 6, 5, 4, 3, 2, 1}};
+    *src = UA_NODEID_GUID(5, g);
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_NODEID];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "{\"IdType\":2,\"Id\":\"00000003-0009-000A-0807-060504030201\",\"Namespace\":5}";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+/* ByteString */
 START_TEST(UA_NodeId_ByteString_json_encode) {
     UA_NodeId *src = UA_NodeId_new();
     *src = UA_NODEID_BYTESTRING(0, "asdfasdf");
@@ -2714,7 +2837,7 @@ START_TEST(UA_NodeId_ByteString_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2725,8 +2848,55 @@ START_TEST(UA_NodeId_ByteString_json_encode) {
 }
 END_TEST
 
+START_TEST(UA_NodeId_ByteString_Namespace_json_encode) {
+    UA_NodeId *src = UA_NodeId_new();
+    *src = UA_NODEID_BYTESTRING(5, "asdfasdf");
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_NODEID];
 
-/* Diagnostic Info */
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "{\"IdType\":3,\"Id\":\"YXNkZmFzZGY=\",\"Namespace\":5}";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+/* Non-reversible, Namespace */
+START_TEST(UA_NodeId_NonReversible_Numeric_Namespace_json_encode) {
+    UA_NodeId *src = UA_NodeId_new();
+    *src = UA_NODEID_NUMERIC(2, 5555);
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_NODEID];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    UA_String namespaces[3] = {UA_STRING("ns0"),UA_STRING("ns1"),UA_STRING("ns2")};
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, namespaces, 3, UA_FALSE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "{\"Id\":5555,\"Namespace\":\"ns2\"}";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+/* --------------------Diagnostic Info------------------------- */
 START_TEST(UA_DiagInfo_json_encode) {
     UA_DiagnosticInfo *src = UA_DiagnosticInfo_new();
 
@@ -2755,7 +2925,7 @@ START_TEST(UA_DiagInfo_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2808,7 +2978,7 @@ START_TEST(UA_DiagInfo_withInner_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2873,7 +3043,7 @@ START_TEST(UA_DiagInfo_withTwoInner_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2897,7 +3067,7 @@ START_TEST(UA_DiagInfo_noFields_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2936,7 +3106,7 @@ START_TEST(UA_DiagInfo_smallBuffer_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[20];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2945,7 +3115,7 @@ START_TEST(UA_DiagInfo_smallBuffer_json_encode) {
 }
 END_TEST
 
-
+/* ---------------ByteString----------------- */
 START_TEST(UA_ByteString_json_encode) {
     UA_ByteString *src = UA_ByteString_new();
     *src = UA_BYTESTRING("asdfasdf");
@@ -2958,12 +3128,37 @@ START_TEST(UA_ByteString_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
     char* result = "\"YXNkZmFzZGY=\"";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_ByteString_Long_json_encode) {
+    UA_ByteString *src = UA_ByteString_new();
+    *src = UA_BYTESTRING("Lorem ipsum dolor sit amet, consectetur adipiscing elit.");
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_BYTESTRING];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+
+    
+    //s = UA_decodeJson()
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "\"TG9yZW0gaXBzdW0gZG9sb3Igc2l0IGFtZXQsIGNvbnNlY3RldHVyIGFkaXBpc2NpbmcgZWxpdC4=\"";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf); UA_free(src);
 }
@@ -2982,7 +3177,7 @@ START_TEST(UA_QualName_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2993,6 +3188,60 @@ START_TEST(UA_QualName_json_encode) {
 }
 END_TEST
 
+
+/* ------------------QualifiedName---------------------------- */
+START_TEST(UA_QualName_NonReversible_json_encode) {
+    UA_QualifiedName *src = UA_QualifiedName_new();
+    src->name = UA_STRING("derName");
+    src->namespaceIndex = 1;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_QUALIFIEDNAME];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "{\"Name\":\"derName\",\"Uri\":1}";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_QualName_NonReversible_Namespace_json_encode) {
+    UA_QualifiedName *src = UA_QualifiedName_new();
+    src->name = UA_STRING("derName");
+    src->namespaceIndex = 2;
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_QUALIFIEDNAME];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    UA_String namespaces[3] = {UA_STRING("ns0"),UA_STRING("ns1"),UA_STRING("ns2")};
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, namespaces, 3, UA_FALSE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "{\"Name\":\"derName\",\"Uri\":\"ns2\"}";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+/* ----------------------------Variant------------------------ */
+
+/* -----Builtin scalar----- */
 START_TEST(UA_Variant_Bool_json_encode) {
     UA_Variant *src = UA_Variant_new();
     UA_Boolean variantContent = true;
@@ -3007,7 +3256,7 @@ START_TEST(UA_Variant_Bool_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3032,7 +3281,7 @@ START_TEST(UA_Variant_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3058,7 +3307,7 @@ START_TEST(UA_Variant_NodeId_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3085,7 +3334,7 @@ START_TEST(UA_Variant_LocText_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3114,7 +3363,7 @@ START_TEST(UA_Variant_QualName_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     
@@ -3127,6 +3376,326 @@ START_TEST(UA_Variant_QualName_json_encode) {
 END_TEST
 
 
+/* ---Reversible Variant Array---- */
+START_TEST(UA_Variant_Array_UInt16_json_encode) {
+    UA_Variant *src = UA_Variant_new();
+    UA_UInt16 zero[2] = {42,43};
+    UA_Variant_setArray(src, zero, 2, &UA_TYPES[UA_TYPES_UINT16]);
+   
+
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_VARIANT];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "{\"Type\":5,\"Body\":[42,43]}";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf);UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_Variant_Array_Byte_json_encode) {
+    UA_Variant *src = UA_Variant_new();
+    UA_Byte zero[2] = {42,43};
+    UA_Variant_setArray(src, zero, 2, &UA_TYPES[UA_TYPES_BYTE]);
+   
+
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_VARIANT];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "{\"Type\":3,\"Body\":[42,43]}";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf);UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_Variant_Array_String_json_encode) {
+    UA_Variant *src = UA_Variant_new();
+    UA_String zero[2] = {UA_STRING("eins"),UA_STRING("zwei")};
+    UA_Variant_setArray(src, zero, 2, &UA_TYPES[UA_TYPES_STRING]);
+   
+
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_VARIANT];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+
+    *bufPos = 0;
+    
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "{\"Type\":12,\"Body\":[\"eins\",\"zwei\"]}";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf);UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_Variant_Matrix_UInt16_json_encode) {
+
+     // Set an array value
+    UA_Variant src;
+    UA_UInt16 d[9] = {1, 2, 3,
+                      4, 5, 6,
+                      7, 8, 9};
+    UA_Variant_setArrayCopy(&src, d, 9, &UA_TYPES[UA_TYPES_UINT16]);
+
+    //Set array dimensions
+    src.arrayDimensions = (UA_UInt32 *)UA_Array_new(2, &UA_TYPES[UA_TYPES_UINT32]);
+    src.arrayDimensionsSize = 2;
+    src.arrayDimensions[0] = 3;
+    src.arrayDimensions[1] = 3;
+    
+   
+
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_VARIANT];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "{\"Type\":5,\"Body\":[1,2,3,4,5,6,7,8,9],\"Dimension\":[3,3]}";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf);UA_free(src.arrayDimensions);UA_free(src.data);
+}
+END_TEST
+
+
+/* NON-Reversible builtin simple */
+START_TEST(UA_Variant_StatusCode_NonReversible_json_encode) {
+    UA_Variant *src = UA_Variant_new();
+    UA_StatusCode variantContent = UA_STATUSCODE_BADAGGREGATECONFIGURATIONREJECTED;
+    UA_Variant_setScalar(src, &variantContent, &UA_TYPES[UA_TYPES_STATUSCODE]);
+
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_VARIANT];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "{\"Body\":{\"Code\":2161770496,\"Symbol\":\"BadAggregateConfigurationRejected\"}}";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+
+/* NON-Reversible Array */
+START_TEST(UA_Variant_Array_String_NonReversible_json_encode) {
+    UA_Variant src;
+    UA_String d[] = {UA_STRING("1"), UA_STRING("2"), UA_STRING("3"),
+                      UA_STRING("4"), UA_STRING("5"), UA_STRING("6"),
+                      UA_STRING("7"), UA_STRING("8")};
+    UA_Variant_setArrayCopy(&src, d, 8, &UA_TYPES[UA_TYPES_STRING]);
+
+    src.arrayDimensions = (UA_UInt32 *)UA_Array_new(4, &UA_TYPES[UA_TYPES_UINT32]);
+    src.arrayDimensionsSize = 1;
+    src.arrayDimensions[0] = 8;
+    
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_VARIANT];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "{\"Body\":[\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\"]}";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf);UA_Variant_deleteMembers(&src);
+}
+END_TEST
+
+/* NON-Reversible Matrix */
+START_TEST(UA_Variant_Matrix_String_NonReversible_json_encode) {
+    UA_Variant src;
+    UA_String d[] = {UA_STRING("1"), UA_STRING("2"), UA_STRING("3"),
+                      UA_STRING("4"), UA_STRING("5"), UA_STRING("6"),
+                      UA_STRING("7"), UA_STRING("8")};
+    UA_Variant_setArrayCopy(&src, d, 8, &UA_TYPES[UA_TYPES_STRING]);
+
+    src.arrayDimensions = (UA_UInt32 *)UA_Array_new(4, &UA_TYPES[UA_TYPES_UINT32]);
+    src.arrayDimensionsSize = 4;
+    src.arrayDimensions[0] = 2;
+    src.arrayDimensions[1] = 2;
+    src.arrayDimensions[2] = 2;
+    src.arrayDimensions[3] = 1;
+    
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_VARIANT];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "{\"Body\":[[[[\"1\"],[\"2\"]],[[\"3\"],[\"4\"]]],[[[\"5\"],[\"6\"]],[[\"7\"],[\"8\"]]]]}";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf);UA_Variant_deleteMembers(&src);
+}
+END_TEST
+
+START_TEST(UA_Variant_Matrix_NodeId_NonReversible_json_encode) {
+    UA_Variant src;
+    UA_NodeId d[] = {UA_NODEID_NUMERIC(1,1),UA_NODEID_NUMERIC(1,2),UA_NODEID_NUMERIC(1,3),UA_NODEID_NUMERIC(1,4),UA_NODEID_NUMERIC(1,5),UA_NODEID_NUMERIC(1,6),UA_NODEID_NUMERIC(1,7),UA_NODEID_NUMERIC(1,8)};
+    UA_Variant_setArrayCopy(&src, d, 8, &UA_TYPES[UA_TYPES_NODEID]);
+
+    src.arrayDimensions = (UA_UInt32 *)UA_Array_new(4, &UA_TYPES[UA_TYPES_UINT32]);
+    src.arrayDimensionsSize = 4;
+    src.arrayDimensions[0] = 2;
+    src.arrayDimensions[1] = 2;
+    src.arrayDimensions[2] = 2;
+    src.arrayDimensions[3] = 1;
+    
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_VARIANT];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 2000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[2000];
+
+    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "{\"Body\":[[[[{\"Id\":1,\"Namespace\":1}],[{\"Id\":2,\"Namespace\":1}]],[[{\"Id\":3,\"Namespace\":1}],[{\"Id\":4,\"Namespace\":1}]]],[[[{\"Id\":5,\"Namespace\":1}],[{\"Id\":6,\"Namespace\":1}]],[[{\"Id\":7,\"Namespace\":1}],[{\"Id\":8,\"Namespace\":1}]]]]}";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf);UA_Variant_deleteMembers(&src);
+}
+END_TEST
+
+
+
+START_TEST(UA_Variant_Wrap_json_encode) {
+    UA_Variant *src = UA_Variant_new();
+
+    UA_ViewDescription variantContent;
+    UA_DateTime srvts = UA_DateTime_fromUnixTime(1234567);
+    variantContent.timestamp = srvts;
+    variantContent.viewVersion = 1236;
+    variantContent.viewId = UA_NODEID_NUMERIC(0,99999);
+    
+    UA_Variant_setScalar(src, &variantContent, &UA_TYPES[UA_TYPES_VIEWDESCRIPTION]);
+
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_VARIANT];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "{\"Type\":511,\"Body\":{\"TypeId\":{\"Id\":513},\"Encoding\":0,\"Body\":{\"ViewId\":{\"Id\":99999},\"Timestamp\":\"1970-01-15T06:56:07.000Z\",\"ViewVersion\":1236}}}";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf); UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_Variant_Wrap_Array_json_encode) {
+    UA_Variant src;
+    UA_Variant_init(&src);
+    src.arrayDimensions = (UA_UInt32 *)UA_Array_new(1, &UA_TYPES[UA_TYPES_UINT32]);
+    src.arrayDimensionsSize = 1;
+    src.arrayDimensions[0] = 2;
+    
+    UA_ViewDescription variantContent1;
+    UA_DateTime srvts1 = UA_DateTime_fromUnixTime(1234567);
+    variantContent1.timestamp = srvts1;
+    variantContent1.viewVersion = 1;
+    variantContent1.viewId = UA_NODEID_NUMERIC(0,1);
+    
+    UA_ViewDescription variantContent2;
+    UA_DateTime srvts2 = UA_DateTime_fromUnixTime(1234567);
+    variantContent2.timestamp = srvts2;
+    variantContent2.viewVersion = 2;
+    variantContent2.viewId = UA_NODEID_NUMERIC(0,2);
+    
+    
+    UA_ViewDescription d[2] = {variantContent1, variantContent2};
+    UA_Variant_setArrayCopy(&src, d, 2, &UA_TYPES[UA_TYPES_VIEWDESCRIPTION]);
+
+
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_VARIANT];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson(&src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "{\"Type\":511,\"Body\":{\"TypeId\":{\"Id\":513},\"Encoding\":0,\"Body\":{\"ViewId\":{\"Id\":99999},\"Timestamp\":\"1970-01-15T06:56:07.000Z\",\"ViewVersion\":1236}}}";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf);
+}
+END_TEST
 
 START_TEST(UA_DataSetFieldFlags_json_encode) {
     UA_DataSetFieldFlags *src = UA_DataSetFieldFlags_new();
@@ -3141,7 +3710,7 @@ START_TEST(UA_DataSetFieldFlags_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3171,7 +3740,7 @@ START_TEST(UA_ExtensionObject_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3197,7 +3766,7 @@ START_TEST(UA_ExpandedNodeId_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3240,7 +3809,7 @@ START_TEST(UA_DataValue_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3338,7 +3907,7 @@ START_TEST(UA_MessageReadResponse_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3366,7 +3935,7 @@ START_TEST(UA_ViewDescription_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3478,7 +4047,7 @@ START_TEST(UA_WriteRequest_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[2000];
 
-    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3486,159 +4055,6 @@ START_TEST(UA_WriteRequest_json_encode) {
     char* result = "{\"RequestHeader\":{\"AuthenticationToken\":{\"IdType\":1,\"Id\":\"authToken\"},\"Timestamp\":\"1970-01-15T06:56:07.000Z\",\"RequestHandle\":123123,\"ReturnDiagnostics\":1,\"AuditEntryId\":\"Auditentryid\",\"TimeoutHint\":120,\"AdditionalHeader\":{\"TypeId\":{\"Id\":0},\"Encoding\":0,\"Body\":false}},\"NodesToWrite\":[{\"NodeId\":{\"IdType\":1,\"Id\":\"a1111\"},\"AttributeId\":12,\"IndexRange\":\"BLOAB\",\"Value\":{\"Value\":{\"Type\":1,\"Body\":true},\"Status\":2153250816,\"SourceTimestamp\":\"1970-01-15T06:56:07.000Z\",\"SourcePicoseconds\":0,\"ServerTimestamp\":\"1970-01-15T06:56:07.000Z\",\"ServerPicoseconds\":0}},{\"NodeId\":{\"IdType\":1,\"Id\":\"a2222\"},\"AttributeId\":12,\"IndexRange\":\"BLOAB\",\"Value\":{\"Value\":{\"Type\":1,\"Body\":true},\"Status\":2153250816,\"SourceTimestamp\":\"1970-01-15T06:56:07.000Z\",\"SourcePicoseconds\":0,\"ServerTimestamp\":\"1970-01-15T06:56:07.000Z\",\"ServerPicoseconds\":0}}]}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf);
-}
-END_TEST
-
-START_TEST(UA_Variant_Array_UInt16_json_encode) {
-    UA_Variant *src = UA_Variant_new();
-    UA_UInt16 zero[2] = {42,43};
-    UA_Variant_setArray(src, zero, 2, &UA_TYPES[UA_TYPES_UINT16]);
-   
-
-    const UA_DataType *type = &UA_TYPES[UA_TYPES_VARIANT];
-
-    UA_ByteString buf;
-
-    UA_ByteString_allocBuffer(&buf, 1000);
-
-    UA_Byte *bufPos = &buf.data[0];
-    const UA_Byte *bufEnd = &buf.data[1000];
-
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
-
-    *bufPos = 0;
-    // then
-    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"Type\":5,\"Body\":[42,43]}";
-    ck_assert_str_eq(result, (char*)buf.data);
-    UA_ByteString_deleteMembers(&buf);UA_free(src);
-}
-END_TEST
-
-START_TEST(UA_Variant_Array_Byte_json_encode) {
-    UA_Variant *src = UA_Variant_new();
-    UA_Byte zero[2] = {42,43};
-    UA_Variant_setArray(src, zero, 2, &UA_TYPES[UA_TYPES_BYTE]);
-   
-
-    const UA_DataType *type = &UA_TYPES[UA_TYPES_VARIANT];
-
-    UA_ByteString buf;
-
-    UA_ByteString_allocBuffer(&buf, 1000);
-
-    UA_Byte *bufPos = &buf.data[0];
-    const UA_Byte *bufEnd = &buf.data[1000];
-
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
-
-    *bufPos = 0;
-    // then
-    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"Type\":3,\"Body\":[42,43]}";
-    ck_assert_str_eq(result, (char*)buf.data);
-    UA_ByteString_deleteMembers(&buf);UA_free(src);
-}
-END_TEST
-
-START_TEST(UA_Variant_Array_String_json_encode) {
-    UA_Variant *src = UA_Variant_new();
-    UA_String zero[2] = {UA_STRING("eins"),UA_STRING("zwei")};
-    UA_Variant_setArray(src, zero, 2, &UA_TYPES[UA_TYPES_STRING]);
-   
-
-    const UA_DataType *type = &UA_TYPES[UA_TYPES_VARIANT];
-
-    UA_ByteString buf;
-
-    UA_ByteString_allocBuffer(&buf, 1000);
-
-    UA_Byte *bufPos = &buf.data[0];
-    const UA_Byte *bufEnd = &buf.data[1000];
-
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
-
-    *bufPos = 0;
-    
-    // then
-    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"Type\":12,\"Body\":[\"eins\",\"zwei\"]}";
-    ck_assert_str_eq(result, (char*)buf.data);
-    UA_ByteString_deleteMembers(&buf);UA_free(src);
-}
-END_TEST
-
-START_TEST(UA_Variant_Matrix_UInt16_json_encode) {
-
-     // Set an array value
-    UA_Variant src;
-    UA_UInt16 d[9] = {1, 2, 3,
-                      4, 5, 6,
-                      7, 8, 9};
-    UA_Variant_setArrayCopy(&src, d, 9, &UA_TYPES[UA_TYPES_UINT16]);
-
-    //Set array dimensions
-    src.arrayDimensions = (UA_UInt32 *)UA_Array_new(2, &UA_TYPES[UA_TYPES_UINT32]);
-    src.arrayDimensionsSize = 2;
-    src.arrayDimensions[0] = 3;
-    src.arrayDimensions[1] = 3;
-    
-   
-
-    const UA_DataType *type = &UA_TYPES[UA_TYPES_VARIANT];
-
-    UA_ByteString buf;
-
-    UA_ByteString_allocBuffer(&buf, 1000);
-
-    UA_Byte *bufPos = &buf.data[0];
-    const UA_Byte *bufEnd = &buf.data[1000];
-
-    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
-
-    *bufPos = 0;
-    // then
-    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"Type\":5,\"Body\":[1,2,3,4,5,6,7,8,9],\"Dimension\":[3,3]}";
-    ck_assert_str_eq(result, (char*)buf.data);
-    UA_ByteString_deleteMembers(&buf);UA_free(src.arrayDimensions);UA_free(src.data);
-}
-END_TEST
-
-
-START_TEST(UA_Variant_Matrix_String_NonReversible_json_encode) {
-    UA_Variant src;
-    UA_String d[] = {UA_STRING("1"), UA_STRING("2"), UA_STRING("3"),
-                      UA_STRING("4"), UA_STRING("5"), UA_STRING("6"),
-                      UA_STRING("7"), UA_STRING("8")};
-    UA_Variant_setArrayCopy(&src, d, 8, &UA_TYPES[UA_TYPES_STRING]);
-
-    src.arrayDimensions = (UA_UInt32 *)UA_Array_new(4, &UA_TYPES[UA_TYPES_UINT32]);
-    src.arrayDimensionsSize = 4;
-    src.arrayDimensions[0] = 2;
-    src.arrayDimensions[1] = 2;
-    src.arrayDimensions[2] = 2;
-    src.arrayDimensions[3] = 1;
-    
-   
-
-    const UA_DataType *type = &UA_TYPES[UA_TYPES_VARIANT];
-
-    UA_ByteString buf;
-
-    UA_ByteString_allocBuffer(&buf, 1000);
-
-    UA_Byte *bufPos = &buf.data[0];
-    const UA_Byte *bufEnd = &buf.data[1000];
-
-    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, NULL, UA_FALSE);
-
-    *bufPos = 0;
-    // then
-    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "[[[[\"1\"],[\"2\"]],[[\"3\"],[\"4\"]]],[[[\"5\"],[\"6\"]],[[\"7\"],[\"8\"]]]]";
-    ck_assert_str_eq(result, (char*)buf.data);
-    UA_ByteString_deleteMembers(&buf);UA_Variant_deleteMembers(&src);
 }
 END_TEST
 
@@ -3659,7 +4075,7 @@ START_TEST(UA_null_json_encode) {
         bufPos = &buf.data[0];
         src = NULL;
         type = &UA_TYPES[i];
-        s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, NULL, UA_TRUE);
+        s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
         *bufPos = 0;
         ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
         ck_assert_str_eq(result, (char*)buf.data);
@@ -4670,6 +5086,8 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_encode, UA_Boolean_true_bufferTooSmall_json_encode);
     
     tcase_add_test(tc_json_encode, UA_String_json_encode);
+    tcase_add_test(tc_json_encode, UA_String_Empty_json_encode);
+    tcase_add_test(tc_json_encode, UA_String_Null_json_encode);
     tcase_add_test(tc_json_encode, UA_String_escapesimple_json_encode);
     tcase_add_test(tc_json_encode, UA_String_escapeutf_json_encode);
     
@@ -4712,33 +5130,50 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_encode, UA_Int64_Zero_Number_json_encode);
     tcase_add_test(tc_json_encode, UA_Int64_smallbuf_Number_json_encode);
     
-    
+    //Double Float
     tcase_add_test(tc_json_encode, UA_Double_json_encode);
     tcase_add_test(tc_json_encode, UA_Double_onesmallest_json_encode);
     tcase_add_test(tc_json_encode, UA_Float_json_encode);
     
-
+    //LocalizedText
     tcase_add_test(tc_json_encode, UA_LocText_json_encode);
     tcase_add_test(tc_json_encode, UA_LocText_NonReversible_json_encode);
     tcase_add_test(tc_json_encode, UA_LocText_smallBuffer_json_encode);
     
+    //Guid
     tcase_add_test(tc_json_encode, UA_Guid_json_encode);
     tcase_add_test(tc_json_encode, UA_Guid_smallbuf_json_encode);
     
+    //DateTime
     tcase_add_test(tc_json_encode, UA_DateTime_json_encode);
     
     
+    //StatusCode
     tcase_add_test(tc_json_encode, UA_StatusCode_json_encode);
     tcase_add_test(tc_json_encode, UA_StatusCode_nonReversible_json_encode);
     tcase_add_test(tc_json_encode, UA_StatusCode_nonReversible_good_json_encode);
     tcase_add_test(tc_json_encode, UA_StatusCode_smallbuf_json_encode);
     
-    tcase_add_test(tc_json_encode, UA_NodeId_Nummeric_json_encode);
+    
+    //NodeId
+    tcase_add_test(tc_json_encode, UA_NodeId_Numeric_json_encode);
+    tcase_add_test(tc_json_encode, UA_NodeId_Numeric_Namespace_json_encode);
+    
     tcase_add_test(tc_json_encode, UA_NodeId_String_json_encode);
+    tcase_add_test(tc_json_encode, UA_NodeId_String_Namespace_json_encode);
+    
     tcase_add_test(tc_json_encode, UA_NodeId_Guid_json_encode);
+    tcase_add_test(tc_json_encode, UA_NodeId_Guid_Namespace_json_encode);
+    
     tcase_add_test(tc_json_encode, UA_NodeId_ByteString_json_encode);
+    tcase_add_test(tc_json_encode, UA_NodeId_ByteString_Namespace_json_encode);
     
+    tcase_add_test(tc_json_encode, UA_NodeId_NonReversible_Numeric_Namespace_json_encode);
     
+    //ExpandedNodeId
+    tcase_add_test(tc_json_encode, UA_ExpandedNodeId_json_encode);
+    
+    //DiagnosticInfo
     tcase_add_test(tc_json_encode, UA_DiagInfo_json_encode);
     tcase_add_test(tc_json_encode, UA_DiagInfo_withInner_json_encode);
     tcase_add_test(tc_json_encode, UA_DiagInfo_withTwoInner_json_encode);
@@ -4746,27 +5181,56 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_encode, UA_DiagInfo_smallBuffer_json_encode);
     
     
+    //ByteString
     tcase_add_test(tc_json_encode, UA_ByteString_json_encode);
+    tcase_add_test(tc_json_encode, UA_ByteString_Long_json_encode);
+    
+    //QualifiedName
     tcase_add_test(tc_json_encode, UA_QualName_json_encode);
+    tcase_add_test(tc_json_encode, UA_QualName_NonReversible_json_encode);
+    tcase_add_test(tc_json_encode, UA_QualName_NonReversible_Namespace_json_encode);
+            
+    //Variant REVERSIBLE 
     tcase_add_test(tc_json_encode, UA_Variant_Bool_json_encode);
     tcase_add_test(tc_json_encode, UA_Variant_Number_json_encode);
     tcase_add_test(tc_json_encode, UA_Variant_NodeId_json_encode);
     tcase_add_test(tc_json_encode, UA_Variant_LocText_json_encode);
     tcase_add_test(tc_json_encode, UA_Variant_QualName_json_encode);
+    
+    //Array
+    tcase_add_test(tc_json_encode, UA_Variant_Array_UInt16_json_encode);
+    tcase_add_test(tc_json_encode, UA_Variant_Array_Byte_json_encode);
+    tcase_add_test(tc_json_encode, UA_Variant_Array_String_json_encode);
+    
+    //Matrix
+    tcase_add_test(tc_json_encode, UA_Variant_Matrix_UInt16_json_encode);
+    
+    
+    //Variant NON-REVERSIBLE
+    tcase_add_test(tc_json_encode, UA_Variant_StatusCode_NonReversible_json_encode);
+    
+    //Array
+    tcase_add_test(tc_json_encode, UA_Variant_Array_String_NonReversible_json_encode);
+    
+    //Matrix
+    tcase_add_test(tc_json_encode, UA_Variant_Matrix_String_NonReversible_json_encode);
+    tcase_add_test(tc_json_encode, UA_Variant_Matrix_NodeId_NonReversible_json_encode);
+    
+    tcase_add_test(tc_json_encode, UA_Variant_Wrap_json_encode);
+    tcase_add_test(tc_json_encode, UA_Variant_Wrap_Array_json_encode);
+    
     tcase_add_test(tc_json_encode, UA_ExtensionObject_json_encode);
-    tcase_add_test(tc_json_encode, UA_ExpandedNodeId_json_encode);
+    
+    
     tcase_add_test(tc_json_encode, UA_DataValue_json_encode);
+    
+    
+    
     tcase_add_test(tc_json_encode, UA_MessageReadResponse_json_encode);
     tcase_add_test(tc_json_encode, UA_ViewDescription_json_encode);
     tcase_add_test(tc_json_encode, UA_WriteRequest_json_encode);
     tcase_add_test(tc_json_encode, UA_DataSetFieldFlags_json_encode);
-    tcase_add_test(tc_json_encode, UA_Variant_Array_UInt16_json_encode);
-    tcase_add_test(tc_json_encode, UA_Variant_Array_Byte_json_encode);
-    tcase_add_test(tc_json_encode, UA_Variant_Array_String_json_encode);
-    tcase_add_test(tc_json_encode, UA_Variant_Matrix_UInt16_json_encode);
-    tcase_add_test(tc_json_encode, UA_Variant_Matrix_String_NonReversible_json_encode);
-   
-    
+
     
     tcase_add_test(tc_json_encode, UA_null_json_encode);
     tcase_add_test(tc_json_encode, UA_PubSub_EnDecode);

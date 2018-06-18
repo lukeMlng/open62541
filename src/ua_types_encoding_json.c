@@ -650,6 +650,10 @@ ENCODE_JSON(String) {
     if (!src) {
         return writeNull(ctx);
     }
+    
+    if(src->data == NULL){
+        return writeNull(ctx);
+    }
 
     /*size_t escape_characters = 0;
     size_t actualLengthWithoutQuotes = 0;
@@ -877,10 +881,10 @@ ENCODE_JSON(String) {
 }
     
 ENCODE_JSON(ByteString) {
-    if(!src || src->length < 1){
+    if(!src || src->length < 1 || src->data == NULL){
         return writeNull(ctx);
     }
-
+  
     //Estimate base64 size, this is a few bytes bigger 
     //https://stackoverflow.com/questions/1533113/calculate-the-size-to-a-base-64-encoded-message
     UA_UInt32 output_size = (UA_UInt32)(((src->length * 4) / 3) + (src->length / 96) + 6);
@@ -1077,7 +1081,7 @@ ENCODE_JSON(DateTime) {
 
 //TODO: Namespace and encoding
 static status
-NodeId_encodeJsonWithEncodingMask(UA_NodeId const *src, u8 encoding, Ctx *ctx, UA_Boolean useReversible) {
+NodeId_encodeJsonInternal(UA_NodeId const *src, Ctx *ctx, UA_Boolean useReversible) {
     status ret = UA_STATUSCODE_GOOD;
     if(!src){
         writeNull(ctx);
@@ -1140,7 +1144,7 @@ NodeId_encodeJsonWithEncodingMask(UA_NodeId const *src, u8 encoding, Ctx *ctx, U
             break;
         }
         default:
-            return UA_STATUSCODE_BADINTERNALERROR;
+            return UA_STATUSCODE_BADENCODINGERROR;
     }
 
     if (useReversible) {
@@ -1155,17 +1159,23 @@ NodeId_encodeJsonWithEncodingMask(UA_NodeId const *src, u8 encoding, Ctx *ctx, U
          */
 
         //@TODO LOOKUP namespace uri and check if unknown
-        UA_String namespaceUri = UA_STRING("dummy");
-        if (src->namespaceIndex == 1 || namespaceUri.length) {
+        if (src->namespaceIndex == 1) {
             writeKey(ctx, "Namespace", UA_TRUE);
             ret |= ENCODE_DIRECT(&src->namespaceIndex, UInt16);
         } else {
             writeKey(ctx, "Namespace", UA_TRUE);
-            ret |= WRITE(Quote);
-            ret |= ENCODE_DIRECT(&src->namespaceIndex, String);
-            if (ret != UA_STATUSCODE_GOOD)
-                return ret;
-            ret |= WRITE(Quote);
+            
+            //Check if Namespace given and in range
+            if(src->namespaceIndex < ctx->namespacesSize 
+                    && ctx->namespaces != NULL){
+                
+                UA_String namespaceEntry = ctx->namespaces[src->namespaceIndex];
+                ret |= ENCODE_DIRECT(&namespaceEntry, String);
+                if (ret != UA_STATUSCODE_GOOD)
+                    return ret;
+            }else{
+                return UA_STATUSCODE_BADNOTFOUND;
+            }
         }
     }
 
@@ -1180,7 +1190,7 @@ ENCODE_JSON(NodeId) {
     ret |= WRITE(ObjStart);
     if (ret != UA_STATUSCODE_GOOD)
         return ret;
-    ret = NodeId_encodeJsonWithEncodingMask(src, 0, ctx, useReversible);
+    ret = NodeId_encodeJsonInternal(src, ctx, useReversible);
     if (ret != UA_STATUSCODE_GOOD)
         return ret;
     ret = WRITE(ObjEnd);
@@ -1202,7 +1212,7 @@ ENCODE_JSON(ExpandedNodeId) {
         encoding |= UA_EXPANDEDNODEID_SERVERINDEX_FLAG;
 
     /* Encode the NodeId */
-    status ret = NodeId_encodeJsonWithEncodingMask(&src->nodeId, encoding, ctx, useReversible);
+    status ret = NodeId_encodeJsonInternal(&src->nodeId, ctx, useReversible);
     if (ret != UA_STATUSCODE_GOOD)
         return ret;
     
@@ -1302,9 +1312,7 @@ ENCODE_JSON(QualifiedName) {
          * NamespaceUri is unknown. In these cases, the NamespaceIndex is encoded as a JSON number.
          */
 
-        //@TODO LOOKUP namespace uri and check if unknown
-        UA_String namespaceUri = UA_STRING("dummy");
-        if (src->namespaceIndex == 1 || namespaceUri.length) {
+        if (src->namespaceIndex == 1) {
             ret = writeKey(ctx, "Uri", UA_TRUE);
             if (ret != UA_STATUSCODE_GOOD)
                 return ret;
@@ -1312,22 +1320,24 @@ ENCODE_JSON(QualifiedName) {
             if (ret != UA_STATUSCODE_GOOD)
                 return ret;
         } else {
-            ret = writeKey(ctx, "Uri", UA_TRUE);
-            if (ret != UA_STATUSCODE_GOOD)
-                return ret;
-            ret |= WRITE(Quote);
-            if (ret != UA_STATUSCODE_GOOD)
-                return ret;
-            ret |= ENCODE_DIRECT(&src->namespaceIndex, String);
-            if (ret != UA_STATUSCODE_GOOD)
-                return ret;
-            ret |= WRITE(Quote);
-            if (ret != UA_STATUSCODE_GOOD)
-                return ret;
+            ret |= writeKey(ctx, "Uri", UA_TRUE);
+            
+             //Check if Namespace given and in range
+            if(src->namespaceIndex < ctx->namespacesSize 
+                    && ctx->namespaces != NULL){
+                
+                UA_String namespaceEntry = ctx->namespaces[src->namespaceIndex];
+                ret |= ENCODE_DIRECT(&namespaceEntry, String);
+            }else{
+                //if not encode as Number
+                ret |= ENCODE_DIRECT(&src->namespaceIndex, UInt16);
+                if (ret != UA_STATUSCODE_GOOD)
+                    return ret;
+            }
         }
     }
 
-    WRITE(ObjEnd);
+    ret |= WRITE(ObjEnd);
     return ret;
 }
 
@@ -1474,6 +1484,8 @@ Variant_encodeJsonWrapExtensionObject(const UA_Variant *src, const bool isArray,
     if (isArray) {
         if (src->arrayLength > UA_INT32_MAX)
             return UA_STATUSCODE_BADENCODINGERROR;
+        
+        length = src->arrayLength;
     }
 
     /* Set up the ExtensionObject */
@@ -1484,13 +1496,29 @@ Variant_encodeJsonWrapExtensionObject(const UA_Variant *src, const bool isArray,
     const u16 memSize = src->type->memSize;
     uintptr_t ptr = (uintptr_t) src->data;
 
+    if(length > 1){
+        WRITE(ArrayStart);;
+    }
+    
+    UA_Boolean commaNeeded = false;
+    
     /* Iterate over the array */
-    for (size_t i = 0; i < length && ret == UA_STATUSCODE_GOOD; ++i) {
+    for (size_t i = 0; i <  length && ret == UA_STATUSCODE_GOOD; ++i) {
+        if (commaNeeded) {
+            WRITE(Comma);
+        }
+        
         eo.content.decoded.data = (void*) ptr;
         ret = encodeJsonInternal(&eo, &UA_TYPES[UA_TYPES_EXTENSIONOBJECT], ctx, useReversible);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
         ptr += memSize;
+        
+        commaNeeded = true;
+    }
+    
+    if(length > 1){
+        WRITE(ArrayEnd);
     }
     return ret;
 }
@@ -1611,44 +1639,42 @@ ENCODE_JSON(Variant) {
         }
 
         ret |= WRITE(ObjEnd);
-        //commaNeeded = UA_TRUE;
     } else { //NON-REVERSIBLE
 
-        /* Encode the content */
+        /* 
+         * For the non-reversible form, Variant values shall be encoded as a JSON object containing only
+         * the value of the Body field. The Type and Dimensions fields are dropped. Multi-dimensional
+         * arrays are encoded as a multi dimensional JSON array as described in 5.4.5.
+         */
+        
         if (!isBuiltin && !isAlias){
             //-------NON REVERSIBLE:  NOT BUILTIN, can it be encoded? Wrap in extension object .------------
-            //commaNeeded = UA_FALSE;
-            ret |= writeKey(ctx, "Type", UA_FALSE);
-            ret |= ENCODE_DIRECT(&src->type->typeId.identifier.numeric, UInt32);
             ret |= writeKey(ctx, "Body", UA_TRUE);
             ret |= Variant_encodeJsonWrapExtensionObject(src, isArray, ctx, useReversible);
         } else if (!isArray) {
             //-------NON REVERSIBLE:   BUILTIN, single value.------------
             ret |= WRITE(ObjStart);
-            //commaNeeded = UA_FALSE;
             ret |= writeKey(ctx, "Body", UA_FALSE);
             ret |= encodeJsonInternal(src->data, src->type, ctx, useReversible);
             ret |= WRITE(ObjEnd);
-            //commaNeeded = UA_TRUE;
         } else {
             //-------NON REVERSIBLE:   BUILTIN, array.------------
             size_t dimensionSize = src->arrayDimensionsSize;
+            
+            ret |= WRITE(ObjStart);
+            ret |= writeKey(ctx, "Body", UA_FALSE);
+            
             if (dimensionSize > 1) {
                 //nonreversible multidimensional array
-                size_t index = 0;
-                size_t dimensionIndex = 0;
+                size_t index = 0;  size_t dimensionIndex = 0;
                 void *ptr = src->data;
                 const UA_DataType *arraytype = src->type;
                 ret |= addMatrixContentJSON(ctx, ptr, arraytype, &index, src->arrayDimensions, dimensionIndex, dimensionSize, useReversible);
             } else {
                 //nonreversible simple array
-                ret |= WRITE(ObjStart);
-                //commaNeeded = UA_FALSE;
-                ret |= writeKey(ctx, "Body", UA_FALSE);
                 ret |=  Array_encodeJson(src->data, src->arrayLength, src->type, ctx, UA_TRUE, useReversible);
-                ret |= WRITE(ObjEnd);
-                //commaNeeded = UA_TRUE;
             }
+            ret |= WRITE(ObjEnd);
         }
     }
     return ret;
@@ -1909,15 +1935,15 @@ encodeJsonInternal(const void *src, const UA_DataType *type, Ctx *ctx, UA_Boolea
 
 status
 UA_encodeJson(const void *src, const UA_DataType *type,
-        u8 **bufPos, const u8 **bufEnd,
-        UA_exchangeEncodeBuffer exchangeCallback, void *exchangeHandle, UA_Boolean useReversible) {
+        u8 **bufPos, const u8 **bufEnd, UA_String *namespaces, size_t namespaceSize, UA_Boolean useReversible) {
     /* Set up the context */
     Ctx ctx;
+    memset(&ctx, 0, sizeof(ctx));
     ctx.pos = *bufPos;
     ctx.end = *bufEnd;
     ctx.depth = 0;
-    ctx.exchangeBufferCallback = exchangeCallback;
-    ctx.exchangeBufferCallbackHandle = exchangeHandle;
+    ctx.namespaces = namespaces;
+    ctx.namespacesSize = namespaceSize;
 
     /* Encode */
     status ret = encodeJsonInternal(src, type, &ctx, useReversible);
