@@ -3647,7 +3647,7 @@ START_TEST(UA_Variant_Wrap_json_encode) {
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"Type\":511,\"Body\":{\"TypeId\":{\"Id\":513},\"Encoding\":0,\"Body\":{\"ViewId\":{\"Id\":99999},\"Timestamp\":\"1970-01-15T06:56:07.000Z\",\"ViewVersion\":1236}}}";
+    char* result = "{\"Type\":22,\"Body\":{\"TypeId\":{\"Id\":511},\"Body\":{\"ViewId\":{\"Id\":99999},\"Timestamp\":\"1970-01-15T06:56:07.000Z\",\"ViewVersion\":1236}}}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf); UA_free(src);
 }
@@ -3691,11 +3691,57 @@ START_TEST(UA_Variant_Wrap_Array_json_encode) {
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"Type\":511,\"Body\":{\"TypeId\":{\"Id\":513},\"Encoding\":0,\"Body\":{\"ViewId\":{\"Id\":99999},\"Timestamp\":\"1970-01-15T06:56:07.000Z\",\"ViewVersion\":1236}}}";
+    char* result = "{\"Type\":22,\"Body\":[{\"TypeId\":{\"Id\":511},\"Body\":{\"ViewId\":{\"Id\":1},\"Timestamp\":\"1970-01-15T06:56:07.000Z\",\"ViewVersion\":1}},{\"TypeId\":{\"Id\":511},\"Body\":{\"ViewId\":{\"Id\":2},\"Timestamp\":\"1970-01-15T06:56:07.000Z\",\"ViewVersion\":2}}]}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf);
 }
 END_TEST
+
+START_TEST(UA_Variant_Wrap_Array_NonReversible_json_encode) {
+    UA_Variant src;
+    UA_Variant_init(&src);
+    src.arrayDimensions = (UA_UInt32 *)UA_Array_new(1, &UA_TYPES[UA_TYPES_UINT32]);
+    src.arrayDimensionsSize = 1;
+    src.arrayDimensions[0] = 2;
+    
+    UA_ViewDescription variantContent1;
+    UA_DateTime srvts1 = UA_DateTime_fromUnixTime(1234567);
+    variantContent1.timestamp = srvts1;
+    variantContent1.viewVersion = 1;
+    variantContent1.viewId = UA_NODEID_NUMERIC(1,1);
+    
+    UA_ViewDescription variantContent2;
+    UA_DateTime srvts2 = UA_DateTime_fromUnixTime(1234567);
+    variantContent2.timestamp = srvts2;
+    variantContent2.viewVersion = 2;
+    variantContent2.viewId = UA_NODEID_NUMERIC(1,2);
+    
+    
+    UA_ViewDescription d[2] = {variantContent1, variantContent2};
+    UA_Variant_setArrayCopy(&src, d, 2, &UA_TYPES[UA_TYPES_VIEWDESCRIPTION]);
+
+
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_VARIANT];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson(&src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "{\"Body\":[{\"Body\":{\"ViewId\":{\"Id\":1,\"Namespace\":1},\"Timestamp\":\"1970-01-15T06:56:07.000Z\",\"ViewVersion\":1}},{\"Body\":{\"ViewId\":{\"Id\":2,\"Namespace\":1},\"Timestamp\":\"1970-01-15T06:56:07.000Z\",\"ViewVersion\":2}}]}";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf);
+}
+END_TEST
+
+
 
 START_TEST(UA_DataSetFieldFlags_json_encode) {
     UA_DataSetFieldFlags *src = UA_DataSetFieldFlags_new();
@@ -3722,6 +3768,8 @@ START_TEST(UA_DataSetFieldFlags_json_encode) {
 }
 END_TEST
 
+
+/* -----------ExtensionObject------------------*/
 START_TEST(UA_ExtensionObject_json_encode) {
     UA_ExtensionObject *src = UA_ExtensionObject_new();
     UA_ExtensionObject_init(src);
@@ -3745,12 +3793,70 @@ START_TEST(UA_ExtensionObject_json_encode) {
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    //TODO
-    char* result = "{\"TypeId\":{\"Id\":0},\"Encoding\":0,\"Body\":false}";
+    char* result = "{\"TypeId\":{\"Id\":1},\"Body\":false}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf);UA_free(src);
 }
 END_TEST
+
+START_TEST(UA_ExtensionObject_xml_json_encode) {
+    UA_ExtensionObject *src = UA_ExtensionObject_new();
+    UA_ExtensionObject_init(src);
+    src->encoding = UA_EXTENSIONOBJECT_ENCODED_XML;
+    src->content.encoded.typeId = UA_NODEID_NUMERIC(2,1234);
+
+    UA_ByteString b = UA_BYTESTRING("<Elemement></Element>");
+    src->content.encoded.body = b;
+
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_EXTENSIONOBJECT];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "{\"TypeId\":{\"Id\":1234,\"Namespace\":2},\"Encoding\":2,\"Body\":\"<Elemement></Element>\"}";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf);UA_free(src);
+}
+END_TEST
+
+START_TEST(UA_ExtensionObject_NonReversible_StatusCode_json_encode) {
+    UA_ExtensionObject *src = UA_ExtensionObject_new();
+    UA_ExtensionObject_init(src);
+    src->encoding = UA_EXTENSIONOBJECT_DECODED_NODELETE;
+    src->content.decoded.type = &UA_TYPES[UA_TYPES_STATUSCODE];
+
+    UA_StatusCode b = UA_STATUSCODE_BADENCODINGERROR;
+    src->content.decoded.data = &b;
+
+    const UA_DataType *type = &UA_TYPES[UA_TYPES_EXTENSIONOBJECT];
+
+    UA_ByteString buf;
+
+    UA_ByteString_allocBuffer(&buf, 1000);
+
+    UA_Byte *bufPos = &buf.data[0];
+    const UA_Byte *bufEnd = &buf.data[1000];
+
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
+
+    *bufPos = 0;
+    // then
+    ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
+    char* result = "{\"Body\":{\"Code\":2147876864,\"Symbol\":\"BadEncodingError\"}}";
+    ck_assert_str_eq(result, (char*)buf.data);
+    UA_ByteString_deleteMembers(&buf);UA_free(src);
+}
+END_TEST
+
 
 START_TEST(UA_ExpandedNodeId_json_encode) {
     UA_ExpandedNodeId *src = UA_ExpandedNodeId_new();
@@ -3912,7 +4018,7 @@ START_TEST(UA_MessageReadResponse_json_encode) {
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"ResponseHeader\":{\"Timestamp\":\"1970-01-15T06:56:07.000Z\",\"RequestHandle\":123123,\"ServiceResult\":0,\"ServiceDiagnostics\":{\"AdditionalInfo\":\"serverDiag\"},\"StringTable\":[],\"AdditionalHeader\":{\"TypeId\":{\"Id\":0},\"Encoding\":0,\"Body\":false}},\"Results\":[{\"Value\":{\"Type\":1,\"Body\":true},\"Status\":2153250816,\"SourceTimestamp\":\"1970-01-15T06:56:07.000Z\",\"SourcePicoseconds\":0,\"ServerTimestamp\":\"1970-01-15T06:56:07.000Z\",\"ServerPicoseconds\":0}],\"DiagnosticInfos\":[{\"AdditionalInfo\":\"INNER ADDITION INFO\"}]}";
+    char* result = "{\"ResponseHeader\":{\"Timestamp\":\"1970-01-15T06:56:07.000Z\",\"RequestHandle\":123123,\"ServiceResult\":0,\"ServiceDiagnostics\":{\"AdditionalInfo\":\"serverDiag\"},\"StringTable\":[],\"AdditionalHeader\":{\"TypeId\":{\"Id\":1},\"Body\":false}},\"Results\":[{\"Value\":{\"Type\":1,\"Body\":true},\"Status\":2153250816,\"SourceTimestamp\":\"1970-01-15T06:56:07.000Z\",\"SourcePicoseconds\":0,\"ServerTimestamp\":\"1970-01-15T06:56:07.000Z\",\"ServerPicoseconds\":0}],\"DiagnosticInfos\":[{\"AdditionalInfo\":\"INNER ADDITION INFO\"}]}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf);UA_free(variant);UA_free(innerDiag);UA_free(serverDiag);UA_free(e);UA_free(dv);
 }
@@ -4052,7 +4158,7 @@ START_TEST(UA_WriteRequest_json_encode) {
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"RequestHeader\":{\"AuthenticationToken\":{\"IdType\":1,\"Id\":\"authToken\"},\"Timestamp\":\"1970-01-15T06:56:07.000Z\",\"RequestHandle\":123123,\"ReturnDiagnostics\":1,\"AuditEntryId\":\"Auditentryid\",\"TimeoutHint\":120,\"AdditionalHeader\":{\"TypeId\":{\"Id\":0},\"Encoding\":0,\"Body\":false}},\"NodesToWrite\":[{\"NodeId\":{\"IdType\":1,\"Id\":\"a1111\"},\"AttributeId\":12,\"IndexRange\":\"BLOAB\",\"Value\":{\"Value\":{\"Type\":1,\"Body\":true},\"Status\":2153250816,\"SourceTimestamp\":\"1970-01-15T06:56:07.000Z\",\"SourcePicoseconds\":0,\"ServerTimestamp\":\"1970-01-15T06:56:07.000Z\",\"ServerPicoseconds\":0}},{\"NodeId\":{\"IdType\":1,\"Id\":\"a2222\"},\"AttributeId\":12,\"IndexRange\":\"BLOAB\",\"Value\":{\"Value\":{\"Type\":1,\"Body\":true},\"Status\":2153250816,\"SourceTimestamp\":\"1970-01-15T06:56:07.000Z\",\"SourcePicoseconds\":0,\"ServerTimestamp\":\"1970-01-15T06:56:07.000Z\",\"ServerPicoseconds\":0}}]}";
+    char* result = "{\"RequestHeader\":{\"AuthenticationToken\":{\"IdType\":1,\"Id\":\"authToken\"},\"Timestamp\":\"1970-01-15T06:56:07.000Z\",\"RequestHandle\":123123,\"ReturnDiagnostics\":1,\"AuditEntryId\":\"Auditentryid\",\"TimeoutHint\":120,\"AdditionalHeader\":{\"TypeId\":{\"Id\":1},\"Body\":false}},\"NodesToWrite\":[{\"NodeId\":{\"IdType\":1,\"Id\":\"a1111\"},\"AttributeId\":12,\"IndexRange\":\"BLOAB\",\"Value\":{\"Value\":{\"Type\":1,\"Body\":true},\"Status\":2153250816,\"SourceTimestamp\":\"1970-01-15T06:56:07.000Z\",\"SourcePicoseconds\":0,\"ServerTimestamp\":\"1970-01-15T06:56:07.000Z\",\"ServerPicoseconds\":0}},{\"NodeId\":{\"IdType\":1,\"Id\":\"a2222\"},\"AttributeId\":12,\"IndexRange\":\"BLOAB\",\"Value\":{\"Value\":{\"Type\":1,\"Body\":true},\"Status\":2153250816,\"SourceTimestamp\":\"1970-01-15T06:56:07.000Z\",\"SourcePicoseconds\":0,\"ServerTimestamp\":\"1970-01-15T06:56:07.000Z\",\"ServerPicoseconds\":0}}]}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf);
 }
@@ -5190,7 +5296,7 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_encode, UA_QualName_NonReversible_json_encode);
     tcase_add_test(tc_json_encode, UA_QualName_NonReversible_Namespace_json_encode);
             
-    //Variant REVERSIBLE 
+    //Variant -REVERSIBLE-
     tcase_add_test(tc_json_encode, UA_Variant_Bool_json_encode);
     tcase_add_test(tc_json_encode, UA_Variant_Number_json_encode);
     tcase_add_test(tc_json_encode, UA_Variant_NodeId_json_encode);
@@ -5205,8 +5311,11 @@ static Suite *testSuite_builtin(void) {
     //Matrix
     tcase_add_test(tc_json_encode, UA_Variant_Matrix_UInt16_json_encode);
     
+    //Wrap
+    tcase_add_test(tc_json_encode, UA_Variant_Wrap_json_encode);
+    tcase_add_test(tc_json_encode, UA_Variant_Wrap_Array_json_encode);
     
-    //Variant NON-REVERSIBLE
+    //Variant -NON-REVERSIBLE-
     tcase_add_test(tc_json_encode, UA_Variant_StatusCode_NonReversible_json_encode);
     
     //Array
@@ -5216,16 +5325,18 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_encode, UA_Variant_Matrix_String_NonReversible_json_encode);
     tcase_add_test(tc_json_encode, UA_Variant_Matrix_NodeId_NonReversible_json_encode);
     
-    tcase_add_test(tc_json_encode, UA_Variant_Wrap_json_encode);
-    tcase_add_test(tc_json_encode, UA_Variant_Wrap_Array_json_encode);
+    //Wrap non reversible
+    tcase_add_test(tc_json_encode, UA_Variant_Wrap_Array_NonReversible_json_encode);
     
+    
+    //ExtensionObject
     tcase_add_test(tc_json_encode, UA_ExtensionObject_json_encode);
+    tcase_add_test(tc_json_encode, UA_ExtensionObject_xml_json_encode);
     
+    tcase_add_test(tc_json_encode, UA_ExtensionObject_NonReversible_StatusCode_json_encode);
     
     tcase_add_test(tc_json_encode, UA_DataValue_json_encode);
-    
-    
-    
+
     tcase_add_test(tc_json_encode, UA_MessageReadResponse_json_encode);
     tcase_add_test(tc_json_encode, UA_ViewDescription_json_encode);
     tcase_add_test(tc_json_encode, UA_WriteRequest_json_encode);

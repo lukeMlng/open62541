@@ -1383,70 +1383,79 @@ ENCODE_JSON(ExtensionObject) {
     }
     
     u8 encoding = (u8) src->encoding;
-    status ret = UA_STATUSCODE_GOOD;
     
-    /* No content or already encoded content.*/
+    if(encoding == UA_EXTENSIONOBJECT_ENCODED_NOBODY){
+        return writeNull(ctx);
+    }
+    
+    status ret = UA_STATUSCODE_GOOD;
+    UA_Boolean commaNeeded = UA_FALSE;
+    /* already encoded content.*/
     if (encoding <= UA_EXTENSIONOBJECT_ENCODED_XML) {
-        //commaNeeded = UA_FALSE;
-
         ret |= WRITE(ObjStart);
 
-        ret |= writeKey(ctx, "TypeId", UA_FALSE);
-        ret |= ENCODE_DIRECT(&src->content.encoded.typeId, NodeId);
-        if (ret != UA_STATUSCODE_GOOD)
-            return ret;
-
-        ret |= writeKey(ctx, "Encoding", UA_TRUE);
-        ret |= ENCODE_DIRECT(&encoding, Byte);
-        if (ret != UA_STATUSCODE_GOOD)
-            return ret;
+        if(useReversible){
+            ret |= writeKey(ctx, "TypeId", commaNeeded);
+            commaNeeded = true;
+            ret |= ENCODE_DIRECT(&src->content.encoded.typeId, NodeId);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+        }
+        
         switch (src->encoding) {
-            case UA_EXTENSIONOBJECT_ENCODED_NOBODY:
-                ret |= writeNull(ctx);
-                break;
             case UA_EXTENSIONOBJECT_ENCODED_BYTESTRING:
-                ret |= writeKey(ctx, "Body", UA_TRUE);
+            {
+                if(useReversible){
+                    UA_Byte jsonEncodingField = 1;
+                    ret |= writeKey(ctx, "Encoding", commaNeeded);
+                    commaNeeded = true;
+                    ret |= ENCODE_DIRECT(&jsonEncodingField, Byte);
+                }
+                ret |= writeKey(ctx, "Body", commaNeeded);
                 ret |= ENCODE_DIRECT(&src->content.encoded.body, ByteString);
                 break;
+            }
             case UA_EXTENSIONOBJECT_ENCODED_XML:
-                ret |= writeKey(ctx, "Body", UA_TRUE);
+            {
+                if(useReversible){
+                    UA_Byte jsonEncodingField = 2;
+                    ret |= writeKey(ctx, "Encoding", commaNeeded);
+                    commaNeeded = true;
+                    ret |= ENCODE_DIRECT(&jsonEncodingField, Byte);
+                }
+                ret |= writeKey(ctx, "Body", commaNeeded);
                 ret |= ENCODE_DIRECT(&src->content.encoded.body, String);
                 break;
+            }
             default:
                 ret = UA_STATUSCODE_BADINTERNALERROR;
         }
 
         ret |= WRITE(ObjEnd);
-    }else{ /* DECODE CONTENT */
+    }else{ 
         
-        /* Cannot encode with no data or no type description */
-        if (!src->content.decoded.type || !src->content.decoded.data)
+        /* Cannot encode with no type description */
+        if (!src->content.decoded.type)
             return UA_STATUSCODE_BADENCODINGERROR;
 
+        if(!src->content.decoded.data){
+            return writeNull(ctx);
+        }
+        
         UA_NodeId typeId = src->content.decoded.type->typeId;
         if (typeId.identifierType != UA_NODEIDTYPE_NUMERIC)
             return UA_STATUSCODE_BADENCODINGERROR;
-        typeId.identifier.numeric = src->content.decoded.type->binaryEncodingId;
-
+        
         if (useReversible) {
             //-----------REVERSIBLE-------------------
             ret |= WRITE(ObjStart);
 
-            //commaNeeded = UA_FALSE;
             ret |= writeKey(ctx, "TypeId", UA_FALSE);
             ret |= ENCODE_DIRECT(&typeId, NodeId);
             if (ret != UA_STATUSCODE_GOOD)
                 return ret;
-
-            /* Write the encoding byte */
-            encoding = 0; //TODO: encoding
-            ret |= writeKey(ctx, "Encoding", UA_TRUE);
-            ret |= ENCODE_DIRECT(&encoding, Byte);
-
-            /* Return early upon failures (no buffer exchange until here) */
-            if (ret != UA_STATUSCODE_GOOD)
-                return ret;
-
+            
+            //Encoding field is omitted if the value is 0.
             const UA_DataType *contentType = src->content.decoded.type;
 
             /* Encode the content */
@@ -1464,7 +1473,6 @@ ENCODE_JSON(ExtensionObject) {
              * 
              * TODO: Does this mean there is a "Body" key in the ExtensionObject?
              */
-            //commaNeeded = UA_FALSE;
             ret |= WRITE(ObjStart);
             const UA_DataType *contentType = src->content.decoded.type;
             ret |= writeKey(ctx, "Body", UA_FALSE);
@@ -1527,8 +1535,13 @@ static status
 addMatrixContentJSON(Ctx *ctx, void* array, const UA_DataType *type, size_t *index, UA_UInt32 *arrayDimensions, size_t dimensionIndex, size_t dimensionSize, UA_Boolean useReversible) {
     status ret = UA_STATUSCODE_GOOD;
     
+    /* Check the recursion limit */
+    if (ctx->depth > UA_ENCODING_MAX_RECURSION)
+        return UA_STATUSCODE_BADENCODINGERROR;
+    ctx->depth++;
+    
     if (dimensionIndex == (dimensionSize - 1)) {
-        //The inner Arrays are written
+        //Stop recursion: The inner Arrays are written
         UA_Boolean commaNeeded = UA_FALSE;
 
         ret |= WRITE(ArrayStart);
@@ -1548,6 +1561,7 @@ addMatrixContentJSON(Ctx *ctx, void* array, const UA_DataType *type, size_t *ind
         ret |= WRITE(ArrayEnd);
 
     } else {
+        //We have to go deeper
         UA_UInt32 currentDimensionSize = arrayDimensions[dimensionIndex];
         dimensionIndex++;
 
@@ -1565,6 +1579,9 @@ addMatrixContentJSON(Ctx *ctx, void* array, const UA_DataType *type, size_t *ind
 
         ret |= WRITE(ArrayEnd);
     }
+    
+    ctx->depth--;
+    
     return ret;
 }
 
@@ -1600,28 +1617,20 @@ ENCODE_JSON(Variant) {
         /* Encode the content */
         if (!isBuiltin && !isAlias){
             //-------REVERSIBLE:  NOT BUILTIN, can it be encoded? Wrap in extension object .------------
-            
-            //commaNeeded = UA_FALSE;
             ret |= writeKey(ctx, "Type", UA_FALSE);
-            //TODO TypeINDEX or NodeID ???
-            ret |= ENCODE_DIRECT(&src->type->typeId.identifier.numeric, UInt32);
-
+            ret |= ENCODE_DIRECT(&UA_TYPES[UA_TYPES_EXTENSIONOBJECT].typeId.identifier.numeric, UInt32);
             ret |= writeKey(ctx, "Body", UA_TRUE);
             ret |= Variant_encodeJsonWrapExtensionObject(src, isArray, ctx,useReversible);
         } else if (!isArray) {
             //-------REVERSIBLE:  BUILTIN, single value.------------
-            //commaNeeded = UA_FALSE;
             ret |= writeKey(ctx, "Type", UA_FALSE);
             ret |= ENCODE_DIRECT(&src->type->typeId.identifier.numeric, UInt32);
-
             ret |= writeKey(ctx, "Body", UA_TRUE);
             ret |= encodeJsonInternal(src->data, src->type, ctx, useReversible);
         } else {
             //-------REVERSIBLE:   BUILTIN, array.------------
-            //commaNeeded = UA_FALSE;
             ret |= writeKey(ctx, "Type", UA_FALSE);
             ret |= ENCODE_DIRECT(&src->type->typeId.identifier.numeric, UInt32);
-
             ret |= writeKey(ctx, "Body", UA_TRUE);
             ret |= Array_encodeJson(src->data, src->arrayLength, src->type, ctx, UA_TRUE, useReversible);
         }
@@ -1649,8 +1658,14 @@ ENCODE_JSON(Variant) {
         
         if (!isBuiltin && !isAlias){
             //-------NON REVERSIBLE:  NOT BUILTIN, can it be encoded? Wrap in extension object .------------
-            ret |= writeKey(ctx, "Body", UA_TRUE);
+            if (src->arrayDimensionsSize > 1) {
+                return UA_STATUSCODE_BADNOTIMPLEMENTED;
+            }
+            
+            ret |= WRITE(ObjStart);
+            ret |= writeKey(ctx, "Body", UA_FALSE);
             ret |= Variant_encodeJsonWrapExtensionObject(src, isArray, ctx, useReversible);
+            ret |= WRITE(ObjEnd);
         } else if (!isArray) {
             //-------NON REVERSIBLE:   BUILTIN, single value.------------
             ret |= WRITE(ObjStart);
@@ -1695,7 +1710,6 @@ ENCODE_JSON(DataValue) {
         //no element, encode as null
         return writeNull(ctx);
     }
-    
     
     status ret = UA_STATUSCODE_GOOD; 
     ret |= WRITE(ObjStart);
