@@ -52,7 +52,7 @@ const u8 hexmapUpper[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A
  */
 #define WRITE(ELEM) writeJson##ELEM(ctx)
 
-#define JSON(ELEM) static status writeJson##ELEM(Ctx *UA_RESTRICT ctx)
+#define JSON(ELEM) static inline status writeJson##ELEM(Ctx *UA_RESTRICT ctx)
 
 //static UA_Boolean commaNeeded = UA_FALSE;
 //static UA_UInt32 innerObject = 0;
@@ -655,98 +655,6 @@ ENCODE_JSON(String) {
         return writeNull(ctx);
     }
 
-    /*size_t escape_characters = 0;
-    size_t actualLengthWithoutQuotes = 0;
-
-
-    for (size_t i = 0; i < src->length; i++) {
-        switch (src->data[i]) {
-            case '\"'://quotation mark
-            case '\\'://reverse solidus
-            case '\b'://backspace
-            case '\f'://formfeed
-            case '\n'://newline
-            case '\r'://carriage return
-            case '\t'://horizontal tab
-                // one character escape sequence
-                escape_characters++;
-                break;
-            default:
-                if (src->data[i] < 32 ) {
-                    // UTF-16 escape sequence \uXXXX 
-                    escape_characters += 6;
-                }
-                break;
-        }
-    }
-
-    actualLengthWithoutQuotes = src->length + escape_characters;
-
-    if (ctx->pos + actualLengthWithoutQuotes + 2 > ctx->end) // +2 for quotation marks
-        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
-
-    UA_StatusCode ret = UA_STATUSCODE_GOOD;
-    ret |= WRITE(Quote);
-
-    // no characters have to be escaped 
-    if (escape_characters == 0) {
-        memcpy(ctx->pos, src->data, actualLengthWithoutQuotes);
-        ctx->pos += actualLengthWithoutQuotes;
-    } else {
-        // copy the string 
-        for (size_t i = 0; i < src->length; i++) {
-
-            // character needs to be escaped
-            switch (src->data[i]) {
-                case '\\':
-                    *(ctx->pos++) = '\\';
-                    *(ctx->pos++) = '\\';
-                    break;
-                case '\"':
-                    *(ctx->pos++) = '\\';
-                    *(ctx->pos++) = '\"';
-                    break;
-                case '\b':
-                    *(ctx->pos++) = '\\';
-                    *(ctx->pos++) = 'b';
-                    break;
-                case '\f':
-                    *(ctx->pos++) = '\\';
-                    *(ctx->pos++) = 'f';
-                    break;
-                case '\n':
-                    *(ctx->pos++) = '\\';
-                    *(ctx->pos++) = 'n';
-                    break;
-                case '\r':
-                    *(ctx->pos++) = '\\';
-                    *(ctx->pos++) = 'r';
-                    break;
-                case '\t':
-                    *(ctx->pos++) = '\\';
-                    *(ctx->pos++) = 't';
-                    break;
-                default:
-                    if (src->data[i] <= '\x1f' ) {
-                        *(ctx->pos++) = '\\';
-                        *(ctx->pos++) = 'u';
-                        *(ctx->pos++) = '0';
-                        *(ctx->pos++) = '0';
-
-                        UA_Byte n1 = src->data[i] >> 4;
-                        UA_Byte n2 = src->data[i] & 0xf;
-                        *(ctx->pos++) = hexmapLower[n1];
-                        *(ctx->pos++) = hexmapLower[n2];
-                    } else {
-                        *(ctx->pos++) = src->data[i];
-                    }
-                    break;
-            }
-        }
-    }*/
-    
-    
-    //------------------------------
     //escaping adapted from https://github.com/akheron/jansson dump.c
     UA_StatusCode ret = UA_STATUSCODE_GOOD;
     
@@ -1147,7 +1055,22 @@ NodeId_encodeJsonInternal(UA_NodeId const *src, Ctx *ctx, UA_Boolean useReversib
             return UA_STATUSCODE_BADENCODINGERROR;
     }
 
-    if (useReversible) {
+    return ret;
+}
+
+ENCODE_JSON(NodeId) {
+    if(!src){
+        return writeNull(ctx);
+    }
+    UA_StatusCode ret = UA_STATUSCODE_GOOD;
+    ret |= WRITE(ObjStart);
+    if (ret != UA_STATUSCODE_GOOD)
+        return ret;
+    ret = NodeId_encodeJsonInternal(src, ctx, useReversible);
+    if (ret != UA_STATUSCODE_GOOD)
+        return ret;
+    
+     if (useReversible) {
         if (src->namespaceIndex > 0) {
             ret |= writeKey(ctx, "Namespace", UA_TRUE);
             ret |= ENCODE_DIRECT(&src->namespaceIndex, UInt16);
@@ -1178,21 +1101,8 @@ NodeId_encodeJsonInternal(UA_NodeId const *src, Ctx *ctx, UA_Boolean useReversib
             }
         }
     }
-
-    return ret;
-}
-
-ENCODE_JSON(NodeId) {
-    if(!src){
-        return writeNull(ctx);
-    }
-    UA_StatusCode ret = UA_STATUSCODE_GOOD;
-    ret |= WRITE(ObjStart);
-    if (ret != UA_STATUSCODE_GOOD)
-        return ret;
-    ret = NodeId_encodeJsonInternal(src, ctx, useReversible);
-    if (ret != UA_STATUSCODE_GOOD)
-        return ret;
+    
+    
     ret = WRITE(ObjEnd);
     return ret;
 }
@@ -1216,20 +1126,74 @@ ENCODE_JSON(ExpandedNodeId) {
     if (ret != UA_STATUSCODE_GOOD)
         return ret;
     
-    if ((void*) src->namespaceUri.data > UA_EMPTY_ARRAY_SENTINEL) {
-        writeKey(ctx, "Namespace", UA_TRUE);
-        WRITE(Quote);
-        ret = ENCODE_DIRECT(&src->namespaceUri, String);
-        if (ret != UA_STATUSCODE_GOOD)
-            return ret;
-        WRITE(Quote);
-        UA_assert(ret != UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
-        if (ret != UA_STATUSCODE_GOOD)
-            return ret;
-    }
+    if(useReversible){
+        if (src->namespaceUri.data != NULL && src->namespaceUri.length != 0 && (void*) src->namespaceUri.data > UA_EMPTY_ARRAY_SENTINEL) {
+            //If the NamespaceUri is specified it is encoded as a JSON string in this field.
+            writeKey(ctx, "Namespace", UA_TRUE);
+            ret = ENCODE_DIRECT(&src->namespaceUri, String);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+        }else{
+            //If the NamespaceUri is not specified, the NamespaceIndex is encoded with these rules:
+            //The field is encoded as a JSON number for the reversible encoding.
+            //The field is omitted if the NamespaceIndex equals 0.
+            if (src->nodeId.namespaceIndex > 0) {
+                ret |= writeKey(ctx, "Namespace", UA_TRUE);
+                ret |= ENCODE_DIRECT(&src->nodeId.namespaceIndex, UInt16);
+            }
+        }
 
-    /* Encode the serverIndex */
-    if (src->serverIndex > 0) {
+        /* 
+         * Encode the serverIndex/Url 
+         * This field is encoded as a JSON number for the reversible encoding.
+         * This field is omitted if the ServerIndex equals 0.
+         */
+        if (src->serverIndex > 0) {
+            writeKey(ctx, "ServerUri", UA_TRUE);
+            ret = ENCODE_DIRECT(&src->serverIndex, UInt32);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+        }
+    }else{
+        /* 
+         * If the NamespaceUri is not specified, the NamespaceIndex is encoded with these rules:
+         * For the non-reversible encoding the field is the NamespaceUri associated with the
+         * NamespaceIndex encoded as a JSON string.
+         * A NamespaceIndex of 1 is always encoded as a JSON number.
+         */
+        
+        if (src->namespaceUri.data != NULL && src->namespaceUri.length != 0){
+            writeKey(ctx, "Namespace", UA_TRUE);
+            ret = ENCODE_DIRECT(&src->namespaceUri, String);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+        }else{
+            if (src->nodeId.namespaceIndex == 1) {
+                writeKey(ctx, "Namespace", UA_TRUE);
+                ret |= ENCODE_DIRECT(&src->nodeId.namespaceIndex, UInt16);
+            } else {
+                writeKey(ctx, "Namespace", UA_TRUE);
+
+                //Check if Namespace given and in range
+                if(src->nodeId.namespaceIndex < ctx->namespacesSize 
+                        && ctx->namespaces != NULL){
+
+                    UA_String namespaceEntry = ctx->namespaces[src->nodeId.namespaceIndex];
+                    ret |= ENCODE_DIRECT(&namespaceEntry, String);
+                    if (ret != UA_STATUSCODE_GOOD)
+                        return ret;
+                }else{
+                    return UA_STATUSCODE_BADNOTFOUND;
+                }
+            }
+        }
+        
+        
+        /* 
+         * For the non-reversible encoding, this field is the ServerUri associated with the ServerIndex
+         * portion of the ExpandedNodeId, encoded as a JSON string.
+         */
+        
         writeKey(ctx, "ServerUri", UA_TRUE);
         ret = ENCODE_DIRECT(&src->serverIndex, UInt32);
         if (ret != UA_STATUSCODE_GOOD)
@@ -1412,7 +1376,7 @@ ENCODE_JSON(ExtensionObject) {
                     ret |= ENCODE_DIRECT(&jsonEncodingField, Byte);
                 }
                 ret |= writeKey(ctx, "Body", commaNeeded);
-                ret |= ENCODE_DIRECT(&src->content.encoded.body, ByteString);
+                ret |= ENCODE_DIRECT(&src->content.encoded.body, String);
                 break;
             }
             case UA_EXTENSIONOBJECT_ENCODED_XML:
@@ -2606,6 +2570,8 @@ DECODE_JSON(NodeId) {
       fieldPointer[fieldCount] = &dst->namespaceIndex;
       functions[fieldCount] = (decodeJsonSignature) UInt16_decodeJson;
       fieldCount++;  
+    }else{
+        dst->namespaceIndex = 0;
     }
     
     UA_Boolean found[3] = {UA_FALSE, UA_FALSE, UA_FALSE};
@@ -2818,26 +2784,26 @@ DECODE_JSON(Variant) {
         char *idTypeEncoded = (char*)(ctx->pos + parseCtx->tokenArray[searchResultType].start);
         UA_atoi(idTypeEncoded, size, &idTypeDecoded);
         
+        //Set the type, TODO: Get the Type by nodeID!
+        UA_NodeId typeNodeId = UA_NODEID_NUMERIC(0, (UA_UInt32)idTypeDecoded);
+        const UA_DataType *bodyType = UA_findDataType(&typeNodeId);
+        
+        
         /* Get the datatype of the content. The type must be a builtin data type.
         * All not-builtin types are wrapped in an ExtensionObject. */
-        if(idTypeDecoded > UA_TYPES_DIAGNOSTICINFO)
+        if(bodyType->typeIndex > UA_TYPES_DIAGNOSTICINFO)
             return UA_STATUSCODE_BADDECODINGERROR;
 
         /* A variant cannot contain a variant. But it can contain an array of
             * variants */
-        if(idTypeDecoded == UA_TYPES_VARIANT && !isArray)
+        if(bodyType->typeIndex == UA_TYPES_VARIANT && !isArray)
             return UA_STATUSCODE_BADDECODINGERROR;
         
-        
-        //Set the type, TODO: Get the Type by nodeID!
-        UA_NodeId typeNodeId = UA_NODEID_NUMERIC(0, (UA_UInt32)idTypeDecoded);
-        const UA_DataType *BodyType = UA_findDataType(&typeNodeId);
-        
-        if(BodyType == NULL){
+        if(bodyType == NULL){
             return UA_STATUSCODE_BADDECODINGERROR;
         }
         //const UA_DataType *BodyType = &dataTypeByTypeNodeId;
-        dst->type = BodyType;
+        dst->type = bodyType;
         
         if(isArray){
               if(!hasDimension){
@@ -2847,19 +2813,19 @@ DECODE_JSON(Variant) {
                 decodeJsonSignature functions[] = {NULL, (decodeJsonSignature) Array_decodeJson};
                 UA_Boolean found[] = {UA_FALSE, UA_FALSE};
                 DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 2};
-                ret = decodeFields(ctx, parseCtx, &decodeCtx, BodyType);
+                ret = decodeFields(ctx, parseCtx, &decodeCtx, bodyType);
             }else{
                 const char* fieldNames[] = {"Type", "Body", "Dimension"};
                 void *fieldPointer[] = {NULL, &dst->data, &dst->arrayDimensions};
                 decodeJsonSignature functions[] = {NULL, (decodeJsonSignature) Array_decodeJson, (decodeJsonSignature) VariantDimension_decodeJson};
                 UA_Boolean found[] = {UA_FALSE, UA_FALSE, UA_FALSE};
                 DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 3};
-                ret = decodeFields(ctx, parseCtx, &decodeCtx, BodyType);
+                ret = decodeFields(ctx, parseCtx, &decodeCtx, bodyType);
             }
             
-        }else if(idTypeDecoded != UA_TYPES_EXTENSIONOBJECT){
+        }else if(bodyType->typeIndex != UA_TYPES_EXTENSIONOBJECT){
             //Allocate Memory for Body
-            void* bodyPointer = UA_new(BodyType);
+            void* bodyPointer = UA_new(bodyType);
             memcpy(&dst->data, &bodyPointer, sizeof(void*)); //Copy new Pointer do dest
             
             const char* fieldNames[] = {"Type", "Body"};
@@ -2867,15 +2833,14 @@ DECODE_JSON(Variant) {
             decodeJsonSignature functions[] = {NULL, (decodeJsonSignature) decodeJsonInternal};
             UA_Boolean found[] = {UA_FALSE, UA_FALSE};
             DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 2};
-            ret = decodeFields(ctx, parseCtx, &decodeCtx, BodyType);
+            ret = decodeFields(ctx, parseCtx, &decodeCtx, bodyType);
         }else {
             const char* fieldNames[] = {"Type", "Body"};
             void *fieldPointer[] = {NULL, dst};
             decodeJsonSignature functions[] = {NULL, (decodeJsonSignature) Variant_decodeJsonUnwrapExtensionObject};
             UA_Boolean found[] = {UA_FALSE, UA_FALSE};
-            //ret = Variant_decodeJsonUnwrapExtensionObject(dst, ctx, parseCtx, isArray, hasDimension, searchResultBody);
             DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 2};
-            ret = decodeFields(ctx, parseCtx, &decodeCtx, BodyType);
+            ret = decodeFields(ctx, parseCtx, &decodeCtx, bodyType);
         }
     }
     
