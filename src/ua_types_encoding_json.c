@@ -2003,10 +2003,17 @@ static status
 Variant_decodeJsonUnwrapExtensionObject(UA_Variant *dst, const UA_DataType *type, CtxJson *ctx, ParseCtx *parseCtx, UA_Boolean moveToken);
 
 jsmntype_t getJsmnType(const ParseCtx *parseCtx){
+    if(*parseCtx->index >= parseCtx->tokenCount){
+        return JSMN_UNDEFINED;
+    }
     return parseCtx->tokenArray[*parseCtx->index].type;
 }
 
  UA_Boolean isJsonNull(const CtxJson *ctx, const ParseCtx *parseCtx){
+    if(*parseCtx->index >= parseCtx->tokenCount){
+        return false;
+    }
+     
     if(parseCtx->tokenArray[*parseCtx->index].type != JSMN_PRIMITIVE){
         return false;
     }
@@ -2014,9 +2021,7 @@ jsmntype_t getJsmnType(const ParseCtx *parseCtx){
     return (elem[0] == 'n' && elem[1] == 'u' && elem[2] == 'l' && elem[3] == 'l');
 }
 
-static int equalCount = 0;
-static int jsoneq(const char *json, jsmntok_t *tok, const char *s) {
-    equalCount++;
+static UA_SByte jsoneq(const char *json, jsmntok_t *tok, const char *s) {
     if(tok){
        if (tok->type == JSMN_STRING) {
             if((int) strlen(s) == tok->end - tok->start ){
@@ -2031,13 +2036,12 @@ static int jsoneq(const char *json, jsmntok_t *tok, const char *s) {
 }
 
 DECODE_JSON(Boolean) {
-    size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
-    
     jsmntype_t tokenType = getJsmnType(parseCtx);
     if(tokenType != JSMN_PRIMITIVE){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     
+    size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
     UA_Boolean d = UA_TRUE;
     if(size == 4){
         d = UA_TRUE;
@@ -2248,6 +2252,17 @@ DECODE_JSON(Guid) {
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     char *buf = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
+    
+    
+    for (size_t i = 0; i < size; i++) {
+        if (!(buf[i] == '-' 
+                || (buf[i] >= '0' && buf[i] <= '9') 
+                || (buf[i] >= 'A' && buf[i] <= 'F') 
+                || (buf[i] >= 'a' && buf[i] <= 'f'))){
+            return UA_STATUSCODE_BADDECODINGERROR;
+        }
+    }
+
     
     dst->data1 |= (UA_Byte)(hex2int(buf[0]) << 28);
     dst->data1 |= (UA_Byte)(hex2int(buf[1]) << 24);
@@ -2854,7 +2869,7 @@ DECODE_JSON(Variant) {
             DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 2};
             ret = decodeFields(ctx, parseCtx, &decodeCtx, bodyType);
             if(ret != UA_STATUSCODE_GOOD){
-                UA_free(bodyPointer);
+                //UA_free(bodyPointer);
             }
         }else {
             const char* fieldNames[] = {"Type", "Body"};
@@ -3182,7 +3197,10 @@ decodeFields(/*TODO const*/ CtxJson *ctx, ParseCtx *parseCtx, DecodeContext *dec
     }
     
     (*parseCtx->index)++; //go to first key
-
+    if(*parseCtx->index >= parseCtx->tokenCount){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
     for (size_t currentObjectCount = 0; currentObjectCount < objectCount && *parseCtx->index < parseCtx->tokenCount; currentObjectCount++) {
 
         // start searching at the index of currentObjectCount
@@ -3191,6 +3209,9 @@ decodeFields(/*TODO const*/ CtxJson *ctx, ParseCtx *parseCtx, DecodeContext *dec
             
             size_t index = i % decodeContext->memberSize;
             
+            if(*parseCtx->index >= parseCtx->tokenCount){
+                return UA_STATUSCODE_BADDECODINGERROR;
+            }
             if (jsoneq((char*) ctx->pos, &parseCtx->tokenArray[*parseCtx->index], decodeContext->fieldNames[index]) != 0)
                 continue;
 
@@ -3203,6 +3224,10 @@ decodeFields(/*TODO const*/ CtxJson *ctx, ParseCtx *parseCtx, DecodeContext *dec
             }
 
             (*parseCtx->index)++; //goto value
+            if(*parseCtx->index >= parseCtx->tokenCount){
+                return UA_STATUSCODE_BADDECODINGERROR;
+            }
+            
             if (decodeContext->functions[index] != NULL) {
                 ret = decodeContext->functions[index](decodeContext->fieldPointer[index], type, ctx, parseCtx, UA_TRUE); //Move Token True
                 if (ret != UA_STATUSCODE_GOOD) {
