@@ -1334,7 +1334,11 @@ ENCODE_JSON(StatusCode) {
             ret |= writeNull(ctx);
         }
     } else {
-        ret |= ENCODE_DIRECT(src, UInt32);
+        //if(src == 0){
+        //    ret |= writeNull(ctx);
+        //}else{
+            ret |= ENCODE_DIRECT(src, UInt32);
+        //}
     }
 
     return ret;
@@ -2022,14 +2026,16 @@ jsmntype_t getJsmnType(const ParseCtx *parseCtx){
 }
 
 static UA_SByte jsoneq(const char *json, jsmntok_t *tok, const char *s) {
-    if(tok){
-       if (tok->type == JSMN_STRING) {
-            if((int) strlen(s) == tok->end - tok->start ){
-                if(strncmp(json + tok->start, s, (size_t)(tok->end - tok->start)) == 0){
-                    return 0;
-                }   
-            }
-        }
+    if(json == NULL || tok == NULL || s == NULL){
+        return -1;
+    }
+    
+    if (tok->type == JSMN_STRING) {
+         if((int) strlen(s) == tok->end - tok->start ){
+             if(strncmp(json + tok->start, s, (size_t)(tok->end - tok->start)) == 0){
+                 return 0;
+             }   
+         }
     }
     
     return -1;
@@ -2038,6 +2044,10 @@ static UA_SByte jsoneq(const char *json, jsmntok_t *tok, const char *s) {
 DECODE_JSON(Boolean) {
     jsmntype_t tokenType = getJsmnType(parseCtx);
     if(tokenType != JSMN_PRIMITIVE){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
+    if(*parseCtx->index >= parseCtx->tokenCount){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     
@@ -2063,6 +2073,10 @@ DECODE_JSON(Byte) {
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     
+    if(*parseCtx->index >= parseCtx->tokenCount){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
     UA_UInt64 d = 0;
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
     char* data = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
@@ -2077,6 +2091,10 @@ DECODE_JSON(Byte) {
 DECODE_JSON(SByte) {
     jsmntype_t tokenType = getJsmnType(parseCtx);
     if(tokenType != JSMN_PRIMITIVE){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
+    if(*parseCtx->index >= parseCtx->tokenCount){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     
@@ -2097,6 +2115,10 @@ DECODE_JSON(UInt16) {
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     
+    if(*parseCtx->index >= parseCtx->tokenCount){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
     UA_UInt64 d = 0;
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
     char* data = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
@@ -2111,6 +2133,10 @@ DECODE_JSON(UInt16) {
 DECODE_JSON(UInt32) {
     jsmntype_t tokenType = getJsmnType(parseCtx);
     if(tokenType != JSMN_PRIMITIVE){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
+    if(*parseCtx->index >= parseCtx->tokenCount){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     
@@ -2131,6 +2157,10 @@ DECODE_JSON(UInt64) {
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     
+    if(*parseCtx->index >= parseCtx->tokenCount){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
     UA_UInt64 d = 0;
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
     char* data = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
@@ -2145,6 +2175,10 @@ DECODE_JSON(UInt64) {
 DECODE_JSON(Int16) {
     jsmntype_t tokenType = getJsmnType(parseCtx);
     if(tokenType != JSMN_PRIMITIVE){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
+    if(*parseCtx->index >= parseCtx->tokenCount){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     
@@ -2164,6 +2198,10 @@ DECODE_JSON(Int32) {
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     
+    if(*parseCtx->index >= parseCtx->tokenCount){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
     UA_Int64 d = 0;
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
     char* data = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
@@ -2178,6 +2216,10 @@ DECODE_JSON(Int32) {
 DECODE_JSON(Int64) {
     jsmntype_t tokenType = getJsmnType(parseCtx);
     if(tokenType != JSMN_PRIMITIVE){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
+    if(*parseCtx->index >= parseCtx->tokenCount){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     
@@ -2210,6 +2252,10 @@ DECODE_JSON(Float){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     
+    if(*parseCtx->index >= parseCtx->tokenCount){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
     UA_Float d = 0;
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
     char* data = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
@@ -2228,6 +2274,11 @@ DECODE_JSON(Double){
     if(tokenType != JSMN_PRIMITIVE){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
+    
+    if(*parseCtx->index >= parseCtx->tokenCount){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
     UA_Double d = 0;
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
     char* data = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
@@ -2247,6 +2298,11 @@ DECODE_JSON(Guid) {
     if(tokenType != JSMN_STRING && tokenType != JSMN_PRIMITIVE){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
+    
+    if(*parseCtx->index >= parseCtx->tokenCount){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
     if(size != 36){
         return UA_STATUSCODE_BADDECODINGERROR;
@@ -2308,11 +2364,20 @@ DECODE_JSON(Guid) {
 
 #undef jsonstringdecodeonheap
 DECODE_JSON(String) {
+    if(isJsonNull(ctx, parseCtx)){
+        dst->data = NULL;
+        dst->length = 0;
+        return UA_STATUSCODE_GOOD;
+    }
     jsmntype_t tokenType = getJsmnType(parseCtx);
     if(tokenType != JSMN_STRING && tokenType != JSMN_PRIMITIVE){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     UA_StatusCode ret = UA_STATUSCODE_GOOD;
+    
+    if(*parseCtx->index >= parseCtx->tokenCount){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
     
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
     UA_Byte* stringRef = (ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
@@ -2339,17 +2404,26 @@ DECODE_JSON(String) {
 
 DECODE_JSON(ByteString) {
     jsmntype_t tokenType = getJsmnType(parseCtx);
+    if(isJsonNull(ctx, parseCtx)){
+        dst->data = NULL;
+        dst->length = 0;
+        return UA_STATUSCODE_GOOD;
+    }
     if(tokenType != JSMN_STRING && tokenType != JSMN_PRIMITIVE){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     UA_StatusCode ret = UA_STATUSCODE_GOOD;
+    
+    if(*parseCtx->index >= parseCtx->tokenCount){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
     
     int size = (parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
     const char* input = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
     //dst->length = size;
 
     //estimate size
-    UA_UInt32 outputsize = (UA_UInt32)(size * 3 / 4);
+    UA_UInt32 outputsize = (UA_UInt32)(size * 3 / 4) + 20; //+20 for small inputs
     
     /* set up a destination buffer large enough to hold the encoded data */
     char* output = (char*)malloc(outputsize);
@@ -2395,6 +2469,11 @@ DECODE_JSON(ByteString) {
 
 DECODE_JSON(LocalizedText) {
     if(getJsmnType(parseCtx) != JSMN_OBJECT){
+        if(isJsonNull(ctx, parseCtx)){
+            dst->locale = UA_STRING_NULL;
+            dst->text = UA_STRING_NULL;
+            return UA_STATUSCODE_GOOD;
+        }
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     UA_StatusCode ret = UA_STATUSCODE_GOOD;
@@ -2403,13 +2482,21 @@ DECODE_JSON(LocalizedText) {
     decodeJsonSignature functions[2] = {(decodeJsonSignature) String_decodeJson, (decodeJsonSignature) String_decodeJson};
     UA_Boolean found[2] = {UA_FALSE, UA_FALSE};
     DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 2};
-    
+    if(!found[0])
+        dst->locale = UA_STRING_NULL;
+    if(!found[1])
+        dst->text = UA_STRING_NULL;
     ret = decodeFields(ctx, parseCtx, &decodeCtx, type);
     return ret ;
 }
 
 DECODE_JSON(QualifiedName) {
     if(getJsmnType(parseCtx) != JSMN_OBJECT){
+        if(isJsonNull(ctx, parseCtx)){
+            dst->name = UA_STRING_NULL;
+            dst->namespaceIndex = 0;
+            return UA_STATUSCODE_GOOD;
+        }
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     UA_StatusCode ret = UA_STATUSCODE_GOOD;
@@ -2419,6 +2506,11 @@ DECODE_JSON(QualifiedName) {
     UA_Boolean found[2] = {UA_FALSE, UA_FALSE};
     DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 2};
     ret = decodeFields(ctx, parseCtx, &decodeCtx, type);
+    if(!found[1]){
+        /* The NamespaceIndex component of the QualifiedName encoded as a JSON number.
+         * The Uri field is omitted if the NamespaceIndex equals 0. */
+        dst->namespaceIndex = 0;
+    }
     return ret;
 }
 
@@ -2439,6 +2531,11 @@ static status searchObjectForKeyRec(char* s, CtxJson *ctx, ParseCtx *parseCtx, s
         
         size_t i;
         for (i = 0; i < objectCount; i++) {
+            
+            if(*parseCtx->index >= parseCtx->tokenCount){
+                return UA_STATUSCODE_BADDECODINGERROR;
+            }
+            
             if(depth == 0){ // we search only on first layer
                 if (jsoneq((char*)ctx->pos, &parseCtx->tokenArray[*parseCtx->index], s) == 0) {
                     //found
@@ -3158,6 +3255,14 @@ Variant_decodeJsonUnwrapExtensionObject(UA_Variant *dst, const UA_DataType *type
 status DiagnosticInfoInner_decodeJson(UA_DiagnosticInfo* dst, const UA_DataType* type, CtxJson* ctx, ParseCtx* parseCtx);
 
 DECODE_JSON(DiagnosticInfo) {
+    if(isJsonNull(ctx, parseCtx)){
+        UA_DiagnosticInfo_init(dst);
+        return UA_STATUSCODE_GOOD;
+    }
+    if(getJsmnType(parseCtx) != JSMN_OBJECT){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
     status ret = UA_STATUSCODE_GOOD;
     const char* fieldNames[] = {"SymbolicId", "LocalizedText", "Locale", "AdditionalInfo", "InnerStatusCode", "InnerDiagnosticInfo"};
     void *fieldPointer[] = {&dst->symbolicId, &dst->localizedText, &dst->locale, &dst->additionalInfo, &dst->innerStatusCode, &dst->innerDiagnosticInfo};
@@ -3315,7 +3420,7 @@ Array_decodeJson(void *UA_RESTRICT dst, const UA_DataType *type, CtxJson *ctx, P
         ret = decodeJsonJumpTable[decode_index]((void*)ptr, type, ctx, parseCtx, UA_TRUE);
         if(ret != UA_STATUSCODE_GOOD) {
             /* +1 because last element is also already initialized */
-            UA_Array_delete(dst, i+1, type);
+            //TODO !UA_Array_delete(dst, i+1, type);
             dst = NULL;
             return ret;
         }
@@ -3410,6 +3515,11 @@ UA_decodeJson(const UA_ByteString *src, size_t *offset, void *dst,
     CtxJson ctx;
     ParseCtx parseCtx;
     parseCtx.tokenArray = (jsmntok_t*)malloc(sizeof(jsmntok_t) * TOKENCOUNT);
+    
+    if(!parseCtx.tokenArray){
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+    }
+    
     memset(parseCtx.tokenArray, 0, sizeof(jsmntok_t) * TOKENCOUNT);
     ctx.customTypesArraySize = customTypesSize;
     ctx.customTypesArray = customTypes;
