@@ -5440,6 +5440,21 @@ END_TEST
 
 
 
+START_TEST(UA_JsonHelper) {
+    // given
+    
+    CtxJson ctx;
+    memset(&ctx, 0, sizeof(ctx));
+    ck_assert_int_eq(encodingJsonStartArray(&ctx), UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+    ck_assert_int_eq(encodingJsonStartObject(&ctx), UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+    ck_assert_int_eq(encodingJsonEndObject(&ctx), UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+    ck_assert_int_eq(encodingJsonEndArray(&ctx), UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+    ck_assert_int_eq(writeNull(&ctx), UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+    UA_String s = UA_STRING("Test");
+    ck_assert_int_eq(writeKey_UA_String(&ctx, &s, UA_FALSE), UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+}   
+END_TEST
+
 
 static Suite *testSuite_builtin(void) {
     Suite *s = suite_create("Built-in Data Types 62541-6 Table 1");
@@ -5750,6 +5765,12 @@ static Suite *testSuite_builtin(void) {
     
     
     suite_add_tcase(s, tc_json_decode);
+    
+    
+    
+    TCase *tc_json_helper = tcase_create("json_helper");
+    tcase_add_test(tc_json_decode, UA_JsonHelper);
+    suite_add_tcase(s, tc_json_helper);
     return s;
 }
 

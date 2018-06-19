@@ -60,7 +60,7 @@ static UA_Boolean UA_DataSetMessageHeader_DataSetFlags2Enabled(const UA_DataSetM
 UA_StatusCode
 UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_UInt16 dataSetWriterId, UA_Byte **bufPos,
                                const UA_Byte *bufEnd, UA_Boolean useReversible, UA_String **dataSetMessageFieldNames) {
-    Ctx ctx;
+    CtxJson ctx;
     ctx.pos = *bufPos;
     ctx.end = bufEnd;
     ctx.depth = 0;
@@ -174,7 +174,7 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_UInt16 dataSetWrit
 }
 
 
-static status MetaDataVersion_decodeJsonInternal(void* dsm, const UA_DataType *type, Ctx *ctx, ParseCtx *parseCtx, UA_Boolean moveToken){
+static status MetaDataVersion_decodeJsonInternal(void* dsm, const UA_DataType *type, CtxJson *ctx, ParseCtx *parseCtx, UA_Boolean moveToken){
     //TODO: MetaDataVersion
     (*parseCtx->index)++;
     (*parseCtx->index)++;
@@ -184,7 +184,7 @@ static status MetaDataVersion_decodeJsonInternal(void* dsm, const UA_DataType *t
     return 0;
 }
 
-static status DataSetPayload_decodeJsonInternal(void* dsmP, const UA_DataType *type, Ctx *ctx, ParseCtx *parseCtx, UA_Boolean moveToken){
+static status DataSetPayload_decodeJsonInternal(void* dsmP, const UA_DataType *type, CtxJson *ctx, ParseCtx *parseCtx, UA_Boolean moveToken){
     UA_DataSetMessage* dsm = (UA_DataSetMessage*)dsmP;
     
     if(isJsonNull(ctx, parseCtx)){
@@ -244,7 +244,7 @@ static status DataSetPayload_decodeJsonInternal(void* dsmP, const UA_DataType *t
 }
 
 static status
-DatasetMessage_Payload_decodeJsonInternal(UA_DataSetMessage* dsm, const UA_DataType *type, Ctx *ctx, ParseCtx *parseCtx, UA_Boolean moveToken) {
+DatasetMessage_Payload_decodeJsonInternal(UA_DataSetMessage* dsm, const UA_DataType *type, CtxJson *ctx, ParseCtx *parseCtx, UA_Boolean moveToken) {
     //------------------CONTENT-----------------------
     /*UA_Boolean isPayloadArray = UA_FALSE;
     //size_t messageCount = 0;    
@@ -296,7 +296,7 @@ DatasetMessage_Payload_decodeJsonInternal(UA_DataSetMessage* dsm, const UA_DataT
 }
 
 static status
-DatasetMessage_Array_decodeJsonInternal(void *UA_RESTRICT dst, const UA_DataType *type, Ctx *ctx, ParseCtx *parseCtx, UA_Boolean moveToken) {
+DatasetMessage_Array_decodeJsonInternal(void *UA_RESTRICT dst, const UA_DataType *type, CtxJson *ctx, ParseCtx *parseCtx, UA_Boolean moveToken) {
     /* Array! */
     if(getJsmnType(parseCtx) != JSMN_ARRAY){
         return UA_STATUSCODE_BADDECODINGERROR;
@@ -334,7 +334,7 @@ DatasetMessage_Array_decodeJsonInternal(void *UA_RESTRICT dst, const UA_DataType
     return ret;
 }
 
-static status NetworkMessage_decodeJsonInternal(UA_NetworkMessage *dst, Ctx *ctx, ParseCtx *parseCtx){
+static status NetworkMessage_decodeJsonInternal(UA_NetworkMessage *dst, CtxJson *ctx, ParseCtx *parseCtx){
     
     memset(dst, 0, sizeof(UA_NetworkMessage));
     size_t messageCount = 0;    
@@ -416,7 +416,7 @@ static status NetworkMessage_decodeJsonInternal(UA_NetworkMessage *dst, Ctx *ctx
 
 status NetworkMessage_decodeJson(UA_NetworkMessage *dst, UA_ByteString *src){
     /* Set up the context */
-    Ctx ctx;
+    CtxJson ctx;
     ParseCtx parseCtx;
     parseCtx.tokenArray = (jsmntok_t*)malloc(sizeof(jsmntok_t) * TOKENCOUNT);
     memset(parseCtx.tokenArray, 0, sizeof(jsmntok_t) * TOKENCOUNT);
@@ -438,7 +438,7 @@ UA_StatusCode
 UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src, UA_Byte **bufPos,
                                const UA_Byte *bufEnd, UA_Boolean useReversible, UA_String ***dataSetMessageFieldNames, UA_UInt16 indexKeyArrayField) {
     
-    Ctx ctx;
+    CtxJson ctx;
     ctx.pos = *bufPos;
     ctx.end = bufEnd;
     ctx.depth = 0;

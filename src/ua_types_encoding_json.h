@@ -37,17 +37,17 @@ typedef struct {
     
     UA_exchangeEncodeBuffer exchangeBufferCallback;
     void *exchangeBufferCallbackHandle;
-} Ctx;
+} CtxJson;
 
 
-status writeKey_UA_String(Ctx *ctx, UA_String *key, UA_Boolean commaNeeded);
-status writeKey(Ctx *ctx, const char* key, UA_Boolean commaNeeded);
-status encodingJsonStartObject(Ctx *ctx);
-size_t encodingJsonEndObject(Ctx *ctx);
-status encodingJsonStartArray(Ctx *ctx);
-size_t encodingJsonEndArray(Ctx *ctx);
-status writeComma(Ctx *ctx, UA_Boolean commaNeeded);
-status writeNull(Ctx *ctx);
+status writeKey_UA_String(CtxJson *ctx, UA_String *key, UA_Boolean commaNeeded);
+status writeKey(CtxJson *ctx, const char* key, UA_Boolean commaNeeded);
+status encodingJsonStartObject(CtxJson *ctx);
+size_t encodingJsonEndObject(CtxJson *ctx);
+status encodingJsonStartArray(CtxJson *ctx);
+size_t encodingJsonEndArray(CtxJson *ctx);
+status writeComma(CtxJson *ctx, UA_Boolean commaNeeded);
+status writeNull(CtxJson *ctx);
 
 #define TOKENCOUNT 1000
 typedef struct {
@@ -57,9 +57,9 @@ typedef struct {
 } ParseCtx;
 
 typedef status(*encodeJsonSignature)(const void *UA_RESTRICT src, const UA_DataType *type,
-        Ctx *UA_RESTRICT ctx, UA_Boolean useReversible);
+        CtxJson *UA_RESTRICT ctx, UA_Boolean useReversible);
 typedef status (*decodeJsonSignature)(void *UA_RESTRICT dst, const UA_DataType *type,
-                                        Ctx *UA_RESTRICT ctx, ParseCtx *parseCtx, UA_Boolean moveToken);
+                                        CtxJson *UA_RESTRICT ctx, ParseCtx *parseCtx, UA_Boolean moveToken);
 
 typedef struct {
     const char ** fieldNames;
@@ -71,15 +71,15 @@ typedef struct {
 
 
 status 
-decodeFields(Ctx *ctx, ParseCtx *parseCtx, DecodeContext *decodeContext, const UA_DataType *type);
+decodeFields(CtxJson *ctx, ParseCtx *parseCtx, DecodeContext *decodeContext, const UA_DataType *type);
 
 /* workaround: TODO generate functions for UA_xxx_decodeJson */
 decodeJsonSignature getDecodeSignature(u8 index);
-status lookAheadForKey(UA_String search, Ctx *ctx, ParseCtx *parseCtx, size_t *resultIndex);
+status lookAheadForKey(UA_String search, CtxJson *ctx, ParseCtx *parseCtx, size_t *resultIndex);
 
 jsmntype_t getJsmnType(const ParseCtx *parseCtx);
-status tokenize(ParseCtx *parseCtx, Ctx *ctx, const UA_ByteString *src, UA_UInt16 *tokenIndex);
-UA_Boolean isJsonNull(const Ctx *ctx, const ParseCtx *parseCtx);
+status tokenize(ParseCtx *parseCtx, CtxJson *ctx, const UA_ByteString *src, UA_UInt16 *tokenIndex);
+UA_Boolean isJsonNull(const CtxJson *ctx, const ParseCtx *parseCtx);
 
 status
 UA_encodeJson(const void *src, const UA_DataType *type,
