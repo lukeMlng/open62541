@@ -1,5 +1,7 @@
 #include "jsmn.h"
 
+#define JSMN_STRICT
+
 /**
  * Allocates a fresh unused token from the token pull.
  */
@@ -56,7 +58,7 @@ static int jsmn_parse_primitive(jsmn_parser *parser, const char *js,
 	}
 #ifdef JSMN_STRICT
 	/* In strict mode primitive must be followed by a comma/object/array */
-	parser->pos = start;
+	parser->pos = (unsigned int)start;
 	return JSMN_ERROR_PART;
 #endif
 

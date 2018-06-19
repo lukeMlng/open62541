@@ -2409,10 +2409,19 @@ DECODE_JSON(QualifiedName) {
 
 static status searchObjectForKeyRec(char* s, CtxJson *ctx, ParseCtx *parseCtx, size_t *resultIndex, UA_UInt16 depth){
     UA_StatusCode ret = UA_STATUSCODE_BADDECODINGERROR;
+    
+    if(*parseCtx->index >= parseCtx->tokenCount){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
     if(parseCtx->tokenArray[(*parseCtx->index)].type == JSMN_OBJECT){
         size_t objectCount = (size_t)(parseCtx->tokenArray[(*parseCtx->index)].size);
         
         (*parseCtx->index)++; //Object to first Key
+        if(*parseCtx->index >= parseCtx->tokenCount){
+            return UA_STATUSCODE_BADDECODINGERROR;
+        }
+        
         size_t i;
         for (i = 0; i < objectCount; i++) {
             if(depth == 0){ // we search only on first layer
@@ -2426,6 +2435,10 @@ static status searchObjectForKeyRec(char* s, CtxJson *ctx, ParseCtx *parseCtx, s
             }
                
             (*parseCtx->index)++; //value
+            if(*parseCtx->index >= parseCtx->tokenCount){
+                return UA_STATUSCODE_BADDECODINGERROR;
+            }
+            
             if(parseCtx->tokenArray[(*parseCtx->index)].type == JSMN_OBJECT){
                searchObjectForKeyRec( s, ctx, parseCtx, resultIndex, (UA_UInt16)(depth + 1));
             }else if(parseCtx->tokenArray[(*parseCtx->index)].type == JSMN_ARRAY){
@@ -2439,6 +2452,10 @@ static status searchObjectForKeyRec(char* s, CtxJson *ctx, ParseCtx *parseCtx, s
         size_t arraySize = (size_t)(parseCtx->tokenArray[(*parseCtx->index)].size);
         
         (*parseCtx->index)++; //Object to first element
+        if(*parseCtx->index >= parseCtx->tokenCount){
+            return UA_STATUSCODE_BADDECODINGERROR;
+        }
+        
         size_t i;
         for (i = 0; i < arraySize; i++) {
             if(parseCtx->tokenArray[(*parseCtx->index)].type == JSMN_OBJECT){
@@ -2459,7 +2476,7 @@ status lookAheadForKey(UA_String search, CtxJson *ctx, ParseCtx *parseCtx, size_
     //save index for later restore
     UA_UInt16 oldIndex = *parseCtx->index;
     
-    char s[search.length + 1];
+    UA_STACKARRAY(char, s, search.length + 1);
     memcpy(&s, search.data, search.length);
     s[search.length] = '\0';
     
@@ -2787,7 +2804,9 @@ DECODE_JSON(Variant) {
         //Set the type, TODO: Get the Type by nodeID!
         UA_NodeId typeNodeId = UA_NODEID_NUMERIC(0, (UA_UInt32)idTypeDecoded);
         const UA_DataType *bodyType = UA_findDataType(&typeNodeId);
-        
+        if(bodyType == NULL){
+            return UA_STATUSCODE_BADDECODINGERROR;
+        }
         
         /* Get the datatype of the content. The type must be a builtin data type.
         * All not-builtin types are wrapped in an ExtensionObject. */
@@ -2834,6 +2853,9 @@ DECODE_JSON(Variant) {
             UA_Boolean found[] = {UA_FALSE, UA_FALSE};
             DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 2};
             ret = decodeFields(ctx, parseCtx, &decodeCtx, bodyType);
+            if(ret != UA_STATUSCODE_GOOD){
+                UA_free(bodyPointer);
+            }
         }else {
             const char* fieldNames[] = {"Type", "Body"};
             void *fieldPointer[] = {NULL, dst};
@@ -3097,6 +3119,9 @@ Variant_decodeJsonUnwrapExtensionObject(UA_Variant *dst, const UA_DataType *type
         
         DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 2};
         ret = decodeFields(ctx, parseCtx, &decodeCtx, type);
+        if(ret != UA_STATUSCODE_GOOD){
+            UA_free(dst->data);
+        }
 
     }else{
         /* decode as ExtensionObject */
@@ -3108,6 +3133,9 @@ Variant_decodeJsonUnwrapExtensionObject(UA_Variant *dst, const UA_DataType *type
             return UA_STATUSCODE_BADOUTOFMEMORY;
         
         ret = DECODE_DIRECT(dst->data, ExtensionObject);
+        if(ret != UA_STATUSCODE_GOOD){
+            UA_free(dst->data);
+        }
     }
     //TODO Check?
     return ret;
