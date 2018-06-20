@@ -3278,6 +3278,7 @@ Variant_decodeJsonUnwrapExtensionObject(UA_Variant *dst, const UA_DataType *type
 status DiagnosticInfoInner_decodeJson(UA_DiagnosticInfo* dst, const UA_DataType* type, CtxJson* ctx, ParseCtx* parseCtx);
 
 const char* UA_DECODEKEY_SYMBOLICID = ("SymbolicId");
+const char* UA_DECODEKEY_NAMESPACEURI = ("NamespaceUri");
 const char* UA_DECODEKEY_LOCALIZEDTEXT = ("LocalizedText");
 const char* UA_DECODEKEY_ADDITIONALINFO = ("AdditionalInfo");
 const char* UA_DECODEKEY_INNERSTATUSCODE = ("InnerStatusCode");
@@ -3293,23 +3294,37 @@ DECODE_JSON(DiagnosticInfo) {
     }
     
     status ret = UA_STATUSCODE_GOOD;
-    const char * fieldNames[] = {UA_DECODEKEY_SYMBOLICID, 
+    const char * fieldNames[7] = {UA_DECODEKEY_SYMBOLICID, 
+        UA_DECODEKEY_NAMESPACEURI,
         UA_DECODEKEY_LOCALIZEDTEXT, 
         UA_DECODEKEY_LOCALE, 
         UA_DECODEKEY_ADDITIONALINFO, 
         UA_DECODEKEY_INNERSTATUSCODE, 
         UA_DECODEKEY_INNERDIAGNOSTICINFO};
-    void *fieldPointer[] = {&dst->symbolicId, &dst->localizedText, &dst->locale, &dst->additionalInfo, &dst->innerStatusCode, &dst->innerDiagnosticInfo};
-    decodeJsonSignature functions[] = {(decodeJsonSignature) Int32_decodeJson, (decodeJsonSignature) Int32_decodeJson,(decodeJsonSignature) Int32_decodeJson,(decodeJsonSignature) String_decodeJson,(decodeJsonSignature) StatusCode_decodeJson, (decodeJsonSignature) DiagnosticInfoInner_decodeJson};
-    UA_Boolean found[] = {UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE};
-    DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 6};
+    void *fieldPointer[7] = {&dst->symbolicId, 
+        &dst->namespaceUri,
+        &dst->localizedText, 
+        &dst->locale, 
+        &dst->additionalInfo, 
+        &dst->innerStatusCode, 
+        &dst->innerDiagnosticInfo};
+    decodeJsonSignature functions[7] = {(decodeJsonSignature) Int32_decodeJson,
+    (decodeJsonSignature) Int32_decodeJson,
+    (decodeJsonSignature) Int32_decodeJson,
+    (decodeJsonSignature) Int32_decodeJson,
+    (decodeJsonSignature) String_decodeJson,
+    (decodeJsonSignature) StatusCode_decodeJson,
+    (decodeJsonSignature) DiagnosticInfoInner_decodeJson};
+    UA_Boolean found[7] = {UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE};
+    DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 7};
     ret = decodeFields(ctx, parseCtx, &decodeCtx, type);
     dst->hasSymbolicId = found[0];
-    dst->hasLocalizedText = found[1];
-    dst->hasLocale = found[2];
-    dst->hasAdditionalInfo = found[3];
-    dst->hasInnerStatusCode = found[4];
-    dst->hasInnerDiagnosticInfo = found[5];
+    dst->hasNamespaceUri = found[1];
+    dst->hasLocalizedText = found[2];
+    dst->hasLocale = found[3];
+    dst->hasAdditionalInfo = found[4];
+    dst->hasInnerStatusCode = found[5];
+    dst->hasInnerDiagnosticInfo = found[6];
     return ret;
 }
 
