@@ -35,6 +35,9 @@ typedef struct {
     size_t namespacesSize;
     UA_String *namespaces;
     
+    size_t serverUrisSize;
+    UA_String *serverUris;
+            
     UA_exchangeEncodeBuffer exchangeBufferCallback;
     void *exchangeBufferCallbackHandle;
 } CtxJson;
@@ -86,7 +89,9 @@ UA_encodeJson(const void *src, const UA_DataType *type,
         u8 **bufPos, 
         const u8 **bufEnd, 
         UA_String *namespaces, 
-        size_t namespaceSize, 
+        size_t namespaceSize,
+        UA_String *serverUris,
+        size_t serverUriSize,
         UA_Boolean useReversible) UA_FUNC_ATTR_WARN_UNUSED_RESULT;
 
 UA_StatusCode

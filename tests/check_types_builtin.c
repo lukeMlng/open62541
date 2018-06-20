@@ -1473,7 +1473,7 @@ START_TEST(UA_Boolean_true_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     
@@ -1499,7 +1499,7 @@ START_TEST(UA_Boolean_false_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     
@@ -1522,7 +1522,7 @@ START_TEST(UA_Boolean_null_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[10];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     
@@ -1544,7 +1544,7 @@ START_TEST(UA_Boolean_true_bufferTooSmall_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[2];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     
@@ -1566,7 +1566,7 @@ START_TEST(UA_String_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[10];
     // when
-    status s = UA_encodeJson(&src, &UA_TYPES[UA_TYPES_STRING], &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson(&src, &UA_TYPES[UA_TYPES_STRING], &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
@@ -1586,7 +1586,7 @@ START_TEST(UA_String_Empty_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[10];
     // when
-    status s = UA_encodeJson(&src, &UA_TYPES[UA_TYPES_STRING], &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson(&src, &UA_TYPES[UA_TYPES_STRING], &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
@@ -1606,7 +1606,7 @@ START_TEST(UA_String_Null_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[10];
     // when
-    status s = UA_encodeJson(&src, &UA_TYPES[UA_TYPES_STRING], &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson(&src, &UA_TYPES[UA_TYPES_STRING], &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
@@ -1626,7 +1626,7 @@ START_TEST(UA_String_escapesimple_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[50];
     // when
-    status s = UA_encodeJson(&src, &UA_TYPES[UA_TYPES_STRING], &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson(&src, &UA_TYPES[UA_TYPES_STRING], &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
@@ -1646,7 +1646,7 @@ START_TEST(UA_String_escapeutf_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[50];
     // when
-    status s = UA_encodeJson(&src, &UA_TYPES[UA_TYPES_STRING], &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson(&src, &UA_TYPES[UA_TYPES_STRING], &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
@@ -1670,7 +1670,7 @@ START_TEST(UA_Byte_Max_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[5];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1694,7 +1694,7 @@ START_TEST(UA_Byte_Min_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[5];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1718,7 +1718,7 @@ START_TEST(UA_Byte_smallbuf_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[2];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1741,7 +1741,7 @@ START_TEST(UA_SByte_Max_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[5];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1765,7 +1765,7 @@ START_TEST(UA_SByte_Min_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[5];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1789,7 +1789,7 @@ START_TEST(UA_SByte_Zero_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[5];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1813,7 +1813,7 @@ START_TEST(UA_SByte_smallbuf_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[2];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1837,7 +1837,7 @@ START_TEST(UA_UInt16_Max_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[6];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1861,7 +1861,7 @@ START_TEST(UA_UInt16_Min_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[5];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1885,7 +1885,7 @@ START_TEST(UA_UInt16_smallbuf_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[2];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1908,7 +1908,7 @@ START_TEST(UA_Int16_Max_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[6];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1932,7 +1932,7 @@ START_TEST(UA_Int16_Min_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[10];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1956,7 +1956,7 @@ START_TEST(UA_Int16_Zero_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[5];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -1980,7 +1980,7 @@ START_TEST(UA_Int16_smallbuf_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[2];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2005,7 +2005,7 @@ START_TEST(UA_UInt32_Max_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[20];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2029,7 +2029,7 @@ START_TEST(UA_UInt32_Min_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[5];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2053,7 +2053,7 @@ START_TEST(UA_UInt32_smallbuf_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[2];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2078,7 +2078,7 @@ START_TEST(UA_Int32_Max_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[20];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2102,7 +2102,7 @@ START_TEST(UA_Int32_Min_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[20];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2126,7 +2126,7 @@ START_TEST(UA_Int32_Zero_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[5];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2150,7 +2150,7 @@ START_TEST(UA_Int32_smallbuf_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[2];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2183,7 +2183,7 @@ START_TEST(UA_UInt64_Max_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[50];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2207,7 +2207,7 @@ START_TEST(UA_UInt64_Min_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[50];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2239,7 +2239,7 @@ START_TEST(UA_UInt64_smallbuf_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[2];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2271,7 +2271,7 @@ START_TEST(UA_Int64_Max_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[50];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2308,7 +2308,7 @@ START_TEST(UA_Int64_Min_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[50];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2332,7 +2332,7 @@ START_TEST(UA_Int64_Zero_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[50];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2356,7 +2356,7 @@ START_TEST(UA_Int64_smallbuf_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[2];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2379,7 +2379,7 @@ START_TEST(UA_Double_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson(&src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson(&src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     
@@ -2402,7 +2402,7 @@ START_TEST(UA_Double_onesmallest_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson(&src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson(&src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     
@@ -2425,7 +2425,7 @@ START_TEST(UA_Float_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson(&src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson(&src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     
@@ -2455,7 +2455,7 @@ START_TEST(UA_LocText_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2481,7 +2481,7 @@ START_TEST(UA_LocText_NonReversible_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_FALSE);
 
     *bufPos = 0;
     // then
@@ -2507,7 +2507,7 @@ START_TEST(UA_LocText_smallBuffer_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[4];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2528,7 +2528,7 @@ START_TEST(UA_Guid_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[40];
 
-    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
@@ -2550,7 +2550,7 @@ START_TEST(UA_Guid_smallbuf_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
@@ -2573,7 +2573,7 @@ START_TEST(UA_DateTime_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2598,7 +2598,7 @@ START_TEST(UA_StatusCode_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
      *bufPos = 0;
     
@@ -2622,7 +2622,7 @@ START_TEST(UA_StatusCode_nonReversible_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_FALSE);
 
      *bufPos = 0;
     
@@ -2646,7 +2646,7 @@ START_TEST(UA_StatusCode_nonReversible_good_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_FALSE);
 
      *bufPos = 0;
     
@@ -2671,7 +2671,7 @@ START_TEST(UA_StatusCode_smallbuf_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_FALSE);
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
     UA_ByteString_deleteMembers(&buf); UA_free(src);
@@ -2694,7 +2694,7 @@ START_TEST(UA_NodeId_Numeric_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2717,7 +2717,7 @@ START_TEST(UA_NodeId_Numeric_Namespace_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2741,7 +2741,7 @@ START_TEST(UA_NodeId_String_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2764,7 +2764,7 @@ START_TEST(UA_NodeId_String_Namespace_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2789,7 +2789,7 @@ START_TEST(UA_NodeId_Guid_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2813,7 +2813,7 @@ START_TEST(UA_NodeId_Guid_Namespace_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2837,7 +2837,7 @@ START_TEST(UA_NodeId_ByteString_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2860,7 +2860,7 @@ START_TEST(UA_NodeId_ByteString_Namespace_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2885,7 +2885,7 @@ START_TEST(UA_NodeId_NonReversible_Numeric_Namespace_json_encode) {
     const UA_Byte *bufEnd = &buf.data[1000];
 
     UA_String namespaces[3] = {UA_STRING("ns0"),UA_STRING("ns1"),UA_STRING("ns2")};
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, namespaces, 3, UA_FALSE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, namespaces, 3, NULL, 0, UA_FALSE);
 
     *bufPos = 0;
     // then
@@ -2926,7 +2926,7 @@ START_TEST(UA_DiagInfo_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -2979,7 +2979,7 @@ START_TEST(UA_DiagInfo_withInner_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3044,7 +3044,7 @@ START_TEST(UA_DiagInfo_withTwoInner_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3068,7 +3068,7 @@ START_TEST(UA_DiagInfo_noFields_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3107,7 +3107,7 @@ START_TEST(UA_DiagInfo_smallBuffer_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[20];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3129,7 +3129,7 @@ START_TEST(UA_ByteString_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3152,7 +3152,7 @@ START_TEST(UA_ByteString_Long_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     
     //s = UA_decodeJson()
@@ -3179,7 +3179,7 @@ START_TEST(UA_QualName_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3205,7 +3205,7 @@ START_TEST(UA_QualName_NonReversible_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_FALSE);
 
     *bufPos = 0;
     // then
@@ -3230,7 +3230,7 @@ START_TEST(UA_QualName_NonReversible_Namespace_json_encode) {
     const UA_Byte *bufEnd = &buf.data[1000];
 
     UA_String namespaces[3] = {UA_STRING("ns0"),UA_STRING("ns1"),UA_STRING("ns2")};
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, namespaces, 3, UA_FALSE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, namespaces, 3, NULL, 0, UA_FALSE);
 
     *bufPos = 0;
     // then
@@ -3254,7 +3254,7 @@ START_TEST(UA_QualName_NonReversible_NoNamespaceAsNumber_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_FALSE);
 
     *bufPos = 0;
     // then
@@ -3282,7 +3282,7 @@ START_TEST(UA_Variant_Bool_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3307,7 +3307,7 @@ START_TEST(UA_Variant_Number_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3333,7 +3333,7 @@ START_TEST(UA_Variant_NodeId_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3360,7 +3360,7 @@ START_TEST(UA_Variant_LocText_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3389,7 +3389,7 @@ START_TEST(UA_Variant_QualName_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     
@@ -3418,7 +3418,7 @@ START_TEST(UA_Variant_Array_UInt16_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3444,7 +3444,7 @@ START_TEST(UA_Variant_Array_Byte_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3470,7 +3470,7 @@ START_TEST(UA_Variant_Array_String_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     
@@ -3508,7 +3508,7 @@ START_TEST(UA_Variant_Matrix_UInt16_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3535,7 +3535,7 @@ START_TEST(UA_Variant_StatusCode_NonReversible_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_FALSE);
 
     *bufPos = 0;
     // then
@@ -3568,7 +3568,7 @@ START_TEST(UA_Variant_Array_String_NonReversible_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
+    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_FALSE);
 
     *bufPos = 0;
     // then
@@ -3603,7 +3603,7 @@ START_TEST(UA_Variant_Matrix_String_NonReversible_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
+    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_FALSE);
 
     *bufPos = 0;
     // then
@@ -3635,7 +3635,7 @@ START_TEST(UA_Variant_Matrix_NodeId_NonReversible_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[2000];
 
-    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
+    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_FALSE);
 
     *bufPos = 0;
     // then
@@ -3668,7 +3668,7 @@ START_TEST(UA_Variant_Wrap_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3712,7 +3712,7 @@ START_TEST(UA_Variant_Wrap_Array_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson(&src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson(&src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3756,7 +3756,7 @@ START_TEST(UA_Variant_Wrap_Array_NonReversible_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson(&src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
+    status s = UA_encodeJson(&src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_FALSE);
 
     *bufPos = 0;
     // then
@@ -3782,7 +3782,7 @@ START_TEST(UA_DataSetFieldFlags_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3814,7 +3814,7 @@ START_TEST(UA_ExtensionObject_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3843,7 +3843,7 @@ START_TEST(UA_ExtensionObject_xml_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3873,7 +3873,7 @@ START_TEST(UA_ExtensionObject_byteString_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3903,7 +3903,7 @@ START_TEST(UA_ExtensionObject_NonReversible_StatusCode_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_FALSE);
 
     *bufPos = 0;
     // then
@@ -3931,7 +3931,7 @@ START_TEST(UA_ExpandedNodeId_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3957,7 +3957,7 @@ START_TEST(UA_ExpandedNodeId_MissingNamespaceUri_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -3972,7 +3972,7 @@ START_TEST(UA_ExpandedNodeId_NonReversible_Ns1_json_encode) {
     UA_ExpandedNodeId *src = UA_ExpandedNodeId_new();
     *src = UA_EXPANDEDNODEID_STRING(1, "testtestTest");
     src->namespaceUri = UA_STRING_NULL;
-    src->serverIndex = 1345;
+    src->serverIndex = 1;
     const UA_DataType *type = &UA_TYPES[UA_TYPES_EXPANDEDNODEID];
 
     UA_ByteString buf;
@@ -3982,12 +3982,13 @@ START_TEST(UA_ExpandedNodeId_NonReversible_Ns1_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_FALSE);
+    UA_String serverUris[3] = {UA_STRING("uri0"),UA_STRING("uri1"),UA_STRING("uri2")};
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, serverUris, 3, UA_FALSE);
 
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"IdType\":1,\"Id\":\"testtestTest\",\"Namespace\":1,\"ServerUri\":1345}";
+    char* result = "{\"IdType\":1,\"Id\":\"testtestTest\",\"Namespace\":1,\"ServerUri\":\"uri1\"}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf);UA_free(src);
 }
@@ -3997,7 +3998,7 @@ START_TEST(UA_ExpandedNodeId_NonReversible_Namespace_json_encode) {
     UA_ExpandedNodeId *src = UA_ExpandedNodeId_new();
     *src = UA_EXPANDEDNODEID_STRING(2, "testtestTest");
     src->namespaceUri = UA_STRING_NULL;
-    src->serverIndex = 1345;
+    src->serverIndex = 1;
     const UA_DataType *type = &UA_TYPES[UA_TYPES_EXPANDEDNODEID];
 
     UA_ByteString buf;
@@ -4008,12 +4009,13 @@ START_TEST(UA_ExpandedNodeId_NonReversible_Namespace_json_encode) {
     const UA_Byte *bufEnd = &buf.data[1000];
 
     UA_String namespaces[3] = {UA_STRING("ns0"),UA_STRING("ns1"),UA_STRING("ns2")};
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, namespaces, 3, UA_FALSE);
+    UA_String serverUris[3] = {UA_STRING("uri0"),UA_STRING("uri1"),UA_STRING("uri2")};
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, namespaces, 3, serverUris, 3, UA_FALSE);
 
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"IdType\":1,\"Id\":\"testtestTest\",\"Namespace\":\"ns2\",\"ServerUri\":1345}";
+    char* result = "{\"IdType\":1,\"Id\":\"testtestTest\",\"Namespace\":\"ns2\",\"ServerUri\":\"uri1\"}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf);UA_free(src);
 }
@@ -4023,7 +4025,7 @@ START_TEST(UA_ExpandedNodeId_NonReversible_NamespaceUriGiven_json_encode) {
     UA_ExpandedNodeId *src = UA_ExpandedNodeId_new();
     *src = UA_EXPANDEDNODEID_STRING(2, "testtestTest");
     src->namespaceUri = UA_STRING("NamespaceUri");
-    src->serverIndex = 1345;
+    src->serverIndex = 1;
     const UA_DataType *type = &UA_TYPES[UA_TYPES_EXPANDEDNODEID];
 
     UA_ByteString buf;
@@ -4034,12 +4036,14 @@ START_TEST(UA_ExpandedNodeId_NonReversible_NamespaceUriGiven_json_encode) {
     const UA_Byte *bufEnd = &buf.data[1000];
 
     UA_String namespaces[3] = {UA_STRING("ns0"),UA_STRING("ns1"),UA_STRING("ns2")};
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, namespaces, 3, UA_FALSE);
+    UA_String serverUris[3] = {UA_STRING("uri0"),UA_STRING("uri1"),UA_STRING("uri2")};
+    
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, namespaces, 3, serverUris, 3, UA_FALSE);
 
     *bufPos = 0;
     // then
     ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
-    char* result = "{\"IdType\":1,\"Id\":\"testtestTest\",\"Namespace\":\"NamespaceUri\",\"ServerUri\":1345}";
+    char* result = "{\"IdType\":1,\"Id\":\"testtestTest\",\"Namespace\":\"NamespaceUri\",\"ServerUri\":\"uri1\"}";
     ck_assert_str_eq(result, (char*)buf.data);
     UA_ByteString_deleteMembers(&buf);UA_free(src);
 }
@@ -4078,7 +4082,7 @@ START_TEST(UA_DataValue_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -4102,7 +4106,7 @@ START_TEST(UA_DataValue_null_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -4200,7 +4204,7 @@ START_TEST(UA_MessageReadResponse_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -4228,7 +4232,7 @@ START_TEST(UA_ViewDescription_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
-    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -4340,7 +4344,7 @@ START_TEST(UA_WriteRequest_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[2000];
 
-    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+    status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
     // then
@@ -4368,7 +4372,7 @@ START_TEST(UA_null_json_encode) {
         bufPos = &buf.data[0];
         src = NULL;
         type = &UA_TYPES[i];
-        s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, UA_TRUE);
+        s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
         *bufPos = 0;
         ck_assert_int_eq(s, UA_STATUSCODE_GOOD);
         ck_assert_str_eq(result, (char*)buf.data);

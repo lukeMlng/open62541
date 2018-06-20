@@ -1194,10 +1194,19 @@ ENCODE_JSON(ExpandedNodeId) {
          * portion of the ExpandedNodeId, encoded as a JSON string.
          */
         
-        writeKey(ctx, "ServerUri", UA_TRUE);
-        ret = ENCODE_DIRECT(&src->serverIndex, UInt32);
-        if (ret != UA_STATUSCODE_GOOD)
-            return ret;
+        //Check if Namespace given and in range
+        if(src->serverIndex < ctx->serverUrisSize
+                && ctx->serverUris != NULL){
+
+            UA_String serverUriEntry = ctx->serverUris[src->serverIndex];
+            writeKey(ctx, "ServerUri", UA_TRUE);
+            ret = ENCODE_DIRECT(&serverUriEntry, String);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+        }else{
+            return UA_STATUSCODE_BADNOTFOUND;
+        }
+        
     }
     ret |= WRITE(ObjEnd);
     return ret;
@@ -1917,7 +1926,7 @@ encodeJsonInternal(const void *src, const UA_DataType *type, CtxJson *ctx, UA_Bo
 
 status
 UA_encodeJson(const void *src, const UA_DataType *type,
-        u8 **bufPos, const u8 **bufEnd, UA_String *namespaces, size_t namespaceSize, UA_Boolean useReversible) {
+        u8 **bufPos, const u8 **bufEnd, UA_String *namespaces, size_t namespaceSize, UA_String *serverUris, size_t serverUriSize, UA_Boolean useReversible) {
     /* Set up the context */
     CtxJson ctx;
     memset(&ctx, 0, sizeof(ctx));
@@ -1926,6 +1935,8 @@ UA_encodeJson(const void *src, const UA_DataType *type,
     ctx.depth = 0;
     ctx.namespaces = namespaces;
     ctx.namespacesSize = namespaceSize;
+    ctx.serverUris = serverUris;
+    ctx.serverUrisSize = serverUriSize;
 
     /* Encode */
     status ret = encodeJsonInternal(src, type, &ctx, useReversible);
