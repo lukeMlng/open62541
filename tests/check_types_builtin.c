@@ -5080,6 +5080,9 @@ START_TEST(UA_ViewDescription_json_decode) {
 }
 END_TEST
 
+
+
+/* -----------------NodeId----------------------------- */
 START_TEST(UA_NodeId_Nummeric_json_decode) {
     // given
     UA_NodeId out;
@@ -5090,6 +5093,7 @@ START_TEST(UA_NodeId_Nummeric_json_decode) {
     // then
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
     ck_assert_int_eq(out.identifier.numeric, 42);
+    ck_assert_int_eq(out.namespaceIndex, 0);
     ck_assert_int_eq(out.identifierType, UA_NODEIDTYPE_NUMERIC);
 }
 END_TEST
@@ -5109,17 +5113,96 @@ START_TEST(UA_NodeId_Nummeric_Namespace_json_decode) {
 }
 END_TEST
 
+
+START_TEST(UA_NodeId_String_json_decode) {
+    // given
+    UA_NodeId out;
+    UA_ByteString buf = UA_STRING("{\"IdType\":1,\"Id\":\"test123\"}");
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_NODEID], 0, 0);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    ck_assert_int_eq(out.identifier.string.length, 7);
+    ck_assert_int_eq(out.identifier.string.data[0], 't');
+    ck_assert_int_eq(out.identifier.string.data[1], 'e');
+    ck_assert_int_eq(out.identifier.string.data[2], 's');
+    ck_assert_int_eq(out.identifier.string.data[3], 't');
+    ck_assert_int_eq(out.identifier.string.data[4], '1');
+    ck_assert_int_eq(out.identifier.string.data[5], '2');
+    ck_assert_int_eq(out.identifier.string.data[6], '3');
+    ck_assert_int_eq(out.namespaceIndex, 0);
+    ck_assert_int_eq(out.identifierType, UA_NODEIDTYPE_STRING);
+}
+END_TEST
+
+
+START_TEST(UA_NodeId_Guid_json_decode) {
+    // given
+    UA_NodeId out;
+    UA_ByteString buf = UA_STRING("{\"IdType\":2,\"Id\":\"00000001-0002-0003-0405-060708090A0B\"}");
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_NODEID], 0, 0);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+
+    ck_assert_int_eq(out.namespaceIndex, 0);
+    ck_assert_int_eq(out.identifierType, UA_NODEIDTYPE_GUID);
+    ck_assert_int_eq(out.identifier.guid.data1, 1);
+    ck_assert_int_eq(out.identifier.guid.data2, 2);
+    ck_assert_int_eq(out.identifier.guid.data3, 3);
+    ck_assert_int_eq(out.identifier.guid.data4[0], 4);
+    ck_assert_int_eq(out.identifier.guid.data4[1], 5);
+    ck_assert_int_eq(out.identifier.guid.data4[2], 6);
+    ck_assert_int_eq(out.identifier.guid.data4[3], 7);
+    ck_assert_int_eq(out.identifier.guid.data4[4], 8);
+    ck_assert_int_eq(out.identifier.guid.data4[5], 9);
+    ck_assert_int_eq(out.identifier.guid.data4[6], 10);
+    ck_assert_int_eq(out.identifier.guid.data4[7], 11);
+}
+END_TEST
+
+START_TEST(UA_NodeId_ByteString_json_decode) {
+    // given
+    UA_NodeId out;
+    UA_ByteString buf = UA_STRING("{\"IdType\":3,\"Id\":\"YXNkZmFzZGY=\"}");
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_NODEID], 0, 0);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+
+    ck_assert_int_eq(out.namespaceIndex, 0);
+    ck_assert_int_eq(out.identifierType, UA_NODEIDTYPE_BYTESTRING);
+    ck_assert_int_eq(out.identifier.byteString.length, 8);
+    ck_assert_int_eq(out.identifier.byteString.data[0], 'a');
+    ck_assert_int_eq(out.identifier.byteString.data[1], 's');
+    ck_assert_int_eq(out.identifier.byteString.data[2], 'd');
+    ck_assert_int_eq(out.identifier.byteString.data[3], 'f');
+    ck_assert_int_eq(out.identifier.byteString.data[4], 'a');
+    ck_assert_int_eq(out.identifier.byteString.data[5], 's');
+    ck_assert_int_eq(out.identifier.byteString.data[6], 'd');
+    ck_assert_int_eq(out.identifier.byteString.data[7], 'f');
+}
+END_TEST
+
+
+/* -----------------------ExpandedNodeId---------------------------*/
 START_TEST(UA_ExpandedNodeId_Nummeric_json_decode) {
     // given
     UA_ExpandedNodeId out;
     UA_ByteString buf = UA_STRING("{\"Id\":42}");
     // when
     size_t offset = 0;
-    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_NODEID], 0, 0);
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_EXPANDEDNODEID], 0, 0);
     // then
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
     ck_assert_int_eq(out.nodeId.identifier.numeric, 42);
     ck_assert_int_eq(out.nodeId.identifierType, UA_NODEIDTYPE_NUMERIC);
+    ck_assert_ptr_eq(out.namespaceUri.data, NULL);
+    ck_assert_int_eq(out.namespaceUri.length, 0);
+    ck_assert_int_eq(out.serverIndex, 0);
 }
 END_TEST
 
@@ -5135,10 +5218,39 @@ START_TEST(UA_ExpandedNodeId_String_json_decode) {
     ck_assert_int_eq(out.nodeId.identifier.string.length, 4);
     ck_assert_int_eq(out.nodeId.identifier.string.data[0], 't');
     ck_assert_int_eq(out.nodeId.identifierType, UA_NODEIDTYPE_STRING);
+    ck_assert_ptr_eq(out.namespaceUri.data, NULL);
+    ck_assert_int_eq(out.namespaceUri.length, 0);
+    ck_assert_int_eq(out.serverIndex, 0);
 }
 END_TEST
 
 START_TEST(UA_ExpandedNodeId_String_Namespace_json_decode) {
+    // given
+    UA_ExpandedNodeId out;
+    UA_ByteString buf = UA_STRING("{\"IdType\":1,\"Id\":\"test\",\"Namespace\":\"abcdef\"}");
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_EXPANDEDNODEID], 0, 0);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    ck_assert_int_eq(out.nodeId.identifier.string.length, 4);
+    ck_assert_int_eq(out.nodeId.identifier.string.data[0], 't');
+    ck_assert_int_eq(out.nodeId.identifier.string.data[1], 'e');
+    ck_assert_int_eq(out.nodeId.identifier.string.data[2], 's');
+    ck_assert_int_eq(out.nodeId.identifier.string.data[3], 't');
+    ck_assert_int_eq(out.nodeId.identifierType, UA_NODEIDTYPE_STRING);
+    ck_assert_int_eq(out.namespaceUri.length, 6);
+    ck_assert_int_eq(out.namespaceUri.data[0], 'a');
+    ck_assert_int_eq(out.namespaceUri.data[1], 'b');
+    ck_assert_int_eq(out.namespaceUri.data[2], 'c');
+    ck_assert_int_eq(out.namespaceUri.data[3], 'd');
+    ck_assert_int_eq(out.namespaceUri.data[4], 'e');
+    ck_assert_int_eq(out.namespaceUri.data[5], 'f');
+    ck_assert_int_eq(out.serverIndex, 0);
+}
+END_TEST
+
+START_TEST(UA_ExpandedNodeId_String_NamespaceAsIndex_json_decode) {
     // given
     UA_ExpandedNodeId out;
     UA_ByteString buf = UA_STRING("{\"IdType\":1,\"Id\":\"test\",\"Namespace\":42}");
@@ -5149,8 +5261,14 @@ START_TEST(UA_ExpandedNodeId_String_Namespace_json_decode) {
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
     ck_assert_int_eq(out.nodeId.identifier.string.length, 4);
     ck_assert_int_eq(out.nodeId.identifier.string.data[0], 't');
+    ck_assert_int_eq(out.nodeId.identifier.string.data[1], 'e');
+    ck_assert_int_eq(out.nodeId.identifier.string.data[2], 's');
+    ck_assert_int_eq(out.nodeId.identifier.string.data[3], 't');
     ck_assert_int_eq(out.nodeId.identifierType, UA_NODEIDTYPE_STRING);
-    ck_assert_int_eq(out.serverIndex, 42);
+    ck_assert_int_eq(out.namespaceUri.length, 0);
+    ck_assert_ptr_eq(out.namespaceUri.data, NULL);
+    ck_assert_int_eq(out.nodeId.namespaceIndex, 42);
+    ck_assert_int_eq(out.serverIndex, 0);
 }
 END_TEST
 
@@ -5170,7 +5288,6 @@ START_TEST(UA_ExpandedNodeId_String_Namespace_ServerUri_json_decode) {
     ck_assert_int_eq(out.nodeId.identifier.string.data[3], 't');
     ck_assert_int_eq(out.nodeId.identifierType, UA_NODEIDTYPE_STRING);
     ck_assert_int_eq(out.serverIndex, 13);
-    //Only a dummy, but it checks if type was found
     ck_assert_int_eq(out.namespaceUri.data[0], 't');
     ck_assert_int_eq(out.namespaceUri.data[1], 'e');
     ck_assert_int_eq(out.namespaceUri.data[2], 's');
@@ -5181,7 +5298,7 @@ END_TEST
 START_TEST(UA_ExpandedNodeId_ByteString_json_decode) {
     // given
     UA_ExpandedNodeId out;
-    UA_ByteString buf = UA_STRING("{\"IdType\":3,\"Id\":\"YXNkZmFzZGY=\",\"Namespace\":42,\"ServerUri\":13}");
+    UA_ByteString buf = UA_STRING("{\"IdType\":3,\"Id\":\"YXNkZmFzZGY=\",\"Namespace\":\"test\",\"ServerUri\":13}");
     // when
     size_t offset = 0;
     UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_EXPANDEDNODEID], 0, 0);
@@ -5197,9 +5314,11 @@ START_TEST(UA_ExpandedNodeId_ByteString_json_decode) {
     ck_assert_int_eq(out.nodeId.identifier.string.data[6], 'd');
     ck_assert_int_eq(out.nodeId.identifier.string.data[7], 'f');
     ck_assert_int_eq(out.nodeId.identifierType, UA_NODEIDTYPE_BYTESTRING);
-    ck_assert_int_eq(out.serverIndex, 42);
-    //Only a dummy, but it checks if type was found
-    ck_assert_int_eq(out.namespaceUri.data[0], '@');
+    ck_assert_int_eq(out.serverIndex, 13);
+    ck_assert_int_eq(out.namespaceUri.data[0], 't');
+    ck_assert_int_eq(out.namespaceUri.data[1], 'e');
+    ck_assert_int_eq(out.namespaceUri.data[2], 's');
+    ck_assert_int_eq(out.namespaceUri.data[3], 't');
 }
 END_TEST
 
@@ -6084,42 +6203,58 @@ static Suite *testSuite_builtin(void) {
    
     tcase_add_test(tc_json_decode, UA_String_json_decode);
     
-    
+    //ByteString
     tcase_add_test(tc_json_decode, UA_ByteString_json_decode);
     tcase_add_test(tc_json_decode, UA_ByteString_bad_json_decode);
     tcase_add_test(tc_json_decode, UA_ByteString_null_json_decode);
     
+    
+    //DateTime
     tcase_add_test(tc_json_decode, UA_DateTime_json_decode);
     tcase_add_test(tc_json_decode, UA_DateTime_micro_json_decode);
     
+    
+    //Guid
     tcase_add_test(tc_json_decode, UA_Guid_json_decode);
     tcase_add_test(tc_json_decode, UA_Guid_tooShort_json_decode);
     tcase_add_test(tc_json_decode, UA_Guid_tooLong_json_decode);
     tcase_add_test(tc_json_decode, UA_Guid_wrong_json_decode);
     
+    
+    //StatusCode
     tcase_add_test(tc_json_decode, UA_StatusCode_2_json_decode);
     tcase_add_test(tc_json_decode, UA_StatusCode_0_json_decode);
     
     
+    //QualName
     tcase_add_test(tc_json_decode, UA_QualifiedName_json_decode);
     tcase_add_test(tc_json_decode, UA_QualifiedName_null_json_decode);
     
+    
+    //LocalizedText
     tcase_add_test(tc_json_decode, UA_LocalizedText_json_decode);
     tcase_add_test(tc_json_decode, UA_LocalizedText_missing_json_decode);
     tcase_add_test(tc_json_decode, UA_LocalizedText_null_json_decode);
     
-    
-    
 
+    //-NodeId-
     tcase_add_test(tc_json_decode, UA_NodeId_Nummeric_json_decode);
     tcase_add_test(tc_json_decode, UA_NodeId_Nummeric_Namespace_json_decode);
+
+    tcase_add_test(tc_json_decode, UA_NodeId_String_json_decode);
+    
+    tcase_add_test(tc_json_decode, UA_NodeId_Guid_json_decode);
+    
+    tcase_add_test(tc_json_decode, UA_NodeId_ByteString_json_decode);
+    
     
     
     tcase_add_test(tc_json_decode, UA_ExpandedNodeId_Nummeric_json_decode);
-    
-    
+
     tcase_add_test(tc_json_decode, UA_ExpandedNodeId_String_json_decode);
     tcase_add_test(tc_json_decode, UA_ExpandedNodeId_String_Namespace_json_decode);
+    
+    tcase_add_test(tc_json_decode, UA_ExpandedNodeId_String_NamespaceAsIndex_json_decode);
     tcase_add_test(tc_json_decode, UA_ExpandedNodeId_String_Namespace_ServerUri_json_decode);
     tcase_add_test(tc_json_decode, UA_ExpandedNodeId_ByteString_json_decode);
     

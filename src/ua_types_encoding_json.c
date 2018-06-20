@@ -2669,7 +2669,7 @@ static status prepareDecodeNodeIdJson(UA_NodeId *dst, CtxJson *ctx, ParseCtx *pa
         fieldPointer[*fieldCount] = &dst->identifier.numeric;
         functions[*fieldCount] = (decodeJsonSignature) UInt32_decodeJson;
         
-        //Id alway present
+        //Id always present
        (*fieldCount)++;  
     }
     
@@ -2714,7 +2714,7 @@ DECODE_JSON(NodeId) {
     }
     
     UA_Boolean found[3] = {UA_FALSE, UA_FALSE, UA_FALSE};
-    DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 3};
+    DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, fieldCount};
     status ret = decodeFields(ctx, parseCtx, &decodeCtx, type);
     return ret;
 }
@@ -2741,20 +2741,23 @@ DECODE_JSON(ExpandedNodeId) {
     size_t searchResultServerUri = 0;
     lookAheadForKey(UA_DECODEKEY_SERVERURI, ctx, parseCtx, &searchResultServerUri);
     if(searchResultServerUri == 0){
-        //TODO: Lookup
-        dst->namespaceUri = UA_STRING(""); 
+        dst->serverIndex = 0; 
     } else{
         hasServerUri = UA_TRUE;
     }
     
     /* NameSpace */
     UA_Boolean hasNamespace = UA_FALSE;
+    UA_Boolean isNamespaceString = UA_FALSE;
     size_t searchResultNamespace = 0;
     lookAheadForKey(UA_DECODEKEY_NAMESPACE, ctx, parseCtx, &searchResultNamespace);
     if(searchResultNamespace == 0){
-        dst->serverIndex = 0;
+        dst->namespaceUri = UA_STRING_NULL;
     } else{
         hasNamespace = UA_TRUE;
+        jsmntok_t nsToken = parseCtx->tokenArray[searchResultNamespace];
+        if(nsToken.type == JSMN_STRING)
+            isNamespaceString = UA_TRUE;
     }
     
     /* Setup fields, max 4 keys */
@@ -2767,30 +2770,30 @@ DECODE_JSON(ExpandedNodeId) {
     if(hasNamespace){
         fieldNames[fieldCount] = UA_DECODEKEY_NAMESPACE;
         
-        //TODO: which one is namespace?
-        //fieldPointer[fieldCount] = &dst->nodeId.namespaceIndex;
-        fieldPointer[fieldCount] = &dst->serverIndex;
-        functions[fieldCount] = (decodeJsonSignature) UInt16_decodeJson;
-        fieldCount++;  
+        if(isNamespaceString){
+            fieldPointer[fieldCount] = &dst->namespaceUri;
+            functions[fieldCount] = (decodeJsonSignature) String_decodeJson;
+        }else{
+            fieldPointer[fieldCount] = &dst->nodeId.namespaceIndex;
+            functions[fieldCount] = (decodeJsonSignature) UInt16_decodeJson;
+        }
+        
+        fieldCount++; 
     }
     
-    UA_UInt32 namespaceUriIndex;
     if(hasServerUri){
         fieldNames[fieldCount] = UA_DECODEKEY_SERVERURI;
-        fieldPointer[fieldCount] = &namespaceUriIndex;
+        fieldPointer[fieldCount] = &dst->serverIndex;
         functions[fieldCount] = (decodeJsonSignature) UInt32_decodeJson;
         fieldCount++;  
+    }else{
+        dst->serverIndex = 0;
     }
     
     UA_Boolean found[4] = {UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE};
     DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, fieldCount};
     status ret = decodeFields(ctx, parseCtx, &decodeCtx, type);
-    
-    if(hasServerUri){
-        //User namespaceUriIndex to lookup namespaceUri
-        dst->namespaceUri = UA_STRING("@");
-    }
-    
+
     return ret;
 }
 
