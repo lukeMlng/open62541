@@ -184,6 +184,8 @@ static status MetaDataVersion_decodeJsonInternal(void* dsm, const UA_DataType *t
     return 0;
 }
 
+const char * UA_DECODEKEY_DS_TYPE = ("Type");
+
 static status DataSetPayload_decodeJsonInternal(void* dsmP, const UA_DataType *type, CtxJson *ctx, ParseCtx *parseCtx, UA_Boolean moveToken){
     UA_DataSetMessage* dsm = (UA_DataSetMessage*)dsmP;
     
@@ -216,8 +218,7 @@ static status DataSetPayload_decodeJsonInternal(void* dsmP, const UA_DataType *t
         //Is field a variant or datavalue?
         UA_Boolean isVariant = UA_TRUE;
         size_t searchResultBody = 0;
-        UA_String searchKeyBody = UA_STRING("Type");
-        lookAheadForKey(searchKeyBody, ctx, parseCtx, &searchResultBody);
+        lookAheadForKey(UA_DECODEKEY_DS_TYPE, ctx, parseCtx, &searchResultBody);
         if(searchResultBody == 0){
             isVariant = UA_FALSE;
         }
@@ -242,6 +243,13 @@ static status DataSetPayload_decodeJsonInternal(void* dsmP, const UA_DataType *t
     
     return ret;
 }
+
+const char * UA_DECODEKEY_DATASETWRITERID = ("DataSetWriterId");
+const char * UA_DECODEKEY_SEQUENCENUMBER = ("SequenceNumber");
+const char * UA_DECODEKEY_METADATAVERSION = ("MetaDataVersion");
+const char * UA_DECODEKEY_DSM_STATUS = ("Status");
+const char * UA_DECODEKEY_PAYLOAD = ("Payload");
+
 
 static status
 DatasetMessage_Payload_decodeJsonInternal(UA_DataSetMessage* dsm, const UA_DataType *type, CtxJson *ctx, ParseCtx *parseCtx, UA_Boolean moveToken) {
@@ -270,7 +278,11 @@ DatasetMessage_Payload_decodeJsonInternal(UA_DataSetMessage* dsm, const UA_DataT
     
     dsm->header.fieldEncoding = UA_FIELDENCODING_DATAVALUE;
     
-    const char* fieldNames[] = {"DataSetWriterId", "SequenceNumber", "MetaDataVersion", "Status", "Payload"};
+    const char* fieldNames[] = {UA_DECODEKEY_DATASETWRITERID, 
+        UA_DECODEKEY_SEQUENCENUMBER, 
+        UA_DECODEKEY_METADATAVERSION, 
+        UA_DECODEKEY_DSM_STATUS, 
+        UA_DECODEKEY_PAYLOAD};
     UA_Boolean found[] = {UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE};
     void *fieldPointer[] = {&dsm->header.dataSetWriterId, &dsm->header.dataSetMessageSequenceNr, &cvd, &dsm->header.status, dsm};
     decodeJsonSignature functions[] = {
@@ -334,34 +346,38 @@ DatasetMessage_Array_decodeJsonInternal(void *UA_RESTRICT dst, const UA_DataType
     return ret;
 }
 
+const char * UA_DECODEKEY_MESSAGES = ("Messages");
+const char * UA_DECODEKEY_MESSAGETYPE = ("MessageType");
+const char * UA_DECODEKEY_MESSAGEID = ("MessageId");
+const char * UA_DECODEKEY_PUBLISHERID = ("PublisherId");
+const char * UA_DECODEKEY_DATASETCLASSID = ("DataSetClassId");
+
 static status NetworkMessage_decodeJsonInternal(UA_NetworkMessage *dst, CtxJson *ctx, ParseCtx *parseCtx){
     
     memset(dst, 0, sizeof(UA_NetworkMessage));
     size_t messageCount = 0;    
     {
         //Is Messages an Array? How big?
-        size_t searchResultBody = 0;
-        UA_String searchKeyBody = UA_STRING("Messages");
-        lookAheadForKey(searchKeyBody, ctx, parseCtx, &searchResultBody);
-        if(searchResultBody != 0){
-            jsmntok_t bodyToken = parseCtx->tokenArray[searchResultBody];
+        size_t searchResultMessages = 0;
+        lookAheadForKey(UA_DECODEKEY_MESSAGES, ctx, parseCtx, &searchResultMessages);
+        if(searchResultMessages != 0){
+            jsmntok_t bodyToken = parseCtx->tokenArray[searchResultMessages];
             if(bodyToken.type == JSMN_ARRAY){
-                messageCount = (size_t)parseCtx->tokenArray[searchResultBody].size;
+                messageCount = (size_t)parseCtx->tokenArray[searchResultMessages].size;
             }
         }
     }
     
     /* MessageType */
     UA_Boolean isUaData = UA_TRUE;
-    size_t searchResult = 0;
-    UA_String searchKey = UA_STRING("MessageType"); 
-    lookAheadForKey(searchKey, ctx, parseCtx, &searchResult);
-    if(searchResult == 0){
+    size_t searchResultMessageType = 0;
+    lookAheadForKey(UA_DECODEKEY_MESSAGETYPE, ctx, parseCtx, &searchResultMessageType);
+    if(searchResultMessageType == 0){
         //TODO Cleanup
         return UA_STATUSCODE_BADDECODINGERROR;
     }else{
-        size_t size = (size_t)(parseCtx->tokenArray[searchResult].end - parseCtx->tokenArray[searchResult].start);
-        char* msgType = (char*)(ctx->pos + parseCtx->tokenArray[searchResult].start);
+        size_t size = (size_t)(parseCtx->tokenArray[searchResultMessageType].end - parseCtx->tokenArray[searchResultMessageType].start);
+        char* msgType = (char*)(ctx->pos + parseCtx->tokenArray[searchResultMessageType].start);
         if(size == 7){ //ua-data
             if(strncmp(msgType, "ua-data", size) != 0){
                 return UA_STATUSCODE_BADDECODINGERROR;
@@ -387,7 +403,11 @@ static status NetworkMessage_decodeJsonInternal(UA_NetworkMessage *dst, CtxJson 
 
         UA_Guid guid;
         UA_String messageType;
-        const char* fieldNames[5] = {"MessageId", "MessageType", "PublisherId", "DataSetClassId", "Messages"};
+        const char* fieldNames[5] = {UA_DECODEKEY_MESSAGEID, 
+            UA_DECODEKEY_MESSAGETYPE, 
+            UA_DECODEKEY_PUBLISHERID, 
+            UA_DECODEKEY_DATASETCLASSID, 
+            UA_DECODEKEY_MESSAGES};
         UA_Boolean found[5] = {UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE, UA_FALSE};
         void *fieldPointer[5] = {&guid, &messageType, &dst->publisherId.publisherIdString, &dst->dataSetClassId, &dst->payload.dataSetPayload.dataSetMessages};
         decodeJsonSignature functions[5] = {

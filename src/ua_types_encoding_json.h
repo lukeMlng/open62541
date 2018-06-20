@@ -75,7 +75,7 @@ decodeFields(CtxJson *ctx, ParseCtx *parseCtx, DecodeContext *decodeContext, con
 
 /* workaround: TODO generate functions for UA_xxx_decodeJson */
 decodeJsonSignature getDecodeSignature(u8 index);
-status lookAheadForKey(UA_String search, CtxJson *ctx, ParseCtx *parseCtx, size_t *resultIndex);
+status lookAheadForKey(const char* search, CtxJson *ctx, ParseCtx *parseCtx, size_t *resultIndex);
 
 jsmntype_t getJsmnType(const ParseCtx *parseCtx);
 status tokenize(ParseCtx *parseCtx, CtxJson *ctx, const UA_ByteString *src, UA_UInt16 *tokenIndex);
