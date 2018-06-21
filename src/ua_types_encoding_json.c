@@ -2024,6 +2024,14 @@ jsmntype_t getJsmnType(const ParseCtx *parseCtx){
     return parseCtx->tokenArray[*parseCtx->index].type;
 }
 
+static UA_Boolean isJsonTokenNull(const CtxJson *ctx, jsmntok_t *token){
+    if(token->type != JSMN_PRIMITIVE){
+        return false;
+    }
+    char* elem = (char*)(ctx->pos + token->start);
+    return (elem[0] == 'n' && elem[1] == 'u' && elem[2] == 'l' && elem[3] == 'l');
+}
+
  UA_Boolean isJsonNull(const CtxJson *ctx, const ParseCtx *parseCtx){
     if(*parseCtx->index >= parseCtx->tokenCount){
         return false;
@@ -2289,7 +2297,7 @@ DECODE_JSON(Float){
     memcpy(string, data, size);
     
     //TODO, Parameter, prec
-    d = (UA_Float)__floatscan(string, 0, 0);
+    d = (UA_Float)__floatscan(string, 1, 0);
     memcpy(dst, &d, 4);
     return 0;
 }
@@ -2608,7 +2616,10 @@ DECODE_JSON(String) {
                 }
 
                 if(utf8_encode(value, outputBufferCurrentPtr, &length))
-                    assert(0);
+                {
+                    ret = UA_STATUSCODE_BADDECODINGERROR;
+                    goto cleanup;
+                }
                 outputBufferCurrentPtr += length;
             }
             else {
@@ -2620,7 +2631,8 @@ DECODE_JSON(String) {
                     case 'n': *outputBufferCurrentPtr = '\n'; break;
                     case 'r': *outputBufferCurrentPtr = '\r'; break;
                     case 't': *outputBufferCurrentPtr = '\t'; break;
-                    default: assert(0);
+                    default: ret = UA_STATUSCODE_BADDECODINGERROR;
+                    goto cleanup;
                 }
                 outputBufferCurrentPtr++;
                 p++;
@@ -3144,35 +3156,6 @@ DECODE_JSON(Variant) {
             return UA_STATUSCODE_BADDECODINGERROR;
         }
         
-        /* Does the variant contain an array? */
-        UA_Boolean isArray = UA_FALSE;
-        
-        UA_Boolean hasDimension = UA_FALSE;
-        
-        //Is the Body an Array?
-        size_t searchResultBody = 0;
-        lookAheadForKey(UA_DECODEKEY_BODY, ctx, parseCtx, &searchResultBody);
-        if(searchResultBody != 0){
-            jsmntok_t bodyToken = parseCtx->tokenArray[searchResultBody];
-            if(bodyToken.type == JSMN_ARRAY){
-                isArray = UA_TRUE;
-                
-                size_t arraySize = 0;
-                arraySize = (size_t)parseCtx->tokenArray[searchResultBody].size;
-                dst->arrayLength = arraySize;
-            }
-        }
-        
-        //Has the variant dimension?
-        size_t searchResultDim = 0;
-        lookAheadForKey(UA_DECODEKEY_DIMENSION, ctx, parseCtx, &searchResultDim);
-        if(searchResultDim != 0){
-            hasDimension = UA_TRUE;
-            size_t dimensionSize = 0;
-            dimensionSize = (size_t)parseCtx->tokenArray[searchResultDim].size;
-            dst->arrayDimensionsSize = dimensionSize;
-        }
-
         //Parse the type
         UA_UInt64 idTypeDecoded;
         char *idTypeEncoded = (char*)(ctx->pos + parseCtx->tokenArray[searchResultType].start);
@@ -3183,6 +3166,57 @@ DECODE_JSON(Variant) {
         const UA_DataType *bodyType = UA_findDataType(&typeNodeId);
         if(bodyType == NULL){
             return UA_STATUSCODE_BADDECODINGERROR;
+        }
+        
+        //Set the type
+        dst->type = bodyType;
+        
+        
+        //------------LookAhead BODY----------------
+        /* Does the variant contain an array? */
+        UA_Boolean isArray = UA_FALSE;
+        
+        //Is the Body an Array?
+        size_t searchResultBody = 0;
+        lookAheadForKey(UA_DECODEKEY_BODY, ctx, parseCtx, &searchResultBody);
+        if(searchResultBody != 0){
+            jsmntok_t bodyToken = parseCtx->tokenArray[searchResultBody];
+            
+            //BODY is null
+            if(isJsonTokenNull(ctx, &bodyToken)){
+                dst->data = NULL;
+                return UA_STATUSCODE_GOOD;
+            }
+            
+            if(bodyToken.type == JSMN_ARRAY){
+                isArray = UA_TRUE;
+                
+                size_t arraySize = 0;
+                arraySize = (size_t)parseCtx->tokenArray[searchResultBody].size;
+                dst->arrayLength = arraySize;
+            }
+        }else{
+            //TODO: no body? set value NULL?
+            return UA_STATUSCODE_BADDECODINGERROR;
+        }
+        
+        //------------LookAhead BODY----------------
+        UA_Boolean hasDimension = UA_FALSE;
+        //Has the variant dimension?
+        size_t searchResultDim = 0;
+        lookAheadForKey(UA_DECODEKEY_DIMENSION, ctx, parseCtx, &searchResultDim);
+        if(searchResultDim != 0){
+            hasDimension = UA_TRUE;
+            size_t dimensionSize = 0;
+            dimensionSize = (size_t)parseCtx->tokenArray[searchResultDim].size;
+            dst->arrayDimensionsSize = dimensionSize;
+        }
+        
+        //-Checks-
+        
+        if(!isArray && hasDimension){
+            //no array but dimension. error?
+            //return UA_STATUSCODE_BADDECODINGERROR;
         }
         
         /* Get the datatype of the content. The type must be a builtin data type.
@@ -3198,8 +3232,6 @@ DECODE_JSON(Variant) {
         if(bodyType == NULL){
             return UA_STATUSCODE_BADDECODINGERROR;
         }
-        //const UA_DataType *BodyType = &dataTypeByTypeNodeId;
-        dst->type = bodyType;
         
         if(isArray){
               if(!hasDimension){
