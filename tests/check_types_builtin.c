@@ -4795,6 +4795,45 @@ START_TEST(UA_String_json_decode) {
 }
 END_TEST
 
+START_TEST(UA_String_unescapeBS_json_decode) { 
+    UA_Variant out;
+    UA_Variant_init(&out);
+    UA_ByteString buf = UA_STRING("{\"Type\":12,\"Body\":\"ab\\tcdef\"}");
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_VARIANT], 0, 0);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    ck_assert_int_eq(out.type->typeIndex, UA_TYPES_STRING);
+    ck_assert_int_eq(  ((UA_String*)out.data)->length, 7);
+    ck_assert_int_eq( ((UA_String*)out.data)->data[0], 'a');
+    ck_assert_int_eq(((UA_String*)out.data)->data[1], 'b');
+    ck_assert_int_eq(((UA_String*)out.data)->data[2], '\t');
+    ck_assert_int_eq(((UA_String*)out.data)->data[3], 'c');
+    ck_assert_int_eq(((UA_String*)out.data)->data[4], 'd');
+    ck_assert_int_eq(((UA_String*)out.data)->data[5], 'e');
+    ck_assert_int_eq(((UA_String*)out.data)->data[6], 'f');
+    
+    //UA_Variant_deleteMembers(&out);
+}
+END_TEST
+
+START_TEST(UA_String_escape_unicode_json_decode) { 
+    UA_Variant out;
+    UA_Variant_init(&out);
+    UA_ByteString buf = UA_STRING("{\"Type\":12,\"Body\":\"\\u002c\"}");
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_VARIANT], 0, 0);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    ck_assert_int_eq(out.type->typeIndex, UA_TYPES_STRING);
+    ck_assert_int_eq(  ((UA_String*)out.data)->length, 1);
+    ck_assert_int_eq( ((UA_String*)out.data)->data[0], ',');
+    
+    //UA_Variant_deleteMembers(&out);
+}
+END_TEST
 
 /* ---------------ByteString---------------------------*/
 START_TEST(UA_ByteString_json_decode) {
@@ -6244,8 +6283,11 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_decode, UA_Double_onepointsmallest_json_decode);
     tcase_add_test(tc_json_decode, UA_Double_nan_json_decode);
     
-   
+    //String
     tcase_add_test(tc_json_decode, UA_String_json_decode);
+    tcase_add_test(tc_json_decode, UA_String_unescapeBS_json_decode);
+    
+    tcase_add_test(tc_json_decode, UA_String_escape_unicode_json_decode);
     
     //ByteString
     tcase_add_test(tc_json_decode, UA_ByteString_json_decode);

@@ -2387,6 +2387,80 @@ DECODE_JSON(Guid) {
     return UA_STATUSCODE_GOOD;
 }
 
+
+
+static int utf8_encode(int32_t codepoint, UA_Byte *buffer, size_t *size)
+{
+    if(codepoint < 0)
+        return -1;
+    else if(codepoint < 0x80)
+    {
+        buffer[0] = (UA_Byte)codepoint;
+        *size = 1;
+    }
+    else if(codepoint < 0x800)
+    {
+        buffer[0] = (UA_Byte)(0xC0 + ((codepoint & 0x7C0) >> 6));
+        buffer[1] = (UA_Byte)(0x80 + ((codepoint & 0x03F)));
+        *size = 2;
+    }
+    else if(codepoint < 0x10000)
+    {
+        buffer[0] = (UA_Byte)(0xE0 + ((codepoint & 0xF000) >> 12));
+        buffer[1] = (UA_Byte)(0x80 + ((codepoint & 0x0FC0) >> 6));
+        buffer[2] = (UA_Byte)(0x80 + ((codepoint & 0x003F)));
+        *size = 3;
+    }
+    else if(codepoint <= 0x10FFFF)
+    {
+        buffer[0] = (UA_Byte)(0xF0 + ((codepoint & 0x1C0000) >> 18));
+        buffer[1] = (UA_Byte)(0x80 + ((codepoint & 0x03F000) >> 12));
+        buffer[2] = (UA_Byte)(0x80 + ((codepoint & 0x000FC0) >> 6));
+        buffer[3] = (UA_Byte)(0x80 + ((codepoint & 0x00003F)));
+        *size = 4;
+    }
+    else
+        return -1;
+
+    return 0;
+}
+
+
+/* Locale independent versions of isxxx() functions */
+#define l_isupper(c)  ('A' <= (c) && (c) <= 'Z')
+#define l_islower(c)  ('a' <= (c) && (c) <= 'z')
+#define l_isalpha(c)  (l_isupper(c) || l_islower(c))
+#define l_isdigit(c)  ('0' <= (c) && (c) <= '9')
+#define l_isxdigit(c) \
+    (l_isdigit(c) || ('A' <= (c) && (c) <= 'F') || ('a' <= (c) && (c) <= 'f'))
+
+
+/* assumes that str points to 'u' plus at least 4 valid hex digits */
+static int32_t decode_unicode_escape(const UA_Byte *str)
+{
+    int i;
+    int32_t value = 0;
+
+    assert(str[0] == 'u');
+
+    for(i = 1; i <= 4; i++) {
+        UA_Byte c = str[i];
+        value <<= 4;
+        if(l_isdigit(c))
+            value += c - '0';
+        else if(l_islower(c))
+            value += c - 'a' + 10;
+        else if(l_isupper(c))
+            value += c - 'A' + 10;
+        else
+            return -1;
+    }
+
+    return value;
+}
+
+
+
 #undef jsonstringdecodeonheap
 DECODE_JSON(String) {
     if(isJsonNull(ctx, parseCtx)){
@@ -2405,25 +2479,180 @@ DECODE_JSON(String) {
     }
     
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
-    UA_Byte* stringRef = (ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
+    UA_Byte* inputBuffer = (ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
     
-#ifdef jsonstringdecodeonheap
-    //Allocate
-    dst->data = (UA_Byte*)malloc(size * sizeof(UA_Byte));
-    if(dst->data == NULL){
-        return UA_STATUSCODE_BADDECODINGERROR;
+    if(size == 0){
+        //early out
+        dst->data = NULL;
+        dst->length = 0;
+        return UA_STATUSCODE_GOOD;
     }
-    memcpy(dst->data, stringRef, size);
-#else
-    //Store as Reference
-    dst->data = stringRef;
-#endif
     
-    dst->length = size;
+    //--------------------------escape------------------------------------------
+   
+    size_t inBufIndex = 0;
+    
+    //get first char
+    UA_Byte c = inputBuffer[inBufIndex++];
+    
+    //Check if string is escaped correct.
+    while(inBufIndex < size) {
+
+        if(/*0 <= c &&*/ c <= 0x1F) {
+            /* error: control character */
+            ret = UA_STATUSCODE_BADDECODINGERROR;
+            goto out;
+        } else if(c == '\\') {
+            
+            c = inputBuffer[inBufIndex++];
+            if(inBufIndex >= size){
+                ret = UA_STATUSCODE_BADDECODINGERROR;
+                goto out;
+            }
+            
+            if(c == 'u') {
+                c = inputBuffer[inBufIndex++];
+                if(inBufIndex >= size){
+                    ret = UA_STATUSCODE_BADDECODINGERROR;
+                    goto out;
+                }
+                for(size_t i = 0; i < 4; i++) {
+                    if(!l_isxdigit(c)) {
+                        ret = UA_STATUSCODE_BADDECODINGERROR;
+                        goto out;
+                    }
+                    c = inputBuffer[inBufIndex++];
+                }
+            }
+            else if(c == '"' || c == '\\' || c == '/' || c == 'b' ||
+                    c == 'f' || c == 'n' || c == 'r' || c == 't'){
+             
+                c = inputBuffer[inBufIndex++];
+            }else {
+                ret = UA_STATUSCODE_BADDECODINGERROR;
+                goto out;
+            }
+        }
+        else{
+            c = inputBuffer[inBufIndex++];
+        }
+            
+    }
+
+    /* the actual value is at most of the same length as the source
+       string, because:
+         - shortcut escapes (e.g. "\t") (length 2) are converted to 1 byte
+         - a single \uXXXX escape (length 6) is converted to at most 3 bytes
+         - two \uXXXX escapes (length 12) forming an UTF-16 surrogate pair
+           are converted to 4 bytes
+    */
+
+    UA_Byte* outputBufferCurrentPtr = (UA_Byte*)malloc(size);
+    UA_Byte* tmpOutputBuffer = outputBufferCurrentPtr; //save start address
+    if(!outputBufferCurrentPtr){
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+    }
+    
+    UA_Byte *p = &inputBuffer[0];
+    UA_Byte *end = &inputBuffer[size]; 
+            
+    while(p < end) {
+        if(*p == '\\') {
+            p++;
+            if(*p == 'u') {
+                size_t length;
+                int32_t value;
+
+                value = decode_unicode_escape(p);
+                if(value < 0) {
+                    //invalid Unicode escape
+                    ret = UA_STATUSCODE_BADDECODINGERROR;
+                    goto cleanup;
+                }
+                p += 5;
+
+                if(0xD800 <= value && value <= 0xDBFF) {
+                    /* surrogate pair */
+                    if(*p == '\\' && *(p + 1) == 'u') {
+                        int32_t value2 = decode_unicode_escape(++p);
+                        if(value2 < 0) {
+                            //"invalid Unicode escape '%.6s'", p - 1);
+                            ret = UA_STATUSCODE_BADDECODINGERROR;
+                            goto cleanup;
+                        }
+                        p += 5;
+
+                        if(0xDC00 <= value2 && value2 <= 0xDFFF) {
+                            /* valid second surrogate */
+                            value =
+                                ((value - 0xD800) << 10) +
+                                (value2 - 0xDC00) +
+                                0x10000;
+                        }
+                        else {
+                            /* invalid second surrogate */
+                            ret = UA_STATUSCODE_BADDECODINGERROR;
+                            goto cleanup;
+                        }
+                    }
+                    else {
+                        /* no second surrogate */
+                        ret = UA_STATUSCODE_BADDECODINGERROR;
+                        goto cleanup;
+                    }
+                }
+                else if(0xDC00 <= value && value <= 0xDFFF) {
+                    //invalid Unicode '\\u%04X'"
+                    ret = UA_STATUSCODE_BADDECODINGERROR;
+                    goto cleanup;
+                }
+
+                if(utf8_encode(value, outputBufferCurrentPtr, &length))
+                    assert(0);
+                outputBufferCurrentPtr += length;
+            }
+            else {
+                switch(*p) {
+                    case '"': case '\\': case '/':
+                        *outputBufferCurrentPtr = *p; break;
+                    case 'b': *outputBufferCurrentPtr = '\b'; break;
+                    case 'f': *outputBufferCurrentPtr = '\f'; break;
+                    case 'n': *outputBufferCurrentPtr = '\n'; break;
+                    case 'r': *outputBufferCurrentPtr = '\r'; break;
+                    case 't': *outputBufferCurrentPtr = '\t'; break;
+                    default: assert(0);
+                }
+                outputBufferCurrentPtr++;
+                p++;
+            }
+        }
+        else
+            *(outputBufferCurrentPtr++) = *(p++);
+    }
+
+    //actual SIZE
+    size_t afterEscapeSize = (size_t)(outputBufferCurrentPtr - tmpOutputBuffer);
+    
+    //save size to destination
+    dst->length = afterEscapeSize;
+    
+    //Option 1: Use buffer which can be to big because unescaping makes it smaller...
+    //dst->data = (UA_Byte*)outputBuffer;
+    
+    //Option 2: Allocate a new buffer with correct size. Temporary there is a big heap use.
+    dst->data = (UA_Byte*)malloc(afterEscapeSize * sizeof(UA_Byte));
+    if(dst->data == NULL){
+        ret = UA_STATUSCODE_BADOUTOFMEMORY;
+    }
+    memcpy(dst->data, tmpOutputBuffer, afterEscapeSize);
+    
+cleanup:
+    free(tmpOutputBuffer);  
 
     if(moveToken)
         (*parseCtx->index)++; // String is one element
 
+out:
     return ret;
 }
 
