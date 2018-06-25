@@ -1953,6 +1953,57 @@ ENCODE_JSON(Int64) {
 /* Floating Point Types */
 /************************/
 
+
+/*
+ * Convert special numbers to string
+ * fmt_fp gives NAN, nan,-NAN, -nan, inf, INF, -inf, -INF
+ * Special floating-point numbers such as positive infinity (INF), negative infinity (-INF) and not-a-
+ * number (NaN) shall be represented by the values “ Infinity”, “-Infinity” and “NaN” encoded as a JSON string.
+ */
+static status checkAndEncodeSpecialFloatingPoint(char* buffer, size_t *len){
+    //nan and NaN
+    if(*len == 3 && 
+            (buffer[0] == 'n' || buffer[0] == 'N') && 
+            (buffer[1] == 'a' || buffer[1] == 'A') && 
+            (buffer[2] == 'n' || buffer[2] == 'N')){
+        char* out = "\"NaN\"";
+        *len = 5;
+        memcpy(buffer, out, *len);
+        return UA_STATUSCODE_GOOD;
+    }
+    //-nan and -NaN
+    if(*len == 4 && buffer[0] == '-' && 
+            (buffer[1] == 'n' || buffer[1] == 'N') && 
+            (buffer[2] == 'a' || buffer[2] == 'A') && 
+            (buffer[3] == 'n' || buffer[3] == 'N')){
+        char* out = "\"-NaN\"";
+        *len = 6;
+        memcpy(buffer, out, *len);
+        return UA_STATUSCODE_GOOD;
+    }
+    //inf
+    if(*len == 3 && 
+            (buffer[0] == 'i' || buffer[0] == 'I') && 
+            (buffer[1] == 'n' || buffer[1] == 'N') && 
+            (buffer[2] == 'f' || buffer[2] == 'F')){
+        char* out = "\"Infinity\"";
+        *len = 10;
+        memcpy(buffer, out, *len);
+        return UA_STATUSCODE_GOOD;
+    }
+    //-inf
+    if(*len == 4 && buffer[0] == '-' && 
+            (buffer[1] == 'i' || buffer[1] == 'I') && 
+            (buffer[2] == 'n' || buffer[2] == 'N') && 
+            (buffer[3] == 'f' || buffer[3] == 'F')){
+        char* out = "\"-Infinity\"";
+        *len = 11;
+        memcpy(buffer, out, *len);
+        return UA_STATUSCODE_GOOD;
+    }
+    return UA_STATUSCODE_GOOD;
+}
+
 ENCODE_JSON(Float) {
     if(!src){
         return writeNull(ctx);
@@ -1961,7 +2012,12 @@ ENCODE_JSON(Float) {
     memset(buffer, 0, 50);
     fmt_fp(buffer, *src, 0, -1, 0, 'g');
     size_t len = strlen(buffer);
-
+    if(len <= 0){
+        return UA_STATUSCODE_BADENCODINGERROR;
+    }
+    
+    checkAndEncodeSpecialFloatingPoint(buffer, &len);
+    
     if (ctx->pos + len > ctx->end)
         return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
 
@@ -1980,6 +2036,8 @@ ENCODE_JSON(Double) {
     fmt_fp(buffer, *src, 0, 17, 0, 'g');
     size_t len = strlen(buffer);
 
+    checkAndEncodeSpecialFloatingPoint(buffer, &len);    
+    
     if (ctx->pos + len > ctx->end)
         return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
 

@@ -188,7 +188,7 @@ const char * UA_DECODEKEY_DS_TYPE = ("Type");
 
 static status DataSetPayload_decodeJsonInternal(void* dsmP, const UA_DataType *type, CtxJson *ctx, ParseCtx *parseCtx, UA_Boolean moveToken){
     UA_DataSetMessage* dsm = (UA_DataSetMessage*)dsmP;
-    
+    dsm->header.dataSetMessageValid = UA_TRUE;
     if(isJsonNull(ctx, parseCtx)){
         (*parseCtx->index)++;
         //TODO: set size, etc.
@@ -221,6 +221,9 @@ static status DataSetPayload_decodeJsonInternal(void* dsmP, const UA_DataType *t
         lookAheadForKey(UA_DECODEKEY_DS_TYPE, ctx, parseCtx, &searchResultBody);
         if(searchResultBody == 0){
             isVariant = UA_FALSE;
+            dsm->header.fieldEncoding = UA_FIELDENCODING_DATAVALUE;
+        }else{
+            dsm->header.fieldEncoding = UA_FIELDENCODING_VARIANT;
         }
         
         if(isVariant){
@@ -423,6 +426,7 @@ static status NetworkMessage_decodeJsonInternal(UA_NetworkMessage *dst, CtxJson 
         
         dst->securityEnabled = found[2];
         dst->dataSetClassIdEnabled = found[3];
+        dst->payloadHeaderEnabled = UA_TRUE;
         dst->payloadHeader.dataSetPayloadHeader.count = (UA_Byte)messageCount;
         
         
