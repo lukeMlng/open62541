@@ -5094,7 +5094,7 @@ START_TEST(UA_Double_inf_json_decode) {
     size_t offset = 0;
     UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_VARIANT], 0, 0);
     // then
-    // 0 11111111111 00000000000000000000000000000000000000000000000000000
+    // 0 111 1111 1111 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);       
     ck_assert_int_eq(((u8*)(out.data))[0], 0x00);
     ck_assert_int_eq(((u8*)(out.data))[1], 0x00);
@@ -5102,7 +5102,7 @@ START_TEST(UA_Double_inf_json_decode) {
     ck_assert_int_eq(((u8*)(out.data))[3], 0x00);
     ck_assert_int_eq(((u8*)(out.data))[4], 0x00);
     ck_assert_int_eq(((u8*)(out.data))[5], 0x00);
-    ck_assert_int_eq(((u8*)(out.data))[6], 0xF8);
+    ck_assert_int_eq(((u8*)(out.data))[6], 0xF0);
     ck_assert_int_eq(((u8*)(out.data))[7], 0x7F);
     
     UA_Variant_deleteMembers(&out);
@@ -5117,7 +5117,7 @@ START_TEST(UA_Double_neginf_json_decode) {
     size_t offset = 0;
     UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_VARIANT], 0, 0);
     // then
-    // 1 11111111111 0000000000000000000000000000000000000000000000000000
+    // 1 111 1111 1111 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);       
     ck_assert_int_eq(((u8*)(out.data))[0], 0x00);
     ck_assert_int_eq(((u8*)(out.data))[1], 0x00);
@@ -5125,8 +5125,8 @@ START_TEST(UA_Double_neginf_json_decode) {
     ck_assert_int_eq(((u8*)(out.data))[3], 0x00);
     ck_assert_int_eq(((u8*)(out.data))[4], 0x00);
     ck_assert_int_eq(((u8*)(out.data))[5], 0x00);
-    ck_assert_int_eq(((u8*)(out.data))[6], 0xF8);
-    ck_assert_int_eq(((u8*)(out.data))[7], 0x7F);
+    ck_assert_int_eq(((u8*)(out.data))[6], 0xF0);
+    ck_assert_int_eq(((u8*)(out.data))[7], 0xFF);
     
     UA_Variant_deleteMembers(&out);
 }

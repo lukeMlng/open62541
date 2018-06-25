@@ -611,6 +611,7 @@ CALC_JSON(Int64) {
 /************************/
 /* Floating Point Types */
 /************************/
+static status checkAndEncodeSpecialFloatingPoint(char* buffer, size_t *len);
 
 CALC_JSON(Float) {
     if(!src){
@@ -620,6 +621,7 @@ CALC_JSON(Float) {
     memset(buffer, 0, 50);
     fmt_fp(buffer, *src, 0, -1, 0, 'g');
     size_t len = strlen(buffer);
+    checkAndEncodeSpecialFloatingPoint(buffer, &len);
     ctx->pos += (len);
     return UA_STATUSCODE_GOOD;
 }
@@ -632,6 +634,7 @@ CALC_JSON(Double) {
     memset(buffer, 0, 50);
     fmt_fp(buffer, *src, 0, 17, 0, 'g');
     size_t len = strlen(buffer);
+    checkAndEncodeSpecialFloatingPoint(buffer, &len);
     ctx->pos += (len);
     return UA_STATUSCODE_GOOD;
 }
@@ -3719,6 +3722,14 @@ UA_UInt32 hex2int(char ch)
     return 0;
 }
 
+#if 100*__GNUC__+__GNUC_MINOR__ >= 303
+#define NAN       __builtin_nanf("")
+#define INFINITY  __builtin_inff()
+#else
+#define NAN       (0.0f/0.0f)
+#define INFINITY  1e5000f
+#endif
+
 DECODE_JSON(Float){
     jsmntype_t tokenType = getJsmnType(parseCtx);
     if(tokenType != JSMN_PRIMITIVE){
@@ -3743,8 +3754,34 @@ DECODE_JSON(Float){
 }
 
 DECODE_JSON(Double){
+    
+    UA_Double d = 0;
+    size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
+    char* data = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
+    
+    
     jsmntype_t tokenType = getJsmnType(parseCtx);
     if(tokenType != JSMN_PRIMITIVE){
+        //It could be a String with Nan, Infinity
+        if(memcmp(data, "Infinity", size) == 0){
+            *dst = INFINITY;
+            return UA_STATUSCODE_GOOD;
+        }
+        
+        if(memcmp(data, "-Infinity", size) == 0){
+            *dst = -INFINITY;
+            return UA_STATUSCODE_GOOD;
+        }
+        
+        if(memcmp(data, "NaN", size) == 0){
+            *dst = NAN;
+            return UA_STATUSCODE_GOOD;
+        }
+        
+        if(memcmp(data, "-NaN", size) == 0){
+            *dst = NAN;
+            return UA_STATUSCODE_GOOD;
+        }
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     
@@ -3752,10 +3789,7 @@ DECODE_JSON(Double){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     
-    UA_Double d = 0;
-    size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
-    char* data = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
-    
+
     char string[size+1];
     memset(string, 0, size+1);
     memcpy(string, data, size);
