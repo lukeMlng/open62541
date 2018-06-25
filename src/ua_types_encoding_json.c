@@ -2248,8 +2248,6 @@ ENCODE_JSON(ByteString) {
     //https://stackoverflow.com/questions/1533113/calculate-the-size-to-a-base-64-encoded-message
     UA_UInt32 output_size = (UA_UInt32)(((src->length * 4) / 3) + (src->length / 96) + 6);
 
-    if (ctx->pos + output_size > ctx->end)
-        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
 
     //set up a destination buffer large enough to hold the encoded data
     char* output = (char*) malloc(output_size);
@@ -2279,6 +2277,10 @@ ENCODE_JSON(ByteString) {
 
     //Calculate size, Lib appends one \n, -1 because of this.
     UA_UInt64 actualLength = (UA_UInt64)((c - 1) - output);
+    
+    if (ctx->pos + actualLength > ctx->end)
+        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
+    
     memcpy(ctx->pos, output, actualLength);
     ctx->pos += actualLength;
 
@@ -3731,11 +3733,6 @@ UA_UInt32 hex2int(char ch)
 #endif
 
 DECODE_JSON(Float){
-    jsmntype_t tokenType = getJsmnType(parseCtx);
-    if(tokenType != JSMN_PRIMITIVE){
-        return UA_STATUSCODE_BADDECODINGERROR;
-    }
-    
     if(*parseCtx->index >= parseCtx->tokenCount){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
@@ -3743,6 +3740,35 @@ DECODE_JSON(Float){
     UA_Float d = 0;
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
     char* data = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
+    
+    jsmntype_t tokenType = getJsmnType(parseCtx);
+    if(tokenType != JSMN_PRIMITIVE){
+        //It could be a String with Nan, Infinity
+        if(memcmp(data, "Infinity", size) == 0){
+            *dst = INFINITY;
+            return UA_STATUSCODE_GOOD;
+        }
+        
+        if(memcmp(data, "-Infinity", size) == 0){
+            *dst = -INFINITY;
+            return UA_STATUSCODE_GOOD;
+        }
+        
+        if(memcmp(data, "NaN", size) == 0){
+            *dst = NAN;
+            return UA_STATUSCODE_GOOD;
+        }
+        
+        if(memcmp(data, "-NaN", size) == 0){
+            *dst = NAN;
+            return UA_STATUSCODE_GOOD;
+        }
+        
+        
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
+
     char string[size+1];
     memset(string, 0, size+1);
     memcpy(string, data, size);
@@ -3754,7 +3780,10 @@ DECODE_JSON(Float){
 }
 
 DECODE_JSON(Double){
-    
+    if(*parseCtx->index >= parseCtx->tokenCount){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+
     UA_Double d = 0;
     size_t size = (size_t)(parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
     char* data = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
@@ -3785,11 +3814,6 @@ DECODE_JSON(Double){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     
-    if(*parseCtx->index >= parseCtx->tokenCount){
-        return UA_STATUSCODE_BADDECODINGERROR;
-    }
-    
-
     char string[size+1];
     memset(string, 0, size+1);
     memcpy(string, data, size);
