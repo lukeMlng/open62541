@@ -1497,11 +1497,14 @@ START_TEST(UA_Boolean_false_json_encode) {
 
     UA_ByteString buf;
 
-    UA_ByteString_allocBuffer(&buf, 1000);
+    size_t size = UA_calcSizeJson((void *) src, type, NULL, 0, NULL, 0, UA_TRUE);
+    ck_assert_int_eq(size, 5);
+    
+    UA_ByteString_allocBuffer(&buf, size);
 
     UA_Byte *bufPos = &buf.data[0];
-    const UA_Byte *bufEnd = &buf.data[1000];
-
+    const UA_Byte *bufEnd = &buf.data[size];
+        
     status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
@@ -2860,6 +2863,10 @@ START_TEST(UA_NodeId_Guid_Namespace_json_encode) {
 
     UA_ByteString buf;
 
+    // {"IdType":2,"Id":"00000003-0009-000A-0807-060504030201","Namespace":5}
+    size_t size = UA_calcSizeJson((void *) src, type, NULL, 0, NULL, 0, UA_TRUE);
+    ck_assert_int_eq(size, 70);
+    
     UA_ByteString_allocBuffer(&buf, 1000);
 
     UA_Byte *bufPos = &buf.data[0];
@@ -2890,6 +2897,10 @@ START_TEST(UA_NodeId_ByteString_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
+    //{"IdType":3,"Id":"YXNkZmFzZGY="}
+    size_t size = UA_calcSizeJson((void *) src, type, NULL, 0, NULL, 0, UA_TRUE);
+    ck_assert_int_eq(size, 32);
+    
     status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
@@ -3036,6 +3047,10 @@ START_TEST(UA_DiagInfo_withInner_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
+    //{"SymbolicId":13,"LocalizedText":14,"Locale":12,"AdditionalInfo":"additionalInfo","InnerStatusCode":2155216896,"InnerDiagnosticInfo":{"AdditionalInfo":"INNER ADDITION INFO"}}
+    size_t size = UA_calcSizeJson((void *) src, type, NULL, 0, NULL, 0, UA_TRUE);
+    ck_assert_int_eq(size, 174);
+    
     status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
@@ -3504,6 +3519,9 @@ START_TEST(UA_Variant_Array_UInt16_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
+    size_t size = UA_calcSizeJson((void *) src, type, NULL, 0, NULL, 0, UA_TRUE);
+    ck_assert_int_eq(size, 25);
+    
     status s = UA_encodeJson((void *) src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
@@ -3598,6 +3616,10 @@ START_TEST(UA_Variant_Matrix_UInt16_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
+    //{"Type":5,"Body":[1,2,3,4,5,6,7,8,9],"Dimension":[3,3]}
+    size_t sizeOfBytes = UA_calcSizeJson((void *) &src, type, NULL, 0, NULL, 0, UA_TRUE);
+    ck_assert_int_eq(sizeOfBytes, 55);
+    
     status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_TRUE);
 
     *bufPos = 0;
@@ -3699,6 +3721,10 @@ START_TEST(UA_Variant_Matrix_String_NonReversible_json_encode) {
     UA_Byte *bufPos = &buf.data[0];
     const UA_Byte *bufEnd = &buf.data[1000];
 
+    //{"Body":[[[["1"],["2"]],[["3"],["4"]]],[[["5"],["6"]],[["7"],["8"]]]]}
+    size_t sizeOfBytes = UA_calcSizeJson((void *) &src, type, NULL, 0, NULL, 0, UA_FALSE);
+    ck_assert_int_eq(sizeOfBytes, 70);
+    
     status s = UA_encodeJson((void *) &src, type, &bufPos, &bufEnd, NULL, 0, NULL, 0, UA_FALSE);
 
     *bufPos = 0;

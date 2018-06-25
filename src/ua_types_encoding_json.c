@@ -30,15 +30,35 @@
 
 #define UA_ENCODING_MAX_RECURSION 20
 
+#define UA_NODEIDTYPE_NUMERIC_TWOBYTE 0
+#define UA_NODEIDTYPE_NUMERIC_FOURBYTE 1
+#define UA_NODEIDTYPE_NUMERIC_COMPLETE 2
+
+#define UA_EXPANDEDNODEID_SERVERINDEX_FLAG 0x40
+#define UA_EXPANDEDNODEID_NAMESPACEURI_FLAG 0x80
+
+
+//CALC
+#define CALC_JSON(TYPE) static status \
+    TYPE##_calcJson(const UA_##TYPE *UA_RESTRICT src, const UA_DataType *type, CtxJson *UA_RESTRICT ctx, UA_Boolean useReversible)
+
+#define CALC_DIRECT(SRC, TYPE) TYPE##_calcJson((const UA_##TYPE*)SRC, NULL, ctx, useReversible)
+
+
+//ENCODE
 #define ENCODE_JSON(TYPE) static status \
     TYPE##_encodeJson(const UA_##TYPE *UA_RESTRICT src, const UA_DataType *type, CtxJson *UA_RESTRICT ctx, UA_Boolean useReversible)
 
 #define ENCODE_DIRECT(SRC, TYPE) TYPE##_encodeJson((const UA_##TYPE*)SRC, NULL, ctx, useReversible)
 
 extern const encodeJsonSignature encodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1];
+extern const calcSizeJsonSignature calcJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1];
 extern const decodeJsonSignature decodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1];
 
 static status encodeJsonInternal(const void *src, const UA_DataType *type, CtxJson *ctx, UA_Boolean useReversible);
+
+static status calcJsonInternal(const void *src, const UA_DataType *type, CtxJson *ctx, UA_Boolean useReversible);
+
 UA_String UA_DateTime_toJSON(UA_DateTime t);
 ENCODE_JSON(ByteString);
 
@@ -188,10 +208,7 @@ size_t encodingJsonEndArray(CtxJson *ctx) {
     return WRITE(ArrayEnd);
 }
 
-/*****************/
-/* Integer Types */
-/*****************/
-
+/*  Integer Helper   */
 //http://www.techiedelight.com/implement-itoa-function-in-c/
 //  function to swap two numbers
 
@@ -284,6 +301,1492 @@ UA_UInt16 itoa(UA_Int64 value, char* buffer) {
     return i;
 }
 
+
+/*    ----------------------STRING escape/unescape helper -----------------*/
+static size_t utf8_check_first(char byte)
+{
+    unsigned char u = (unsigned char)byte;
+
+    if(u < 0x80)
+        return 1;
+
+    if(0x80 <= u && u <= 0xBF) {
+        /* second, third or fourth byte of a multi-byte
+           sequence, i.e. a "continuation byte" */
+        return 0;
+    }
+    else if(u == 0xC0 || u == 0xC1) {
+        /* overlong encoding of an ASCII byte */
+        return 0;
+    }
+    else if(0xC2 <= u && u <= 0xDF) {
+        /* 2-byte sequence */
+        return 2;
+    }
+
+    else if(0xE0 <= u && u <= 0xEF) {
+        /* 3-byte sequence */
+        return 3;
+    }
+    else if(0xF0 <= u && u <= 0xF4) {
+        /* 4-byte sequence */
+        return 4;
+    }
+    else { /* u >= 0xF5 */
+        /* Restricted (start of 4-, 5- or 6-byte sequence) or invalid
+           UTF-8 */
+        return 0;
+    }
+}
+
+static size_t utf8_check_full(const char *buffer, size_t size, int32_t *codepoint)
+{
+    size_t i;
+    int32_t value = 0;
+    unsigned char u = (unsigned char)buffer[0];
+
+    if(size == 2)
+    {
+        value = u & 0x1F;
+    }
+    else if(size == 3)
+    {
+        value = u & 0xF;
+    }
+    else if(size == 4)
+    {
+        value = u & 0x7;
+    }
+    else
+        return 0;
+
+    for(i = 1; i < size; i++)
+    {
+        u = (unsigned char)buffer[i];
+
+        if(u < 0x80 || u > 0xBF) {
+            /* not a continuation byte */
+            return 0;
+        }
+
+        value = (value << 6) + (u & 0x3F);
+    }
+
+    if(value > 0x10FFFF) {
+        /* not in Unicode range */
+        return 0;
+    }
+
+    else if(0xD800 <= value && value <= 0xDFFF) {
+        /* invalid code point (UTF-16 surrogate halves) */
+        return 0;
+    }
+
+    else if((size == 2 && value < 0x80) ||
+            (size == 3 && value < 0x800) ||
+            (size == 4 && value < 0x10000)) {
+        /* overlong encoding */
+        return 0;
+    }
+
+    if(codepoint)
+        *codepoint = value;
+
+    return 1;
+}
+
+static const char *utf8_iterate(const char *buffer, size_t bufsize, int32_t *codepoint)
+{
+    size_t count;
+    int32_t value;
+
+    if(!bufsize)
+        return buffer;
+
+    count = utf8_check_first(buffer[0]);
+    if(count <= 0)
+        return NULL;
+
+    if(count == 1)
+        value = (unsigned char)buffer[0];
+    else
+    {
+        if(count > bufsize || !utf8_check_full(buffer, count, &value))
+            return NULL;
+    }
+
+    if(codepoint)
+        *codepoint = value;
+
+    return buffer + count;
+}
+
+//------------CALC SIZE-----------------
+
+#define CALCWRITE(ELEM) calcWriteJson##ELEM(ctx)
+
+#define CALCJSON(ELEM) static inline status calcWriteJson##ELEM(CtxJson *UA_RESTRICT ctx)
+
+CALCJSON(Quote) {
+    ctx->pos++;
+    return UA_STATUSCODE_GOOD;
+}
+CALCJSON(ObjStart) {
+    ctx->pos++;
+    return UA_STATUSCODE_GOOD;
+}
+CALCJSON(ObjEnd) {
+    ctx->pos++;
+    return UA_STATUSCODE_GOOD;
+}
+CALCJSON(ArrayStart) {
+    ctx->pos++;
+    return UA_STATUSCODE_GOOD;
+}
+CALCJSON(ArrayEnd) {
+    ctx->pos++;
+    return UA_STATUSCODE_GOOD;
+}
+CALCJSON(Comma) {
+    ctx->pos++;
+    return UA_STATUSCODE_GOOD;
+}
+CALCJSON(dPoint) {
+    ctx->pos++;
+    return UA_STATUSCODE_GOOD;
+}
+status calcWriteComma(CtxJson *ctx, UA_Boolean commaNeeded) {
+    if (commaNeeded) {
+        return CALCWRITE(Comma);
+    }
+    return UA_STATUSCODE_GOOD;
+}
+status calcWriteNull(CtxJson *ctx) {
+    ctx->pos += 4;
+    return UA_STATUSCODE_GOOD;
+}
+status calcWriteKey_UA_String(CtxJson *ctx, UA_String *key, UA_Boolean commaNeeded){
+    if(!key || key->length < 1){
+        return UA_STATUSCODE_BADENCODINGERROR;
+    }
+    UA_STACKARRAY(char, fieldKeyString, key->length + 1);
+    //char fieldKeyString[key->length + 1];
+    memset(&fieldKeyString, 0, key->length + 1);
+    memcpy(&fieldKeyString, key->data, key->length);
+    return calcWriteKey(ctx, fieldKeyString, commaNeeded);
+}
+status calcWriteKey(CtxJson *ctx, const char* key, UA_Boolean commaNeeded) {  
+    size_t size = strlen(key);
+    status ret = UA_STATUSCODE_GOOD;
+    ret |= calcWriteComma(ctx, commaNeeded);
+    ret |= CALCWRITE(Quote);
+    ctx->pos += size;
+    ret |= CALCWRITE(Quote);
+    ret |= CALCWRITE(dPoint);
+    return ret;
+}
+status encodingCalcJsonStartObject(CtxJson *ctx) {
+    status ret = CALCWRITE(ObjStart);
+    //commaNeeded = UA_FALSE;
+    return ret;
+}
+size_t encodingCalcJsonEndObject(CtxJson *ctx) {
+    return CALCWRITE(ObjEnd);
+}
+status encodingCalcJsonStartArray(CtxJson *ctx) {
+    status ret = CALCWRITE(ArrayStart);
+    //commaNeeded = UA_FALSE;
+    return ret;
+}
+size_t encodingCalcJsonEndArray(CtxJson *ctx) {
+    return CALCWRITE(ArrayEnd);
+}
+
+/* Boolean */
+CALC_JSON(Boolean) {
+    if(!src){
+        return UA_STATUSCODE_BADENCODINGERROR;//writeNull(ctx);
+    }
+    if (*src == UA_TRUE) {//"true"
+        ctx->pos += 4;
+    } else { //"false";
+        ctx->pos += 5;
+    }
+    return UA_STATUSCODE_GOOD;
+}
+
+/*****************/
+/* Integer Types */
+/*****************/
+
+/* Byte */
+CALC_JSON(Byte) {
+    if(!src){
+        return calcWriteNull(ctx);
+    }
+    char buf[3];
+    UA_UInt16 digits = itoaUnsigned(*src, buf, 10);
+    ctx->pos += digits;
+    return UA_STATUSCODE_GOOD;
+}
+
+/* signed Byte */
+CALC_JSON(SByte) {
+    if(!src){
+        return calcWriteNull(ctx);
+    }
+    char buf[4];
+    UA_UInt16 digits = itoa(*src, buf);
+    ctx->pos += digits;
+    return UA_STATUSCODE_GOOD;
+}
+
+/* UInt16 */
+CALC_JSON(UInt16) {
+    if(!src){
+        return calcWriteNull(ctx);
+    }
+    char buf[5];
+    UA_UInt16 digits = itoaUnsigned(*src, buf, 10);
+    ctx->pos += digits;
+    return UA_STATUSCODE_GOOD;
+}
+
+/* Int16 */
+CALC_JSON(Int16) {
+    if(!src){
+        return calcWriteNull(ctx);
+    }
+    char buf[6];
+    UA_UInt16 digits = itoa(*src, buf);
+    ctx->pos += digits;
+    return UA_STATUSCODE_GOOD;
+}
+
+/* UInt32 */
+CALC_JSON(UInt32) {
+    if(!src){
+        return calcWriteNull(ctx);
+    }
+    char buf[10];
+    UA_UInt16 digits = itoaUnsigned(*src, buf, 10);
+    ctx->pos += digits;
+    return UA_STATUSCODE_GOOD;
+}
+
+/* Int32 */
+CALC_JSON(Int32) {
+    if(!src){
+        return calcWriteNull(ctx);
+    }
+    char buf[11];
+    UA_UInt16 digits = itoa(*src, buf);
+    ctx->pos += digits;
+    return UA_STATUSCODE_GOOD;
+}
+
+/* UInt64 */
+CALC_JSON(UInt64) {
+    if(!src){
+        return calcWriteNull(ctx);
+    }
+    char buf[20];
+    UA_UInt16 digits = itoaUnsigned(*src, buf, 10);
+    ctx->pos += digits;
+    return UA_STATUSCODE_GOOD;
+}
+
+/* Int64 */
+CALC_JSON(Int64) {
+    if(!src){
+        return calcWriteNull(ctx);
+    }
+
+    char buf[20]; //TODO size
+    UA_UInt16 digits = itoa(*src, buf);
+    ctx->pos += digits;
+    return UA_STATUSCODE_GOOD;
+}
+
+/************************/
+/* Floating Point Types */
+/************************/
+
+CALC_JSON(Float) {
+    if(!src){
+        return calcWriteNull(ctx);
+    }
+    char buffer[50]; //TODO: minimize stack size
+    memset(buffer, 0, 50);
+    fmt_fp(buffer, *src, 0, -1, 0, 'g');
+    size_t len = strlen(buffer);
+    ctx->pos += (len);
+    return UA_STATUSCODE_GOOD;
+}
+
+CALC_JSON(Double) {
+    if(!src){
+        return calcWriteNull(ctx);
+    }
+    char buffer[50]; //TODO: minimize stack size
+    memset(buffer, 0, 50);
+    fmt_fp(buffer, *src, 0, 17, 0, 'g');
+    size_t len = strlen(buffer);
+    ctx->pos += (len);
+    return UA_STATUSCODE_GOOD;
+}
+
+CALC_JSON(String) {
+    if (!src) {
+        return calcWriteNull(ctx);
+    }
+    
+    if(src->data == NULL){
+        return calcWriteNull(ctx);
+    }
+
+    //escaping adapted from https://github.com/akheron/jansson dump.c
+    UA_StatusCode ret = UA_STATUSCODE_GOOD;
+    
+    
+    const char *pos, *end, *lim;
+    UA_Int32 codepoint;
+    const char *str = (char*)src->data;
+    ret |= CALCWRITE(Quote);
+    if(ret != UA_STATUSCODE_GOOD)
+        return ret;
+    
+
+    end = pos = str;
+    lim = str + src->length;
+    while(1)
+    {
+        size_t length = 0;
+
+        while(end < lim)
+        {
+            end = utf8_iterate(pos, (size_t)(lim - pos), &codepoint);
+            if(!end)
+                return UA_STATUSCODE_BADENCODINGERROR;
+
+            /* mandatory escape or control char */
+            if(codepoint == '\\' || codepoint == '"' || codepoint < 0x20)
+                break;
+
+            /* slash */
+            //if((flags & JSON_ESCAPE_SLASH) && codepoint == '/')
+            //    break;
+
+            /* non-ASCII */
+            //if((flags & JSON_ENSURE_ASCII) && codepoint > 0x7F)
+            //    break;
+
+            pos = end;
+        }
+
+        if(pos != str) {
+            ctx->pos += pos - str;
+        }
+
+        if(end == pos)
+            break;
+
+        /* handle \, /, ", and control codes */
+        length = 2;
+        switch(codepoint)
+        {
+            case '\\': break;
+            case '\"': break;
+            case '\b': break;
+            case '\f': break;
+            case '\n': break;
+            case '\r': break;
+            case '\t': break;
+            case '/':  break;
+            default:
+            {
+                /* codepoint is in BMP */
+                if(codepoint < 0x10000)
+                {
+                    length = 6;
+                }
+                /* not in BMP -> construct a UTF-16 surrogate pair */
+                else
+                {
+                    length = 12;
+                }
+                break;
+            }
+        }
+        ctx->pos += length;
+        str = pos = end;
+    }
+
+    ret |= CALCWRITE(Quote);
+    return ret;
+}
+
+/* Guid */
+CALC_JSON(Guid) {
+    if(!src){
+        return calcWriteNull(ctx);
+    }
+    ctx->pos += 38; //36 + 2 (")
+    return UA_STATUSCODE_GOOD;
+}
+
+CALC_JSON(ByteString) {
+    if(!src || src->length < 1 || src->data == NULL){
+        return calcWriteNull(ctx);
+    }
+  
+    //TODO: replace with exact size calculation, without actual calculating!
+    
+    //Estimate base64 size, this is a few bytes bigger 
+    //https://stackoverflow.com/questions/1533113/calculate-the-size-to-a-base-64-encoded-message
+    UA_UInt32 output_size = (UA_UInt32)(((src->length * 4) / 3) + (src->length / 96) + 6);
+
+    //set up a destination buffer large enough to hold the encoded data
+    char* output = (char*) malloc(output_size);
+    if(!output){
+        return UA_STATUSCODE_BADENCODINGERROR;
+    }
+    //keep track of our encoded position 
+    char* c = output;
+    // store the number of bytes encoded by a single call 
+    UA_Int32 cnt = 0;
+    // we need an encoder state 
+    base64_encodestate s;
+
+    //---------- START ENCODING ---------
+    // initialise the encoder state
+    base64_init_encodestate(&s);
+    // gather data from the input and send it to the output
+    cnt = base64_encode_block((char*)src->data, (int)src->length, (char*)c, &s);
+    c += cnt;
+    // since we have encoded the entire input string, we know that 
+    //   there is no more input data; finalise the encoding 
+    cnt = base64_encode_blockend(c, &s);
+    c += cnt;
+    //---------- STOP ENCODING  ----------
+
+    CALCWRITE(Quote);
+
+    //Calculate size, Lib appends one \n, -1 because of this.
+    UA_UInt64 actualLength = (UA_UInt64)((c - 1) - output);
+    ctx->pos += actualLength;
+
+    free(output);
+    output = NULL;
+
+    CALCWRITE(Quote);
+
+    return UA_STATUSCODE_GOOD;
+}
+
+CALC_JSON(DateTime) {
+    if(!src){
+        return calcWriteNull(ctx);
+    }
+    ctx->pos += 26; //24 + 2 (")
+    return UA_STATUSCODE_GOOD;
+}
+
+static status
+NodeId_calcJsonInternal(UA_NodeId const *src, CtxJson *ctx, UA_Boolean useReversible) {
+    status ret = UA_STATUSCODE_GOOD;
+    if(!src){
+        calcWriteNull(ctx);
+        return ret;
+    }
+    
+    switch (src->identifierType) {
+        case UA_NODEIDTYPE_NUMERIC:
+        {
+            ret |= calcWriteKey(ctx, "Id", UA_FALSE);
+            ret |= CALC_DIRECT(&src->identifier.numeric, UInt32);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+            
+            break;
+        }
+        case UA_NODEIDTYPE_STRING:
+        {
+            ret |= calcWriteKey(ctx, "IdType", UA_FALSE);
+            UA_UInt16 typeNumber = 1;
+            ret |= CALC_DIRECT(&typeNumber, UInt16);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+            ret |= calcWriteKey(ctx, "Id", UA_TRUE);
+            ret |= CALC_DIRECT(&src->identifier.string, String);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+            break;
+        }
+        case UA_NODEIDTYPE_GUID:
+        {
+            ret |= calcWriteKey(ctx, "IdType", UA_FALSE);
+            UA_UInt16 typeNumber = 2;
+            ret |= CALC_DIRECT(&typeNumber, UInt16);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+            /* Id */
+            ret |= calcWriteKey(ctx, "Id", UA_TRUE);
+            ret |= CALC_DIRECT(&src->identifier.guid, Guid);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+
+            break;
+        }
+        case UA_NODEIDTYPE_BYTESTRING:
+        {
+            // {"IdType":0,"Text":"Text"}
+
+            ret |= calcWriteKey(ctx, "IdType", UA_FALSE);
+            UA_UInt16 typeNumber = 3;
+            ret |= CALC_DIRECT(&typeNumber, UInt16);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+            /* Id */
+            ret |= calcWriteKey(ctx, "Id", UA_TRUE);
+            ret |= CALC_DIRECT(&src->identifier.byteString, ByteString);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+
+            break;
+        }
+        default:
+            return UA_STATUSCODE_BADENCODINGERROR;
+    }
+
+    return ret;
+}
+
+CALC_JSON(NodeId) {
+    if(!src){
+        return calcWriteNull(ctx);
+    }
+    UA_StatusCode ret = UA_STATUSCODE_GOOD;
+    ret |= CALCWRITE(ObjStart);
+    if (ret != UA_STATUSCODE_GOOD)
+        return ret;
+    ret = NodeId_calcJsonInternal(src, ctx, useReversible);
+    if (ret != UA_STATUSCODE_GOOD)
+        return ret;
+    
+     if (useReversible) {
+        if (src->namespaceIndex > 0) {
+            ret |= calcWriteKey(ctx, "Namespace", UA_TRUE);
+            ret |= CALC_DIRECT(&src->namespaceIndex, UInt16);
+        }
+    } else {
+        /* For the non-reversible encoding, the field is the NamespaceUri 
+         * associated with the NamespaceIndex, encoded as a JSON string.
+         * A NamespaceIndex of 1 is always encoded as a JSON number.
+         */
+
+        //@TODO LOOKUP namespace uri and check if unknown
+        if (src->namespaceIndex == 1) {
+            calcWriteKey(ctx, "Namespace", UA_TRUE);
+            ret |= CALC_DIRECT(&src->namespaceIndex, UInt16);
+        } else {
+            calcWriteKey(ctx, "Namespace", UA_TRUE);
+            
+            //Check if Namespace given and in range
+            if(src->namespaceIndex < ctx->namespacesSize 
+                    && ctx->namespaces != NULL){
+                
+                UA_String namespaceEntry = ctx->namespaces[src->namespaceIndex];
+                ret |= CALC_DIRECT(&namespaceEntry, String);
+                if (ret != UA_STATUSCODE_GOOD)
+                    return ret;
+            }else{
+                return UA_STATUSCODE_BADNOTFOUND;
+            }
+        }
+    }
+    
+    ret = CALCWRITE(ObjEnd);
+    return ret;
+}
+
+
+/* ExpandedNodeId */
+CALC_JSON(ExpandedNodeId) {
+    if(!src){
+        return calcWriteNull(ctx);
+    }
+
+    CALCWRITE(ObjStart);
+    /* Set up the encoding mask */
+    u8 encoding = 0;
+    if ((void*) src->namespaceUri.data > UA_EMPTY_ARRAY_SENTINEL)
+        encoding |= UA_EXPANDEDNODEID_NAMESPACEURI_FLAG;
+    if (src->serverIndex > 0)
+        encoding |= UA_EXPANDEDNODEID_SERVERINDEX_FLAG;
+
+    /* Encode the NodeId */
+    status ret = NodeId_calcJsonInternal(&src->nodeId, ctx, useReversible);
+    if (ret != UA_STATUSCODE_GOOD)
+        return ret;
+    
+    if(useReversible){
+        if (src->namespaceUri.data != NULL && src->namespaceUri.length != 0 && (void*) src->namespaceUri.data > UA_EMPTY_ARRAY_SENTINEL) {
+            //If the NamespaceUri is specified it is encoded as a JSON string in this field.
+            calcWriteKey(ctx, "Namespace", UA_TRUE);
+            ret = CALC_DIRECT(&src->namespaceUri, String);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+        }else{
+            //If the NamespaceUri is not specified, the NamespaceIndex is encoded with these rules:
+            //The field is encoded as a JSON number for the reversible encoding.
+            //The field is omitted if the NamespaceIndex equals 0.
+            if (src->nodeId.namespaceIndex > 0) {
+                ret |= calcWriteKey(ctx, "Namespace", UA_TRUE);
+                ret |= CALC_DIRECT(&src->nodeId.namespaceIndex, UInt16);
+            }
+        }
+
+        /* 
+         * Encode the serverIndex/Url 
+         * This field is encoded as a JSON number for the reversible encoding.
+         * This field is omitted if the ServerIndex equals 0.
+         */
+        if (src->serverIndex > 0) {
+            calcWriteKey(ctx, "ServerUri", UA_TRUE);
+            ret = CALC_DIRECT(&src->serverIndex, UInt32);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+        }
+    }else{
+        /* 
+         * If the NamespaceUri is not specified, the NamespaceIndex is encoded with these rules:
+         * For the non-reversible encoding the field is the NamespaceUri associated with the
+         * NamespaceIndex encoded as a JSON string.
+         * A NamespaceIndex of 1 is always encoded as a JSON number.
+         */
+        
+        if (src->namespaceUri.data != NULL && src->namespaceUri.length != 0){
+            calcWriteKey(ctx, "Namespace", UA_TRUE);
+            ret = CALC_DIRECT(&src->namespaceUri, String);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+        }else{
+            if (src->nodeId.namespaceIndex == 1) {
+                calcWriteKey(ctx, "Namespace", UA_TRUE);
+                ret |= CALC_DIRECT(&src->nodeId.namespaceIndex, UInt16);
+            } else {
+                calcWriteKey(ctx, "Namespace", UA_TRUE);
+
+                //Check if Namespace given and in range
+                if(src->nodeId.namespaceIndex < ctx->namespacesSize 
+                        && ctx->namespaces != NULL){
+
+                    UA_String namespaceEntry = ctx->namespaces[src->nodeId.namespaceIndex];
+                    ret |= CALC_DIRECT(&namespaceEntry, String);
+                    if (ret != UA_STATUSCODE_GOOD)
+                        return ret;
+                }else{
+                    return UA_STATUSCODE_BADNOTFOUND;
+                }
+            }
+        }
+        
+        
+        /* 
+         * For the non-reversible encoding, this field is the ServerUri associated with the ServerIndex
+         * portion of the ExpandedNodeId, encoded as a JSON string.
+         */
+        
+        //Check if Namespace given and in range
+        if(src->serverIndex < ctx->serverUrisSize
+                && ctx->serverUris != NULL){
+
+            UA_String serverUriEntry = ctx->serverUris[src->serverIndex];
+            calcWriteKey(ctx, "ServerUri", UA_TRUE);
+            ret = CALC_DIRECT(&serverUriEntry, String);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+        }else{
+            return UA_STATUSCODE_BADNOTFOUND;
+        }
+        
+    }
+    ret |= CALCWRITE(ObjEnd);
+    return ret;
+}
+
+/* LocalizedText */
+CALC_JSON(LocalizedText) {
+    if(!src){
+        return calcWriteNull(ctx);
+    }
+    status ret = UA_STATUSCODE_GOOD;
+
+    if (useReversible) {
+        //commaNeeded = UA_FALSE;
+
+        ret = CALCWRITE(ObjStart);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+        // {"Locale":"asd","Text":"Text"}
+        ret = calcWriteKey(ctx, "Locale", UA_FALSE);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+        ret |= CALC_DIRECT(&src->locale, String);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+        
+        ret = calcWriteKey(ctx, "Text", UA_TRUE);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+        ret |= CALC_DIRECT(&src->text, String);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+        
+        CALCWRITE(ObjEnd);
+    } else {
+        /* For the non-reversible form, LocalizedText value shall 
+         * be encoded as a JSON string containing the Text component.*/
+        ret |= CALC_DIRECT(&src->text, String);
+    }
+    return ret;
+}
+
+CALC_JSON(QualifiedName) {
+    if(!src){
+        return calcWriteNull(ctx);
+    }
+    
+    status ret = UA_STATUSCODE_GOOD;
+
+    //commaNeeded = UA_FALSE;
+
+    ret = CALCWRITE(ObjStart);
+    if (ret != UA_STATUSCODE_GOOD)
+        return ret;
+    ret = calcWriteKey(ctx, "Name", UA_FALSE);
+    
+    if (ret != UA_STATUSCODE_GOOD)
+        return ret;
+    ret |= CALC_DIRECT(&src->name, String);
+    if (ret != UA_STATUSCODE_GOOD)
+        return ret;
+    
+    if (useReversible) {
+        if (src->namespaceIndex != 0) {
+            ret = calcWriteKey(ctx, "Uri", UA_TRUE);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+            ret |= CALC_DIRECT(&src->namespaceIndex, UInt16);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+        }
+    } else {
+
+        /*For the non-reversible form, the NamespaceUri associated with the NamespaceIndex portion of
+         * the QualifiedName is encoded as JSON string unless the NamespaceIndex is 1 or if
+         * NamespaceUri is unknown. In these cases, the NamespaceIndex is encoded as a JSON number.
+         */
+
+        if (src->namespaceIndex == 1) {
+            ret = calcWriteKey(ctx, "Uri", UA_TRUE);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+            ret |= CALC_DIRECT(&src->namespaceIndex, UInt16);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+        } else {
+            ret |= calcWriteKey(ctx, "Uri", UA_TRUE);
+            
+             //Check if Namespace given and in range
+            if(src->namespaceIndex < ctx->namespacesSize 
+                    && ctx->namespaces != NULL){
+                
+                UA_String namespaceEntry = ctx->namespaces[src->namespaceIndex];
+                ret |= CALC_DIRECT(&namespaceEntry, String);
+            }else{
+                //if not encode as Number
+                ret |= CALC_DIRECT(&src->namespaceIndex, UInt16);
+                if (ret != UA_STATUSCODE_GOOD)
+                    return ret;
+            }
+        }
+    }
+
+    ret |= CALCWRITE(ObjEnd);
+    return ret;
+}
+
+CALC_JSON(StatusCode) {
+    if(!src){
+        return calcWriteNull(ctx);
+    }
+    status ret = UA_STATUSCODE_GOOD;
+
+    if (!useReversible) {
+        if(*src != 0){
+            ret |= CALCWRITE(ObjStart);
+            //commaNeeded = UA_FALSE;
+            ret |= calcWriteKey(ctx, "Code", UA_FALSE);
+            ret |= CALC_DIRECT(src, UInt32);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+            ret |= calcWriteKey(ctx, "Symbol", UA_TRUE);
+            /* encode the full name of error */
+            UA_String statusDescription = UA_String_fromChars(UA_StatusCode_name(*src));
+            if(statusDescription.data == NULL && statusDescription.length == 0){
+                return UA_STATUSCODE_BADENCODINGERROR;
+            }
+            ret |= CALC_DIRECT(&statusDescription, String);
+            UA_String_deleteMembers(&statusDescription);
+
+            ret |= CALCWRITE(ObjEnd);
+        }else{
+            /* A StatusCode of Good (0) is treated like a NULL and not encoded. */
+            ret |= calcWriteNull(ctx);
+        }
+    } else {
+        //if(src == 0){
+        //    ret |= writeNull(ctx);
+        //}else{
+            ret |= CALC_DIRECT(src, UInt32);
+        //}
+    }
+
+    return ret;
+}
+
+/* DiagnosticInfo */
+CALC_JSON(DiagnosticInfo) {
+    if(!src){
+        return calcWriteNull(ctx);
+    }
+ 
+    status ret = UA_STATUSCODE_GOOD;
+    if(!src->hasSymbolicId 
+            && !src->hasNamespaceUri 
+            && !src->hasLocalizedText
+            && !src->hasLocale
+            && !src->hasAdditionalInfo
+            && !src->hasInnerDiagnosticInfo
+            && !src->hasInnerStatusCode){
+        //no element present, encode as null.
+        return calcWriteNull(ctx);
+    }
+    
+    UA_Boolean commaNeeded = UA_FALSE;
+    ret |= CALCWRITE(ObjStart);
+    
+    if (src->hasSymbolicId) {
+        ret |= calcWriteKey(ctx, "SymbolicId", commaNeeded);
+        commaNeeded = UA_TRUE;
+        ret |= CALC_DIRECT(&src->symbolicId, UInt32);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+    }
+
+    if (src->hasNamespaceUri) {
+        ret |= calcWriteKey(ctx, "NamespaceUri", commaNeeded);
+        commaNeeded = UA_TRUE;
+        ret |= CALC_DIRECT(&src->namespaceUri, UInt32);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+    }
+    
+    if (src->hasLocalizedText) {
+        ret |= calcWriteKey(ctx, "LocalizedText", commaNeeded);
+        commaNeeded = UA_TRUE;
+        ret |= CALC_DIRECT(&src->localizedText, UInt32);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+    }
+    
+    if (src->hasLocale) {
+        ret |= calcWriteKey(ctx, "Locale", commaNeeded);
+        commaNeeded = UA_TRUE;
+        ret |= CALC_DIRECT(&src->locale, UInt32);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+    }
+    
+    if (src->hasAdditionalInfo) {
+        ret |= calcWriteKey(ctx, "AdditionalInfo", commaNeeded);
+        commaNeeded = UA_TRUE;
+        ret |= CALC_DIRECT(&src->additionalInfo, String);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+    }
+
+    if (src->hasInnerStatusCode) {
+        ret |= calcWriteKey(ctx, "InnerStatusCode", commaNeeded);
+        commaNeeded = UA_TRUE;
+        ret |= CALC_DIRECT(&src->innerStatusCode, StatusCode);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+    }
+
+    if (src->hasInnerDiagnosticInfo) {
+        ret |= calcWriteKey(ctx, "InnerDiagnosticInfo", commaNeeded);
+        commaNeeded = UA_TRUE;
+        //Check recursion depth in encodeJsonInternal
+        ret |= calcJsonInternal(src->innerDiagnosticInfo, &UA_TYPES[UA_TYPES_DIAGNOSTICINFO], ctx, useReversible);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+    }
+
+    ret |= CALCWRITE(ObjEnd);
+    return ret;
+}
+
+/* ExtensionObject */
+CALC_JSON(ExtensionObject) {
+    if(!src){
+        return calcWriteNull(ctx);
+    }
+    
+    u8 encoding = (u8) src->encoding;
+    
+    if(encoding == UA_EXTENSIONOBJECT_ENCODED_NOBODY){
+        return calcWriteNull(ctx);
+    }
+    
+    status ret = UA_STATUSCODE_GOOD;
+    UA_Boolean commaNeeded = UA_FALSE;
+    /* already encoded content.*/
+    if (encoding <= UA_EXTENSIONOBJECT_ENCODED_XML) {
+        ret |= CALCWRITE(ObjStart);
+
+        if(useReversible){
+            ret |= calcWriteKey(ctx, "TypeId", commaNeeded);
+            commaNeeded = true;
+            ret |= CALC_DIRECT(&src->content.encoded.typeId, NodeId);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+        }
+        
+        switch (src->encoding) {
+            case UA_EXTENSIONOBJECT_ENCODED_BYTESTRING:
+            {
+                if(useReversible){
+                    UA_Byte jsonEncodingField = 1;
+                    ret |= calcWriteKey(ctx, "Encoding", commaNeeded);
+                    commaNeeded = true;
+                    ret |= CALC_DIRECT(&jsonEncodingField, Byte);
+                }
+                ret |= calcWriteKey(ctx, "Body", commaNeeded);
+                ret |= CALC_DIRECT(&src->content.encoded.body, String);
+                break;
+            }
+            case UA_EXTENSIONOBJECT_ENCODED_XML:
+            {
+                if(useReversible){
+                    UA_Byte jsonEncodingField = 2;
+                    ret |= calcWriteKey(ctx, "Encoding", commaNeeded);
+                    commaNeeded = true;
+                    ret |= CALC_DIRECT(&jsonEncodingField, Byte);
+                }
+                ret |= calcWriteKey(ctx, "Body", commaNeeded);
+                ret |= CALC_DIRECT(&src->content.encoded.body, String);
+                break;
+            }
+            default:
+                ret = UA_STATUSCODE_BADINTERNALERROR;
+        }
+
+        ret |= CALCWRITE(ObjEnd);
+    }else{ 
+        
+        /* Cannot encode with no type description */
+        if (!src->content.decoded.type)
+            return UA_STATUSCODE_BADENCODINGERROR;
+
+        if(!src->content.decoded.data){
+            return calcWriteNull(ctx);
+        }
+        
+        UA_NodeId typeId = src->content.decoded.type->typeId;
+        if (typeId.identifierType != UA_NODEIDTYPE_NUMERIC)
+            return UA_STATUSCODE_BADENCODINGERROR;
+        
+        if (useReversible) {
+            //-----------REVERSIBLE-------------------
+            ret |= CALCWRITE(ObjStart);
+
+            ret |= calcWriteKey(ctx, "TypeId", UA_FALSE);
+            ret |= CALC_DIRECT(&typeId, NodeId);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+            
+            //Encoding field is omitted if the value is 0.
+            const UA_DataType *contentType = src->content.decoded.type;
+
+            /* Encode the content */
+            ret |= calcWriteKey(ctx, "Body", UA_TRUE);
+            ret |= calcJsonInternal(src->content.decoded.data, contentType, ctx, useReversible);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+
+            ret |= CALCWRITE(ObjEnd);
+        } else {
+            //-----------NON-REVERSIBLE-------------------
+            /* For the non-reversible form, ExtensionObject values 
+             * shall be encoded as a JSON object containing only the 
+             * value of the Body field. The TypeId and Encoding fields are dropped.
+             * 
+             * TODO: Does this mean there is a "Body" key in the ExtensionObject?
+             */
+            ret |= CALCWRITE(ObjStart);
+            const UA_DataType *contentType = src->content.decoded.type;
+            ret |= calcWriteKey(ctx, "Body", UA_FALSE);
+            ret |= calcJsonInternal(src->content.decoded.data, contentType, ctx, useReversible);
+            ret |= CALCWRITE(ObjEnd);
+        }
+    }
+    return ret;
+}
+
+static status
+Variant_calcJsonWrapExtensionObject(const UA_Variant *src, const bool isArray, CtxJson *ctx, UA_Boolean useReversible) {
+    //TODO length
+    size_t length = 1;
+
+    status ret = UA_STATUSCODE_GOOD;
+    if (isArray) {
+        if (src->arrayLength > UA_INT32_MAX)
+            return UA_STATUSCODE_BADENCODINGERROR;
+        
+        length = src->arrayLength;
+    }
+
+    /* Set up the ExtensionObject */
+    UA_ExtensionObject eo;
+    UA_ExtensionObject_init(&eo);
+    eo.encoding = UA_EXTENSIONOBJECT_DECODED;
+    eo.content.decoded.type = src->type;
+    const u16 memSize = src->type->memSize;
+    uintptr_t ptr = (uintptr_t) src->data;
+
+    if(length > 1){
+        CALCWRITE(ArrayStart);
+    }
+    
+    UA_Boolean commaNeeded = false;
+    
+    /* Iterate over the array */
+    for (size_t i = 0; i <  length && ret == UA_STATUSCODE_GOOD; ++i) {
+        if (commaNeeded) {
+            CALCWRITE(Comma);
+        }
+        
+        eo.content.decoded.data = (void*) ptr;
+        ret = calcJsonInternal(&eo, &UA_TYPES[UA_TYPES_EXTENSIONOBJECT], ctx, useReversible);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+        ptr += memSize;
+        
+        commaNeeded = true;
+    }
+    
+    if(length > 1){
+        CALCWRITE(ArrayEnd);
+    }
+    return ret;
+}
+
+static status
+calcAddMatrixContentJSON(CtxJson *ctx, void* array, const UA_DataType *type, size_t *index, UA_UInt32 *arrayDimensions, size_t dimensionIndex, size_t dimensionSize, UA_Boolean useReversible) {
+    status ret = UA_STATUSCODE_GOOD;
+    
+    /* Check the recursion limit */
+    if (ctx->depth > UA_ENCODING_MAX_RECURSION)
+        return UA_STATUSCODE_BADENCODINGERROR;
+    ctx->depth++;
+    
+    if (dimensionIndex == (dimensionSize - 1)) {
+        //Stop recursion: The inner Arrays are written
+        UA_Boolean commaNeeded = UA_FALSE;
+
+        ret |= CALCWRITE(ArrayStart);
+
+        for (size_t i = 0; i < arrayDimensions[dimensionIndex]; i++) {
+            if (commaNeeded) {
+                ret |= CALCWRITE(Comma);
+            }
+
+            ret |= calcJsonInternal(((u8*)array) + (type->memSize * *index), type, ctx, useReversible);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+            
+            commaNeeded = UA_TRUE;
+            (*index)++;
+        }
+        ret |= CALCWRITE(ArrayEnd);
+
+    } else {
+        //We have to go deeper
+        UA_UInt32 currentDimensionSize = arrayDimensions[dimensionIndex];
+        dimensionIndex++;
+
+        UA_Boolean commaNeeded = UA_FALSE;
+        ret |= CALCWRITE(ArrayStart);
+        for (size_t i = 0; i < currentDimensionSize; i++) {
+            if (commaNeeded) {
+                ret |= CALCWRITE(Comma);
+            }
+            ret |= calcAddMatrixContentJSON(ctx, array, type, index, arrayDimensions, dimensionIndex, dimensionSize, useReversible);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+            commaNeeded = UA_TRUE;
+        }
+
+        ret |= CALCWRITE(ArrayEnd);
+    }
+    
+    ctx->depth--;
+    
+    return ret;
+}
+
+/******************/
+/* Array Handling */
+
+/******************/
+
+static status
+Array_calcJsonComplex(uintptr_t ptr, size_t length, const UA_DataType *type, CtxJson *ctx, UA_Boolean useReversible) {
+    status ret = UA_STATUSCODE_GOOD; 
+    
+    /* Get the encoding function for the data type. The jumptable at
+     * UA_BUILTIN_TYPES_COUNT points to the generic UA_encodeJson method */
+    size_t encode_index = type->builtin ? type->typeIndex : UA_BUILTIN_TYPES_COUNT;
+    encodeJsonSignature encodeType = calcJsonJumpTable[encode_index];
+
+    CALCWRITE(ArrayStart);
+    UA_Boolean commaNeeded = false;
+
+    /* Encode every element */
+    for (size_t i = 0; i < length; ++i) {
+        if (commaNeeded) {
+            CALCWRITE(Comma);
+        }
+
+        ret = encodeType((const void*) ptr, type, ctx, useReversible);
+        ptr += type->memSize;
+
+        if (ret != UA_STATUSCODE_GOOD) {
+            //TODO
+            return ret;
+        }
+        commaNeeded = true;
+    }
+
+    //commaNeeded = true;
+    CALCWRITE(ArrayEnd);
+    return ret;
+}
+
+static status
+Array_calcJson(const void *src, size_t length, const UA_DataType *type, CtxJson *ctx, UA_Boolean isVariantArray, UA_Boolean useReversible) {
+    return Array_calcJsonComplex((uintptr_t) src, length, type, ctx, useReversible);
+}
+
+
+CALC_JSON(Variant) {
+    /* Quit early for the empty variant */
+    //u8 encoding = 0;
+    if(!src){
+        return calcWriteNull(ctx);
+    }
+    
+    status ret = UA_STATUSCODE_GOOD;
+    if (!src->type){
+        return calcWriteNull(ctx);
+    }
+        
+    /* Set the content type in the encoding mask */
+    const bool isBuiltin = src->type->builtin;
+    const bool isAlias = src->type->membersSize == 1
+            && UA_TYPES[src->type->members[0].memberTypeIndex].builtin;
+    
+    /* Set the array type in the encoding mask */
+    const bool isArray = src->arrayLength > 0 || src->data <= UA_EMPTY_ARRAY_SENTINEL;
+    const bool hasDimensions = isArray && src->arrayDimensionsSize > 0;
+    
+    if (useReversible) {
+        ret |= CALCWRITE(ObjStart);
+
+        /* Encode the content */
+        if (!isBuiltin && !isAlias){
+            //-------REVERSIBLE:  NOT BUILTIN, can it be encoded? Wrap in extension object .------------
+            ret |= calcWriteKey(ctx, "Type", UA_FALSE);
+            ret |= CALC_DIRECT(&UA_TYPES[UA_TYPES_EXTENSIONOBJECT].typeId.identifier.numeric, UInt32);
+            ret |= calcWriteKey(ctx, "Body", UA_TRUE);
+            ret |= Variant_calcJsonWrapExtensionObject(src, isArray, ctx,useReversible);
+        } else if (!isArray) {
+            //-------REVERSIBLE:  BUILTIN, single value.------------
+            ret |= calcWriteKey(ctx, "Type", UA_FALSE);
+            ret |= CALC_DIRECT(&src->type->typeId.identifier.numeric, UInt32);
+            ret |= calcWriteKey(ctx, "Body", UA_TRUE);
+            ret |= calcJsonInternal(src->data, src->type, ctx, useReversible);
+        } else {
+            //-------REVERSIBLE:   BUILTIN, array.------------
+            ret |= calcWriteKey(ctx, "Type", UA_FALSE);
+            ret |= CALC_DIRECT(&src->type->typeId.identifier.numeric, UInt32);
+            ret |= calcWriteKey(ctx, "Body", UA_TRUE);
+            ret |= Array_calcJson(src->data, src->arrayLength, src->type, ctx, UA_TRUE, useReversible);
+        }
+        
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+        
+        /* REVERSIBLE:  Encode the array dimensions */
+        if (hasDimensions && ret == UA_STATUSCODE_GOOD) {
+            //TODO: Variant Dimension
+            ret |= calcWriteKey(ctx, "Dimension", UA_TRUE);
+            ret |= Array_calcJson(src->arrayDimensions, src->arrayDimensionsSize, &UA_TYPES[UA_TYPES_INT32], ctx, UA_FALSE, useReversible);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
+        }
+
+        ret |= CALCWRITE(ObjEnd);
+    } else { //NON-REVERSIBLE
+
+        /* 
+         * For the non-reversible form, Variant values shall be encoded as a JSON object containing only
+         * the value of the Body field. The Type and Dimensions fields are dropped. Multi-dimensional
+         * arrays are encoded as a multi dimensional JSON array as described in 5.4.5.
+         */
+        
+        if (!isBuiltin && !isAlias){
+            //-------NON REVERSIBLE:  NOT BUILTIN, can it be encoded? Wrap in extension object .------------
+            if (src->arrayDimensionsSize > 1) {
+                return UA_STATUSCODE_BADNOTIMPLEMENTED;
+            }
+            
+            ret |= CALCWRITE(ObjStart);
+            ret |= calcWriteKey(ctx, "Body", UA_FALSE);
+            ret |= Variant_calcJsonWrapExtensionObject(src, isArray, ctx, useReversible);
+            ret |= CALCWRITE(ObjEnd);
+        } else if (!isArray) {
+            //-------NON REVERSIBLE:   BUILTIN, single value.------------
+            ret |= CALCWRITE(ObjStart);
+            ret |= calcWriteKey(ctx, "Body", UA_FALSE);
+            ret |= calcJsonInternal(src->data, src->type, ctx, useReversible);
+            ret |= CALCWRITE(ObjEnd);
+        } else {
+            //-------NON REVERSIBLE:   BUILTIN, array.------------
+            size_t dimensionSize = src->arrayDimensionsSize;
+            
+            ret |= CALCWRITE(ObjStart);
+            ret |= calcWriteKey(ctx, "Body", UA_FALSE);
+            
+            if (dimensionSize > 1) {
+                //nonreversible multidimensional array
+                size_t index = 0;  size_t dimensionIndex = 0;
+                void *ptr = src->data;
+                const UA_DataType *arraytype = src->type;
+                ret |= calcAddMatrixContentJSON(ctx, ptr, arraytype, &index, src->arrayDimensions, dimensionIndex, dimensionSize, useReversible);
+            } else {
+                //nonreversible simple array
+                ret |=  Array_calcJson(src->data, src->arrayLength, src->type, ctx, UA_TRUE, useReversible);
+            }
+            ret |= CALCWRITE(ObjEnd);
+        }
+    }
+    return ret;
+}
+
+/* DataValue */
+CALC_JSON(DataValue) {
+    if(!src){
+        return calcWriteNull(ctx);
+    }
+    
+    if(!src->hasServerPicoseconds &&
+            !src->hasServerTimestamp &&
+            !src->hasSourcePicoseconds &&
+            !src->hasSourceTimestamp &&
+            !src->hasStatus &&
+            !src->hasValue){
+        //no element, encode as null
+        return calcWriteNull(ctx);
+    }
+    
+    status ret = UA_STATUSCODE_GOOD; 
+    ret |= CALCWRITE(ObjStart);
+    UA_Boolean commaNeeded = UA_FALSE;
+    
+    if (src->hasValue) {
+        ret |= calcWriteKey(ctx, "Value", commaNeeded);
+        commaNeeded = UA_TRUE;
+        ret |= CALC_DIRECT(&src->value, Variant);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+    }
+
+    if (src->hasStatus) {
+        ret |= calcWriteKey(ctx, "Status", commaNeeded);
+        commaNeeded = UA_TRUE;
+        ret |= CALC_DIRECT(&src->status, StatusCode);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+    }
+    
+    if (src->hasSourceTimestamp) {
+        ret |= calcWriteKey(ctx, "SourceTimestamp", commaNeeded);
+        commaNeeded = UA_TRUE;
+        ret |= CALC_DIRECT(&src->sourceTimestamp, DateTime);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+    }
+    
+    if (src->hasSourcePicoseconds) {
+        ret |= calcWriteKey(ctx, "SourcePicoseconds", commaNeeded);
+        commaNeeded = UA_TRUE;
+        ret |= CALC_DIRECT(&src->sourcePicoseconds, UInt16);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+    }
+    
+    if (src->hasServerTimestamp) {
+        ret |= calcWriteKey(ctx, "ServerTimestamp", commaNeeded);
+        commaNeeded = UA_TRUE;
+        ret |= CALC_DIRECT(&src->serverTimestamp, DateTime);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+    }
+    
+    if (src->hasServerPicoseconds) {
+        ret |= calcWriteKey(ctx, "ServerPicoseconds", commaNeeded);
+        commaNeeded = UA_TRUE;
+        ret |= CALC_DIRECT(&src->serverPicoseconds, UInt16);
+        if (ret != UA_STATUSCODE_GOOD)
+            return ret;
+    }
+
+    ret |= CALCWRITE(ObjEnd);
+    return ret;
+}
+
+const calcSizeJsonSignature calcJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
+    (calcSizeJsonSignature) Boolean_calcJson,
+    (calcSizeJsonSignature) SByte_calcJson, /* SByte */
+    (calcSizeJsonSignature) Byte_calcJson,
+    (calcSizeJsonSignature) Int16_calcJson, /* Int16 */
+    (calcSizeJsonSignature) UInt16_calcJson,
+    (calcSizeJsonSignature) Int32_calcJson, /* Int32 */
+    (calcSizeJsonSignature) UInt32_calcJson,
+    (calcSizeJsonSignature) Int64_calcJson, /* Int64 */
+    (calcSizeJsonSignature) UInt64_calcJson,
+    (calcSizeJsonSignature) Float_calcJson,
+    (calcSizeJsonSignature) Double_calcJson,
+    (calcSizeJsonSignature) String_calcJson,
+    (calcSizeJsonSignature) DateTime_calcJson, /* DateTime */
+    (calcSizeJsonSignature) Guid_calcJson,
+    (calcSizeJsonSignature) ByteString_calcJson, /* ByteString */
+    (calcSizeJsonSignature) String_calcJson, /* XmlElement */
+    (calcSizeJsonSignature) NodeId_calcJson,
+    (calcSizeJsonSignature) ExpandedNodeId_calcJson,
+    (calcSizeJsonSignature) StatusCode_calcJson, /* StatusCode */
+    (calcSizeJsonSignature) QualifiedName_calcJson, /* QualifiedName */
+    (calcSizeJsonSignature) LocalizedText_calcJson,
+    (calcSizeJsonSignature) ExtensionObject_calcJson,
+    (calcSizeJsonSignature) DataValue_calcJson,
+    (calcSizeJsonSignature) Variant_calcJson,
+    (calcSizeJsonSignature) DiagnosticInfo_calcJson,
+    (calcSizeJsonSignature) calcJsonInternal,
+};
+
+static status
+calcJsonInternal(const void *src, const UA_DataType *type, CtxJson *ctx, UA_Boolean useReversible) {
+    if(!type || !ctx){
+        return UA_STATUSCODE_BADENCODINGERROR;
+    }
+    
+    status ret = UA_STATUSCODE_GOOD; 
+    
+    /* Check the recursion limit */
+    if (ctx->depth > UA_ENCODING_MAX_RECURSION)
+        return UA_STATUSCODE_BADENCODINGERROR;
+    ctx->depth++;
+
+    if (!type->builtin) {
+        ret |= CALCWRITE(ObjStart);
+    }
+
+    UA_Boolean commaNeeded = UA_FALSE;
+
+    uintptr_t ptr = (uintptr_t) src;
+    u8 membersSize = type->membersSize;
+    const UA_DataType * typelists[2] = {UA_TYPES, &type[-type->typeIndex]};
+    for (size_t i = 0; i < membersSize && ret == UA_STATUSCODE_GOOD; ++i) {
+        const UA_DataTypeMember *member = &type->members[i];
+        const UA_DataType *membertype = &typelists[!member->namespaceZero][member->memberTypeIndex];
+
+        if (member->memberName != NULL && *member->memberName != 0) {
+            calcWriteKey(ctx, member->memberName, commaNeeded);
+            commaNeeded = UA_TRUE;
+        }
+
+        if (!member->isArray) {
+            ptr += member->padding;
+            size_t encode_index = membertype->builtin ? membertype->typeIndex : UA_BUILTIN_TYPES_COUNT;
+            size_t memSize = membertype->memSize;
+            ret = calcJsonJumpTable[encode_index]((const void*) ptr, membertype, ctx, useReversible);
+            ptr += memSize;
+            if (ret != UA_STATUSCODE_GOOD) {
+                //TODO cleanup
+                return ret;
+            }
+        } else {
+            ptr += member->padding;
+            const size_t length = *((const size_t*) ptr);
+            ptr += sizeof (size_t);
+            ret = Array_calcJson(*(void *UA_RESTRICT const *) ptr, length, membertype, ctx, UA_FALSE, useReversible);
+            if (ret != UA_STATUSCODE_GOOD) {
+                //TODO cleanup
+                return ret;
+            }
+            ptr += sizeof (void*);
+        }
+    }
+
+    if (!type->builtin) {
+        ret |= CALCWRITE(ObjEnd);
+    }
+    
+    UA_assert(ret != UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
+    ctx->depth--;
+    return ret;
+}
+
+size_t
+UA_calcSizeJson(const void *src, const UA_DataType *type, UA_String *namespaces, size_t namespaceSize, UA_String *serverUris, size_t serverUriSize, UA_Boolean useReversible) {
+    /* Set up the context */
+    
+    
+    CtxJson ctx;
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.pos = 0;
+    ctx.depth = 0;
+    ctx.namespaces = namespaces;
+    ctx.namespacesSize = namespaceSize;
+    ctx.serverUris = serverUris;
+    ctx.serverUrisSize = serverUriSize;
+
+    /* Encode */
+    status ret = calcJsonInternal(src, type, &ctx, useReversible);
+    if(ret != UA_STATUSCODE_GOOD){
+       return 0;
+    }else{
+        return (size_t)ctx.pos;
+    }
+}
+
+
+/*-----------------------ENCODING---------------------------*/
+
 /* Boolean */
 ENCODE_JSON(Boolean) {
     if(!src){
@@ -315,6 +1818,11 @@ ENCODE_JSON(Boolean) {
 
     return UA_STATUSCODE_GOOD;
 }
+
+
+/*****************/
+/* Integer Types */
+/*****************/
 
 /* Byte */
 ENCODE_JSON(Byte) {
@@ -527,124 +2035,6 @@ Array_encodeJson(const void *src, size_t length, const UA_DataType *type, CtxJso
 /*****************/
 /* Builtin Types */
 /*****************/
-
-static size_t utf8_check_first(char byte)
-{
-    unsigned char u = (unsigned char)byte;
-
-    if(u < 0x80)
-        return 1;
-
-    if(0x80 <= u && u <= 0xBF) {
-        /* second, third or fourth byte of a multi-byte
-           sequence, i.e. a "continuation byte" */
-        return 0;
-    }
-    else if(u == 0xC0 || u == 0xC1) {
-        /* overlong encoding of an ASCII byte */
-        return 0;
-    }
-    else if(0xC2 <= u && u <= 0xDF) {
-        /* 2-byte sequence */
-        return 2;
-    }
-
-    else if(0xE0 <= u && u <= 0xEF) {
-        /* 3-byte sequence */
-        return 3;
-    }
-    else if(0xF0 <= u && u <= 0xF4) {
-        /* 4-byte sequence */
-        return 4;
-    }
-    else { /* u >= 0xF5 */
-        /* Restricted (start of 4-, 5- or 6-byte sequence) or invalid
-           UTF-8 */
-        return 0;
-    }
-}
-
-static size_t utf8_check_full(const char *buffer, size_t size, int32_t *codepoint)
-{
-    size_t i;
-    int32_t value = 0;
-    unsigned char u = (unsigned char)buffer[0];
-
-    if(size == 2)
-    {
-        value = u & 0x1F;
-    }
-    else if(size == 3)
-    {
-        value = u & 0xF;
-    }
-    else if(size == 4)
-    {
-        value = u & 0x7;
-    }
-    else
-        return 0;
-
-    for(i = 1; i < size; i++)
-    {
-        u = (unsigned char)buffer[i];
-
-        if(u < 0x80 || u > 0xBF) {
-            /* not a continuation byte */
-            return 0;
-        }
-
-        value = (value << 6) + (u & 0x3F);
-    }
-
-    if(value > 0x10FFFF) {
-        /* not in Unicode range */
-        return 0;
-    }
-
-    else if(0xD800 <= value && value <= 0xDFFF) {
-        /* invalid code point (UTF-16 surrogate halves) */
-        return 0;
-    }
-
-    else if((size == 2 && value < 0x80) ||
-            (size == 3 && value < 0x800) ||
-            (size == 4 && value < 0x10000)) {
-        /* overlong encoding */
-        return 0;
-    }
-
-    if(codepoint)
-        *codepoint = value;
-
-    return 1;
-}
-
-static const char *utf8_iterate(const char *buffer, size_t bufsize, int32_t *codepoint)
-{
-    size_t count;
-    int32_t value;
-
-    if(!bufsize)
-        return buffer;
-
-    count = utf8_check_first(buffer[0]);
-    if(count <= 0)
-        return NULL;
-
-    if(count == 1)
-        value = (unsigned char)buffer[0];
-    else
-    {
-        if(count > bufsize || !utf8_check_full(buffer, count, &value))
-            return NULL;
-    }
-
-    if(codepoint)
-        *codepoint = value;
-
-    return buffer + count;
-}
 
 ENCODE_JSON(String) {
     if (!src) {
@@ -980,14 +2370,6 @@ ENCODE_JSON(DateTime) {
 }
 
 /* NodeId */
-#define UA_NODEIDTYPE_NUMERIC_TWOBYTE 0
-#define UA_NODEIDTYPE_NUMERIC_FOURBYTE 1
-#define UA_NODEIDTYPE_NUMERIC_COMPLETE 2
-
-#define UA_EXPANDEDNODEID_SERVERINDEX_FLAG 0x40
-#define UA_EXPANDEDNODEID_NAMESPACEURI_FLAG 0x80
-
-//TODO: Namespace and encoding
 static status
 NodeId_encodeJsonInternal(UA_NodeId const *src, CtxJson *ctx, UA_Boolean useReversible) {
     status ret = UA_STATUSCODE_GOOD;
@@ -3254,6 +4636,7 @@ DECODE_JSON(Variant) {
         }else if(bodyType->typeIndex != UA_TYPES_EXTENSIONOBJECT){
             //Allocate Memory for Body
             void* bodyPointer = UA_new(bodyType);
+            UA_init(bodyPointer, bodyType);
             memcpy(&dst->data, &bodyPointer, sizeof(void*)); //Copy new Pointer do dest
             
             const char * fieldNames[] = {UA_DECODEKEY_TYPE, UA_DECODEKEY_BODY};
@@ -3262,9 +4645,6 @@ DECODE_JSON(Variant) {
             UA_Boolean found[] = {UA_FALSE, UA_FALSE};
             DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 2};
             ret = decodeFields(ctx, parseCtx, &decodeCtx, bodyType);
-            if(ret != UA_STATUSCODE_GOOD){
-                //UA_free(bodyPointer);
-            }
         }else {
             const char * fieldNames[] = {UA_DECODEKEY_TYPE, UA_DECODEKEY_BODY};
             void *fieldPointer[] = {NULL, dst};

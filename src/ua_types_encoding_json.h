@@ -52,6 +52,15 @@ size_t encodingJsonEndArray(CtxJson *ctx);
 status writeComma(CtxJson *ctx, UA_Boolean commaNeeded);
 status writeNull(CtxJson *ctx);
 
+status calcWriteKey_UA_String(CtxJson *ctx, UA_String *key, UA_Boolean commaNeeded);
+status calcWriteKey(CtxJson *ctx, const char* key, UA_Boolean commaNeeded);
+status encodingCalcJsonStartObject(CtxJson *ctx);
+size_t encodingCalcJsonEndObject(CtxJson *ctx);
+status encodingCalcJsonStartArray(CtxJson *ctx);
+size_t encodingCalcJsonEndArray(CtxJson *ctx);
+status calcWriteComma(CtxJson *ctx, UA_Boolean commaNeeded);
+status calcWriteNull(CtxJson *ctx);
+
 #define TOKENCOUNT 1000
 typedef struct {
     jsmntok_t *tokenArray;
@@ -61,6 +70,10 @@ typedef struct {
 
 typedef status(*encodeJsonSignature)(const void *UA_RESTRICT src, const UA_DataType *type,
         CtxJson *UA_RESTRICT ctx, UA_Boolean useReversible);
+
+typedef status(*calcSizeJsonSignature)(const void *UA_RESTRICT src, const UA_DataType *type,
+        CtxJson *UA_RESTRICT ctx, UA_Boolean useReversible);
+
 typedef status (*decodeJsonSignature)(void *UA_RESTRICT dst, const UA_DataType *type,
                                         CtxJson *UA_RESTRICT ctx, ParseCtx *parseCtx, UA_Boolean moveToken);
 
@@ -84,6 +97,16 @@ jsmntype_t getJsmnType(const ParseCtx *parseCtx);
 status tokenize(ParseCtx *parseCtx, CtxJson *ctx, const UA_ByteString *src, UA_UInt16 *tokenIndex);
 UA_Boolean isJsonNull(const CtxJson *ctx, const ParseCtx *parseCtx);
 
+
+size_t
+UA_calcSizeJson(const void *src, const UA_DataType *type,
+        UA_String *namespaces, 
+        size_t namespaceSize,
+        UA_String *serverUris,
+        size_t serverUriSize,
+        UA_Boolean useReversible) UA_FUNC_ATTR_WARN_UNUSED_RESULT;
+
+
 status
 UA_encodeJson(const void *src, const UA_DataType *type,
         u8 **bufPos, 
@@ -98,9 +121,6 @@ UA_StatusCode
 UA_decodeJson(const UA_ByteString *src, size_t *offset, void *dst,
                 const UA_DataType *type, size_t customTypesSize,
                 const UA_DataType *customTypes) UA_FUNC_ATTR_WARN_UNUSED_RESULT;
-
-size_t
-UA_calcSizeJson(const void *p, const UA_DataType *type);
 
 #ifdef __cplusplus
 }
