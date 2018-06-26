@@ -3518,10 +3518,9 @@ DECODE_JSON(Boolean) {
         /* Any value for a Built-In type that is NULL shall be encoded as the JSON literal ‘null’ if the value
          * is an element of an array. If the NULL value is a field within a Structure or Union, the field shall
          * not be encoded.
-         * 
-         * Todo: Decode null as false?
          */
-        dst = UA_FALSE;
+        dst = NULL;
+        (*parseCtx->index)++; // is one element
         return UA_STATUSCODE_GOOD;
     }
     
@@ -3830,6 +3829,11 @@ DECODE_JSON(Double){
 }
 
 DECODE_JSON(Guid) {
+    if(isJsonNull(ctx, parseCtx)){
+        (*parseCtx->index)++; // is one element
+        return UA_STATUSCODE_GOOD;
+    }
+    
     jsmntype_t tokenType = getJsmnType(parseCtx);
     if(tokenType != JSMN_STRING && tokenType != JSMN_PRIMITIVE){
         return UA_STATUSCODE_BADDECODINGERROR;
@@ -3975,8 +3979,9 @@ static int32_t decode_unicode_escape(const UA_Byte *str)
 #undef jsonstringdecodeonheap
 DECODE_JSON(String) {
     if(isJsonNull(ctx, parseCtx)){
-        dst->data = NULL;
-        dst->length = 0;
+        //dst->data = NULL;
+        //dst->length = 0;
+        (*parseCtx->index)++; // is one element
         return UA_STATUSCODE_GOOD;
     }
     jsmntype_t tokenType = getJsmnType(parseCtx);
@@ -4174,8 +4179,9 @@ out:
 DECODE_JSON(ByteString) {
     jsmntype_t tokenType = getJsmnType(parseCtx);
     if(isJsonNull(ctx, parseCtx)){
-        dst->data = NULL;
-        dst->length = 0;
+        //dst->data = NULL;
+        //dst->length = 0;
+        (*parseCtx->index)++; // is one element
         return UA_STATUSCODE_GOOD;
     }
     if(tokenType != JSMN_STRING && tokenType != JSMN_PRIMITIVE){
@@ -4241,8 +4247,9 @@ const char* UA_DECODEKEY_TEXT = ("Text");
 DECODE_JSON(LocalizedText) {
     if(getJsmnType(parseCtx) != JSMN_OBJECT){
         if(isJsonNull(ctx, parseCtx)){
-            dst->locale = UA_STRING_NULL;
-            dst->text = UA_STRING_NULL;
+            //dst->locale = UA_STRING_NULL;
+            //dst->text = UA_STRING_NULL;
+            (*parseCtx->index)++; // is one element
             return UA_STATUSCODE_GOOD;
         }
         return UA_STATUSCODE_BADDECODINGERROR;
@@ -4267,8 +4274,9 @@ const char* UA_DECODEKEY_URI = ("Uri");
 DECODE_JSON(QualifiedName) {
     if(getJsmnType(parseCtx) != JSMN_OBJECT){
         if(isJsonNull(ctx, parseCtx)){
-            dst->name = UA_STRING_NULL;
-            dst->namespaceIndex = 0;
+            //dst->name = UA_STRING_NULL;
+            //dst->namespaceIndex = 0;
+            (*parseCtx->index)++; // is one element
             return UA_STATUSCODE_GOOD;
         }
         return UA_STATUSCODE_BADDECODINGERROR;
@@ -4526,6 +4534,10 @@ static status prepareDecodeNodeIdJson(UA_NodeId *dst, CtxJson *ctx, ParseCtx *pa
 const char* UA_DECODEKEY_NAMESPACE = ("Namespace");
 
 DECODE_JSON(NodeId) {
+    if(isJsonNull(ctx, parseCtx)){
+        (*parseCtx->index)++; // is one element
+        return UA_STATUSCODE_GOOD;
+    }
     
     if(getJsmnType(parseCtx) != JSMN_OBJECT){
         return UA_STATUSCODE_BADDECODINGERROR;
@@ -4570,6 +4582,11 @@ DECODE_JSON(NodeId) {
 const char* UA_DECODEKEY_SERVERURI = ("ServerUri");
 
 DECODE_JSON(ExpandedNodeId) {
+    if(isJsonNull(ctx, parseCtx)){
+        (*parseCtx->index)++; // is one element
+        return UA_STATUSCODE_GOOD;
+    }
+    
     if(getJsmnType(parseCtx) != JSMN_OBJECT){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
@@ -4645,6 +4662,11 @@ DECODE_JSON(ExpandedNodeId) {
 }
 
 DECODE_JSON(DateTime) {
+    if(isJsonNull(ctx, parseCtx)){
+        (*parseCtx->index)++; // is one element
+        return UA_STATUSCODE_GOOD;
+    }
+    
     if(getJsmnType(parseCtx) != JSMN_STRING){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
@@ -4701,6 +4723,12 @@ DECODE_JSON(DateTime) {
 }
 
 DECODE_JSON(StatusCode) {
+    if(isJsonNull(ctx, parseCtx)){
+        *dst = UA_STATUSCODE_GOOD;
+        (*parseCtx->index)++; // is one element
+        return UA_STATUSCODE_GOOD;
+    }
+    
     UA_UInt32 d;
     status ret = DECODE_DIRECT(&d, UInt32);
     if(ret != UA_STATUSCODE_GOOD)
@@ -4736,6 +4764,7 @@ DECODE_JSON(Variant) {
             //set an empty Variant
             UA_Variant_init(dst);
             dst->type = NULL;
+            (*parseCtx->index)++; // is one element
             return UA_STATUSCODE_GOOD;
         }
         
@@ -4771,6 +4800,7 @@ DECODE_JSON(Variant) {
         //------------LookAhead BODY----------------
         /* Does the variant contain an array? */
         UA_Boolean isArray = UA_FALSE;
+        UA_Boolean isBodyNull = UA_FALSE;
         
         //Is the Body an Array?
         size_t searchResultBody = 0;
@@ -4781,7 +4811,8 @@ DECODE_JSON(Variant) {
             //BODY is null
             if(isJsonTokenNull(ctx, &bodyToken)){
                 dst->data = NULL;
-                return UA_STATUSCODE_GOOD;
+                isBodyNull = UA_TRUE;
+                //return UA_STATUSCODE_GOOD;
             }
             
             if(bodyToken.type == JSMN_ARRAY){
@@ -4849,9 +4880,12 @@ DECODE_JSON(Variant) {
             
         }else if(bodyType->typeIndex != UA_TYPES_EXTENSIONOBJECT){
             //Allocate Memory for Body
-            void* bodyPointer = UA_new(bodyType);
-            UA_init(bodyPointer, bodyType);
-            memcpy(&dst->data, &bodyPointer, sizeof(void*)); //Copy new Pointer do dest
+            void* bodyPointer = NULL;
+            if(!isBodyNull){
+                bodyPointer = UA_new(bodyType);
+                UA_init(bodyPointer, bodyType);
+                memcpy(&dst->data, &bodyPointer, sizeof(void*)); //Copy new Pointer do dest
+            }
             
             const char * fieldNames[] = {UA_DECODEKEY_TYPE, UA_DECODEKEY_BODY};
             void *fieldPointer[] = {NULL, bodyPointer};
@@ -4887,6 +4921,7 @@ DECODE_JSON(DataValue) {
         if(isJsonNull(ctx, parseCtx)){
             //TODO set datavalue NULL
             dst = NULL;
+            (*parseCtx->index)++; // is one element
             return UA_STATUSCODE_GOOD;
         }
         return UA_STATUSCODE_BADDECODINGERROR;
@@ -4939,6 +4974,7 @@ DECODE_JSON(ExtensionObject) {
         * If the Body is empty, the ExtensionObject is NULL and is omitted or encoded as a JSON null.
         */   
         dst = NULL;
+        (*parseCtx->index)++; // is one element
         return UA_STATUSCODE_GOOD;
     }
     
@@ -5241,7 +5277,7 @@ const char* UA_DECODEKEY_INNERDIAGNOSTICINFO = ("InnerDiagnosticInfo");
 
 DECODE_JSON(DiagnosticInfo) {
     if(isJsonNull(ctx, parseCtx)){
-        UA_DiagnosticInfo_init(dst);
+        (*parseCtx->index)++; // is one element
         return UA_STATUSCODE_GOOD;
     }
     if(getJsmnType(parseCtx) != JSMN_OBJECT){
@@ -5593,5 +5629,12 @@ UA_decodeJson(const UA_ByteString *src, size_t *offset, void *dst,
 
     cleanup:
     free(parseCtx.tokenArray);
+    
+    
+    //sanity check if all Tokens were processed
+    if(!(*parseCtx.index == parseCtx.tokenCount  || *parseCtx.index == parseCtx.tokenCount-1)){
+        ret = UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
     return ret;
 }
