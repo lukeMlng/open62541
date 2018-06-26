@@ -4376,6 +4376,87 @@ status lookAheadForKey(const char* search, CtxJson *ctx, ParseCtx *parseCtx, siz
 }
 
 
+
+static status jumpOverRec(CtxJson *ctx, ParseCtx *parseCtx, size_t *resultIndex, UA_UInt16 depth){
+    UA_StatusCode ret = UA_STATUSCODE_BADDECODINGERROR;
+    
+    if(*parseCtx->index >= parseCtx->tokenCount){
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }
+    
+    if(parseCtx->tokenArray[(*parseCtx->index)].type == JSMN_OBJECT){
+        size_t objectCount = (size_t)(parseCtx->tokenArray[(*parseCtx->index)].size);
+        
+        (*parseCtx->index)++; //Object to first Key
+        if(*parseCtx->index >= parseCtx->tokenCount){
+            return UA_STATUSCODE_BADDECODINGERROR;
+        }
+        
+        size_t i;
+        for (i = 0; i < objectCount; i++) {
+            
+            if(*parseCtx->index >= parseCtx->tokenCount){
+                return UA_STATUSCODE_BADDECODINGERROR;
+            }
+             
+            (*parseCtx->index)++; //value
+            if(*parseCtx->index >= parseCtx->tokenCount){
+                return UA_STATUSCODE_BADDECODINGERROR;
+            }
+            
+            if(parseCtx->tokenArray[(*parseCtx->index)].type == JSMN_OBJECT){
+               jumpOverRec(ctx, parseCtx, resultIndex, (UA_UInt16)(depth + 1));
+            }else if(parseCtx->tokenArray[(*parseCtx->index)].type == JSMN_ARRAY){
+               jumpOverRec(ctx, parseCtx, resultIndex, (UA_UInt16)(depth + 1));
+            }else{
+                //Only Primitive or string
+                (*parseCtx->index)++;
+            }
+        }
+    }else if(parseCtx->tokenArray[(*parseCtx->index)].type == JSMN_ARRAY){
+        size_t arraySize = (size_t)(parseCtx->tokenArray[(*parseCtx->index)].size);
+        
+        (*parseCtx->index)++; //Object to first element
+        if(*parseCtx->index >= parseCtx->tokenCount){
+            return UA_STATUSCODE_BADDECODINGERROR;
+        }
+        
+        size_t i;
+        for (i = 0; i < arraySize; i++) {
+            if(parseCtx->tokenArray[(*parseCtx->index)].type == JSMN_OBJECT){
+               jumpOverRec(ctx, parseCtx, resultIndex, (UA_UInt16)(depth + 1));
+            }else if(parseCtx->tokenArray[(*parseCtx->index)].type == JSMN_ARRAY){
+               jumpOverRec(ctx, parseCtx, resultIndex, (UA_UInt16)(depth + 1));
+            }else{
+                //Only Primitive or string
+                (*parseCtx->index)++;
+            }
+        }
+    }
+    return ret;
+}
+
+static status jumpOverObject(CtxJson *ctx, ParseCtx *parseCtx, size_t *resultIndex){
+    //DEBUG: (char*)(&ctx->pos[parseCtx->tokenArray[*parseCtx->index].start])
+    //save index for later restore
+    UA_UInt16 oldIndex = *parseCtx->index;
+    
+    //UA_STACKARRAY(char, s, search.length + 1);
+    //memcpy(&s, search.data, search.length);
+    //s[search.length] = '\0';
+    
+    UA_UInt16 depth = 0;
+    jumpOverRec( ctx, parseCtx, resultIndex, depth);
+    
+    *resultIndex = *parseCtx->index;
+    
+    //Restore index
+    *parseCtx->index = oldIndex;
+    
+    //TODO: Better Status Code
+    return UA_STATUSCODE_GOOD;
+}
+
 const char* UA_DECODEKEY_ID = ("Id");
 const char* UA_DECODEKEY_IDTYPE = ("IdType");
 
@@ -4875,7 +4956,7 @@ DECODE_JSON(ExtensionObject) {
     //If no encoding found it is Structure encoding
     if(searchEncodingResult == 0){
         
-        dst->encoding = UA_EXTENSIONOBJECT_DECODED;
+
         
         UA_NodeId typeId;
         UA_NodeId_init(&typeId);
@@ -4897,12 +4978,59 @@ DECODE_JSON(ExtensionObject) {
         const UA_DataType *typeOfBody = UA_findDataType(&typeId);
         
         if(!typeOfBody){
-            return UA_STATUSCODE_BADDECODINGERROR;
+            //dont decode body: 1. save as bytestring, 2. jump over
+            
+            dst->encoding = UA_EXTENSIONOBJECT_ENCODED_BYTESTRING;
+            UA_NodeId_copy(&typeId, &dst->content.encoded.typeId);
+            
+            //Check if Object in Extentionobject
+            if(getJsmnType(parseCtx) != JSMN_OBJECT){
+                return UA_STATUSCODE_BADDECODINGERROR;
+            }
+            
+            //Search for Body to save
+            size_t searchBodyResult = 0;
+            lookAheadForKey(UA_DECODEKEY_BODY, ctx, parseCtx, &searchBodyResult);
+            if(searchBodyResult == 0){
+                //No Body
+                return UA_STATUSCODE_BADDECODINGERROR;
+            }
+            
+            if(searchBodyResult >= (size_t)parseCtx->tokenCount){
+                //index not in Tokenarray
+                return UA_STATUSCODE_BADDECODINGERROR;
+            }
+
+            //Get the size of the Object as a string, not the Object key count!
+            UA_Int64 sizeOfJsonString =(parseCtx->tokenArray[searchBodyResult].end - 
+                    parseCtx->tokenArray[searchBodyResult].start);
+            
+            char* bodyJsonString = (char*)(ctx->pos + parseCtx->tokenArray[searchBodyResult].start);
+            
+            if(sizeOfJsonString <= 0){
+                return UA_STATUSCODE_BADDECODINGERROR;
+            }
+            
+            //Save encoded as bytestring
+            UA_ByteString_allocBuffer(&dst->content.encoded.body, (size_t)sizeOfJsonString);    
+            memcpy(dst->content.encoded.body.data, bodyJsonString, (size_t)sizeOfJsonString);
+            
+            size_t tokenAfteExtensionObject = 0;
+            jumpOverObject(ctx, parseCtx, &tokenAfteExtensionObject);
+            
+            if(tokenAfteExtensionObject == 0){
+                //next object token not found
+                return UA_STATUSCODE_BADDECODINGERROR;
+            }
+            
+            *parseCtx->index = (UA_UInt16)tokenAfteExtensionObject;
+            
+            return UA_STATUSCODE_GOOD;
         }
         
         //Set Found Type
         dst->content.decoded.type = typeOfBody;
-        
+        dst->encoding = UA_EXTENSIONOBJECT_DECODED;
         
         if( searchTypeIdResult != 0){
             

@@ -6058,6 +6058,28 @@ START_TEST(UA_ExtensionObject_EncodedXml_json_decode) {
 }
 END_TEST
 
+
+START_TEST(UA_ExtensionObject_Unkown_json_decode) {
+    // given
+    
+    UA_ExtensionObject out;
+    UA_ExtensionObject_init(&out);
+    UA_ByteString buf = UA_STRING("{\"TypeId\":{\"Id\":4711},\"Body\":{\"unknown\":\"body\",\"saveas\":\"Bytestring\"}}");
+
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_EXTENSIONOBJECT], 0, 0);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    ck_assert_int_eq(out.encoding, UA_EXTENSIONOBJECT_ENCODED_BYTESTRING);
+    ck_assert_int_eq(out.content.encoded.typeId.identifier.numeric, 4711);
+    
+    //{"unknown":"body","saveas":"Bytestring"}}
+    ck_assert_int_eq(out.content.encoded.body.length, 39);
+    UA_ExtensionObject_deleteMembers(&out);
+}
+END_TEST
+
 /* ----------------- Variant ---------------------*/
 START_TEST(UA_VariantBool_json_decode) {
     // given
@@ -6870,6 +6892,7 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_decode, UA_ExtensionObject_json_decode);
     tcase_add_test(tc_json_decode, UA_ExtensionObject_EncodedByteString_json_decode);
     tcase_add_test(tc_json_decode, UA_ExtensionObject_EncodedXml_json_decode);
+    tcase_add_test(tc_json_decode, UA_ExtensionObject_Unkown_json_decode);
     
     
     //Others
