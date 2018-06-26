@@ -4020,11 +4020,12 @@ DECODE_JSON(String) {
             goto out;
         } else if(c == '\\') {
             
-            c = inputBuffer[inBufIndex++];
             if(inBufIndex >= size){
                 ret = UA_STATUSCODE_BADDECODINGERROR;
                 goto out;
             }
+            c = inputBuffer[inBufIndex++];
+            
             
             if(c == 'u') {
                 c = inputBuffer[inBufIndex++];
@@ -4889,6 +4890,7 @@ DECODE_JSON(Variant) {
             
             const char * fieldNames[] = {UA_DECODEKEY_TYPE, UA_DECODEKEY_BODY};
             void *fieldPointer[] = {NULL, bodyPointer};
+            //TODO: use direct function?
             decodeJsonSignature functions[] = {NULL, (decodeJsonSignature) decodeJsonInternal};
             UA_Boolean found[] = {UA_FALSE, UA_FALSE};
             DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 2};

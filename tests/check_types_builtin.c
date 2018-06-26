@@ -5249,6 +5249,56 @@ START_TEST(UA_String_escape_unicode_json_decode) {
 }
 END_TEST
 
+
+START_TEST(UA_String_escape2_json_decode) { 
+    UA_Variant out;
+    UA_Variant_init(&out);
+    UA_ByteString buf = UA_STRING("{\"Type\":12,\"Body\":\"\\b\\th\\\"e\\fl\\nl\\\\o\\r\"}");
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_VARIANT], 0, 0);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    ck_assert_int_eq(out.type->typeIndex, UA_TYPES_STRING);
+    ck_assert_int_eq(  ((UA_String*)out.data)->length, 12);//  \b\th\"e\fl\nl\\o\r
+    ck_assert_int_eq( ((UA_String*)out.data)->data[0], '\b');
+    ck_assert_int_eq( ((UA_String*)out.data)->data[1], '\t');
+    ck_assert_int_eq( ((UA_String*)out.data)->data[2], 'h');
+    ck_assert_int_eq( ((UA_String*)out.data)->data[3], '\"');
+    ck_assert_int_eq( ((UA_String*)out.data)->data[4], 'e');
+    ck_assert_int_eq( ((UA_String*)out.data)->data[5], '\f');
+    ck_assert_int_eq( ((UA_String*)out.data)->data[6], 'l');
+    ck_assert_int_eq( ((UA_String*)out.data)->data[7], '\n');
+    ck_assert_int_eq( ((UA_String*)out.data)->data[8], 'l');
+    ck_assert_int_eq( ((UA_String*)out.data)->data[9], '\\');
+    ck_assert_int_eq( ((UA_String*)out.data)->data[10], 'o');
+    ck_assert_int_eq( ((UA_String*)out.data)->data[11], '\r');
+    
+    UA_Variant_deleteMembers(&out);
+}
+END_TEST
+
+
+START_TEST(UA_String_surrogatePair_json_decode) { 
+    UA_Variant out;
+    UA_Variant_init(&out);
+    UA_ByteString buf = UA_STRING("{\"Type\":12,\"Body\":\"\\uD800\\uDC00\"}");
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_VARIANT], 0, 0);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    ck_assert_int_eq(out.type->typeIndex, UA_TYPES_STRING);
+    ck_assert_int_eq(  ((UA_String*)out.data)->length, 4);//U+10000  => 0xF0 0x90 0x80 0x80
+    ck_assert_uint_eq( ((UA_String*)out.data)->data[0], 0xF0);
+    ck_assert_uint_eq( ((UA_String*)out.data)->data[1], 0x90);
+    ck_assert_uint_eq( ((UA_String*)out.data)->data[2], 0x80);
+    ck_assert_uint_eq( ((UA_String*)out.data)->data[3], 0x80);
+    
+    UA_Variant_deleteMembers(&out);
+}
+END_TEST
+
 /* ---------------ByteString---------------------------*/
 START_TEST(UA_ByteString_json_decode) {
     UA_Variant out;
@@ -6923,6 +6973,9 @@ static Suite *testSuite_builtin(void) {
     tcase_add_test(tc_json_decode, UA_String_unescapeBS_json_decode);
     
     tcase_add_test(tc_json_decode, UA_String_escape_unicode_json_decode);
+    
+    tcase_add_test(tc_json_decode, UA_String_escape2_json_decode);
+    tcase_add_test(tc_json_decode, UA_String_surrogatePair_json_decode);
     
     //ByteString
     tcase_add_test(tc_json_decode, UA_ByteString_json_decode);
