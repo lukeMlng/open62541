@@ -3015,6 +3015,11 @@ ENCODE_JSON(Variant) {
     }
     
     status ret = UA_STATUSCODE_GOOD;
+    
+    /*
+     * If type is 0 (NULL) the Variant contains a NULL value and the containing JSON object shall be
+     * omitted or replaced by the JSON literal ‘null’ (when an element of a JSON array).
+     */
     if (!src->type){
         return writeNull(ctx);
     }
@@ -4641,6 +4646,18 @@ DECODE_JSON(Variant) {
     status ret = UA_STATUSCODE_GOOD;
     
     if(getJsmnType(parseCtx) != JSMN_OBJECT){
+        
+        /*
+         * If type is 0 (NULL) the Variant contains a NULL value and the containing JSON object shall be
+         * omitted or replaced by the JSON literal ‘null’ (when an element of a JSON array).
+         */
+        if(isJsonNull(ctx, parseCtx)){
+            //set an empty Variant
+            UA_Variant_init(dst);
+            dst->type = NULL;
+            return UA_STATUSCODE_GOOD;
+        }
+        
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     
@@ -4769,6 +4786,9 @@ DECODE_JSON(Variant) {
             DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 2};
             ret = decodeFields(ctx, parseCtx, &decodeCtx, bodyType);
         }
+    }else{
+        //TODO: no Type
+        return UA_STATUSCODE_BADDECODINGERROR;
     }
     
     return ret;
