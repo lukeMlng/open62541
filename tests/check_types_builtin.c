@@ -6436,6 +6436,29 @@ START_TEST(UA_DataTypeAttributes_json_decode) {
 }
 END_TEST
 
+//-------------------MISC heap free test cases--------------------------
+START_TEST(UA_VariantStringArrayBad_shouldFreeArray_json_decode) {
+    // given
+    
+    UA_Variant out;
+    UA_Variant_init(&out);                         //not a string     V
+    UA_ByteString buf = UA_STRING("{\"Type\":12,\"Body\":[\"1\",\"2\",true,\"4\",\"5\",\"6\",\"7\",\"8\"],\"Dimension\":[2,4]}");
+    //UA_ByteString buf = UA_STRING("{\"SymbolicId\":13,\"LocalizedText\":14,\"Locale\":12,\"AdditionalInfo\":\"additionalInfo\",\"InnerStatusCode\":2155216896}");
+
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_VARIANT], 0, 0);
+
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_BADDECODINGERROR);
+    UA_Variant_deleteMembers(&out);
+}
+END_TEST
+
+
+
+
+
 //-----------------------------------PubSub---------------------------------------
 
 
@@ -7064,6 +7087,9 @@ static Suite *testSuite_builtin(void) {
     
     tcase_add_test(tc_json_decode, UA_ViewDescription_json_decode);
     tcase_add_test(tc_json_decode, UA_DataTypeAttributes_json_decode);
+    
+    
+    tcase_add_test(tc_json_decode, UA_VariantStringArrayBad_shouldFreeArray_json_decode);
     
     tcase_add_test(tc_json_decode, UA_NetworkMessage_oneMessage_twoFields_json_decode);
     tcase_add_test(tc_json_decode, UA_Networkmessage_json_decode);
