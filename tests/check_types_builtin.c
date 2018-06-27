@@ -6456,8 +6456,44 @@ START_TEST(UA_VariantStringArrayBad_shouldFreeArray_json_decode) {
 END_TEST
 
 
+START_TEST(UA_VariantFuzzer1_json_decode) {
+    // given
+    
+    UA_Variant out;
+    UA_Variant_init(&out);         
+    UA_ByteString buf = UA_STRING("\\x0a{\"Type\",\"Bode\",\"Body\":{\"se\":}}");
+    //UA_ByteString buf = UA_STRING("{\"SymbolicId\":13,\"LocalizedText\":14,\"Locale\":12,\"AdditionalInfo\":\"additionalInfo\",\"InnerStatusCode\":2155216896}");
+
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_VARIANT], 0, 0);
+
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_BADDECODINGERROR);
+    UA_Variant_deleteMembers(&out);
+}
+END_TEST
 
 
+
+//This test succeeds: Double will be parsed to zero if unparsable
+START_TEST(UA_VariantFuzzer2_json_decode) {
+    // given
+    
+    UA_Variant out;
+    UA_Variant_init(&out);         
+    UA_ByteString buf = UA_STRING("{\"Type\":11,\"Body\":2E+}");
+    //UA_ByteString buf = UA_STRING("{\"SymbolicId\":13,\"LocalizedText\":14,\"Locale\":12,\"AdditionalInfo\":\"additionalInfo\",\"InnerStatusCode\":2155216896}");
+
+    // when
+    size_t offset = 0;
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_VARIANT], 0, 0);
+
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    UA_Variant_deleteMembers(&out);
+}
+END_TEST
 
 //-----------------------------------PubSub---------------------------------------
 
@@ -7090,7 +7126,9 @@ static Suite *testSuite_builtin(void) {
     
     
     tcase_add_test(tc_json_decode, UA_VariantStringArrayBad_shouldFreeArray_json_decode);
-    
+    tcase_add_test(tc_json_decode, UA_VariantFuzzer1_json_decode);
+    tcase_add_test(tc_json_decode, UA_VariantFuzzer2_json_decode);
+     
     tcase_add_test(tc_json_decode, UA_NetworkMessage_oneMessage_twoFields_json_decode);
     tcase_add_test(tc_json_decode, UA_Networkmessage_json_decode);
     //tcase_add_test(tc_json_decode, UA_NetworkMessage_test_json_decode);
