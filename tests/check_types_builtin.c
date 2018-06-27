@@ -6156,17 +6156,17 @@ END_TEST
 START_TEST(UA_VariantStringArray_json_decode) {
     // given
     
-    UA_Variant out;
-    UA_Variant_init(&out);
+    UA_Variant *out = UA_Variant_new();
+    UA_Variant_init(out);
     UA_ByteString buf = UA_STRING("{\"Type\":12,\"Body\":[\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\"],\"Dimension\":[2,4]}");
     //UA_ByteString buf = UA_STRING("{\"SymbolicId\":13,\"LocalizedText\":14,\"Locale\":12,\"AdditionalInfo\":\"additionalInfo\",\"InnerStatusCode\":2155216896}");
 
     // when
     size_t offset = 0;
-    UA_StatusCode retval = UA_decodeJson(&buf, &offset, &out, &UA_TYPES[UA_TYPES_VARIANT], 0, 0);
+    UA_StatusCode retval = UA_decodeJson(&buf, &offset, out, &UA_TYPES[UA_TYPES_VARIANT], 0, 0);
 
     UA_String *testArray;
-    testArray = (UA_String*)(out.data);
+    testArray = (UA_String*)(out->data);
     // then
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
     ck_assert_int_eq((char)testArray[0].data[0], '1');
@@ -6177,12 +6177,12 @@ START_TEST(UA_VariantStringArray_json_decode) {
     ck_assert_int_eq((char)testArray[5].data[0], '6');
     ck_assert_int_eq((char)testArray[6].data[0], '7');
     ck_assert_int_eq((char)testArray[7].data[0], '8');
-    ck_assert_int_eq(out.arrayDimensionsSize, 2);
-    ck_assert_int_eq(out.arrayDimensions[0], 2);
-    ck_assert_int_eq(out.arrayDimensions[1], 4);
-    ck_assert_int_eq(out.arrayLength, 8);
-    ck_assert_int_eq(out.type->typeIndex, 11);
-    UA_Variant_deleteMembers(&out);
+    ck_assert_int_eq(out->arrayDimensionsSize, 2);
+    ck_assert_int_eq(out->arrayDimensions[0], 2);
+    ck_assert_int_eq(out->arrayDimensions[1], 4);
+    ck_assert_int_eq(out->arrayLength, 8);
+    ck_assert_int_eq(out->type->typeIndex, 11);
+    UA_Variant_deleteMembers(out);
 }
 END_TEST
 
