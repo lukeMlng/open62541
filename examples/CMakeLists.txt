@@ -169,9 +169,9 @@ if(UA_ENABLE_PUBSUB)
     
     #-------------------------
     #mqtt-c
-    #add_executable(tutorial_pubsub_publish pubsub/tutorial_pubsub_publish.c pubsub/mqtt/plugin_mqtt_mqtt-c.c)
-    #find_library(libmqtt  NAMES libmqtt.a )
-    #target_link_libraries(tutorial_pubsub_publish ${libmqtt})
+    add_executable(tutorial_pubsub_publish pubsub/tutorial_pubsub_publish.c pubsub/mqtt/plugin_mqtt_mqtt-c.c)
+    find_library(libmqtt  NAMES libmqtt.a )
+    target_link_libraries(tutorial_pubsub_publish ${libmqtt})
     
     #paho-embed   
     #add_executable(tutorial_pubsub_publish pubsub/tutorial_pubsub_publish.c pubsub/mqtt/paho-embed/linux/MQTTLinux.c pubsub/mqtt/plugin_mqtt_paho_embed.c)
@@ -182,8 +182,8 @@ if(UA_ENABLE_PUBSUB)
     #TARGET_LINK_LIBRARIES(tutorial_pubsub_publish MQTTPacketServer)
 
     #mosquitto
-    add_executable(tutorial_pubsub_publish pubsub/tutorial_pubsub_publish.c pubsub/mqtt/plugin_mqtt_mosquitto.c)
-    TARGET_LINK_LIBRARIES(tutorial_pubsub_publish mosquitto)
+    #add_executable(tutorial_pubsub_publish pubsub/tutorial_pubsub_publish.c pubsub/mqtt/plugin_mqtt_mosquitto.c)
+    #TARGET_LINK_LIBRARIES(tutorial_pubsub_publish mosquitto)
     #---------------------------
 
 

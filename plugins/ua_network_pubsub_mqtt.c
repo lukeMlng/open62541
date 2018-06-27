@@ -63,8 +63,8 @@
 
 //For testing TODO: remove
 //#define enableMQTTLinking
-#undef enableMQTTLinking
-
+//#undef enableMQTTLinking
+#define enableMQTTLinking
 
 /**
  * Open communication socket based on the connectionConfig. Protocol specific parameters are
