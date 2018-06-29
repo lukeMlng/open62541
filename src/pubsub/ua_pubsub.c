@@ -857,7 +857,7 @@ UA_DataSetWriter_generateDataSetMessage(UA_Server *server, UA_DataSetMessage *da
     memset(dataSetMessage, 0, sizeof(UA_DataSetMessage));
 
     //TODO:
-    dataSetMessage->header.dataSetWriterId = dataSetWriter->config.dataSetWriterId;
+    //dataSetMessage->header.dataSetWriterId = dataSetWriter->config.dataSetWriterId;
     
     UA_UInt16 messageType = 0;
     

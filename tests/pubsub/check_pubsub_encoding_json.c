@@ -160,7 +160,7 @@ END_TEST
 START_TEST(UA_NetworkMessage_oneMessage_twoFields_json_decode) {
     // given
     UA_NetworkMessage out;
-    UA_ByteString buf = UA_STRING("{\"MessageId\":\"5ED82C10-50BB-CD07-0120-22521081E8EE\",\"MessageType\":\"ua-data\",\"Messages\":[{\"DataSetWriterId\":\"62541\",\"SequenceNumber\":4711,\"Payload\":{\"Test\":{\"Type\":5,\"Body\":42},\"Server localtime\":{\"Type\":13,\"Body\":\"2018-06-05T05:58:36.000Z\"}}}]}");
+    UA_ByteString buf = UA_STRING("{\"MessageId\":\"5ED82C10-50BB-CD07-0120-22521081E8EE\",\"MessageType\":\"ua-data\",\"Messages\":[{\"DataSetWriterId\":\"62541\",\"MetaDataVersion\":{\"MajorVersion\":1478393530,\"MinorVersion\":0},\"SequenceNumber\":4711,\"Payload\":{\"Test\":{\"Type\":5,\"Body\":42},\"Server localtime\":{\"Type\":13,\"Body\":\"2018-06-05T05:58:36.000Z\"}}}]}");
     // when
     UA_StatusCode retval = NetworkMessage_decodeJson(&out, &buf);
     // then
@@ -191,6 +191,19 @@ START_TEST(UA_NetworkMessage_oneMessage_twoFields_json_decode) {
 }
 END_TEST
  
+
+START_TEST(UA_NetworkMessage_MetaDataVersion_json_decode) {
+    // given
+    UA_NetworkMessage out;
+    UA_ByteString buf = UA_STRING("{\"MessageId\":\"5ED82C10-50BB-CD07-0120-22521081E8EE\",\"MessageType\":\"ua-data\",\"Messages\":[{\"MetaDataVersion\":{\"MajorVersion\": 47, \"MinorVersion\": 47},\"DataSetWriterId\":\"62541\",\"Status\":22,\"SequenceNumber\":4711,\"Payload\":{\"Test\":{\"Type\":5,\"Body\":42},\"Server localtime\":{\"Type\":13,\"Body\":\"2018-06-05T05:58:36.000Z\"}}}]}");
+    // when
+    UA_StatusCode retval = NetworkMessage_decodeJson(&out, &buf);
+    // then
+    ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
+    UA_NetworkMessage_deleteMembers(&out);
+}
+END_TEST
+
 /*
 START_TEST(UA_NetworkMessage_test_json_decode) {
     // given
@@ -244,7 +257,9 @@ static Suite *testSuite_networkmessage(void) {
     tcase_add_test(tc_json_networkmessage, UA_Networkmessage_json_decode);
     //tcase_add_test(tc_json_decode, UA_NetworkMessage_test_json_decode);
     tcase_add_test(tc_json_networkmessage, UA_PubSub_EnDecode);
-     
+    tcase_add_test(tc_json_networkmessage, UA_NetworkMessage_MetaDataVersion_json_decode);
+    
+    
     suite_add_tcase(s, tc_json_networkmessage);
     return s;
 }

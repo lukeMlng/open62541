@@ -3461,9 +3461,6 @@ status UA_atoiSigned(const char input[], size_t size, UA_Int64 *result){
 #define DECODE_DIRECT(DST, TYPE) TYPE##_decodeJson((UA_##TYPE*)DST, NULL, ctx, parseCtx, UA_FALSE)
 
 static status
-decodeJsonInternal(void *dst, const UA_DataType *type, CtxJson *ctx, ParseCtx *parseCtx, UA_Boolean moveToken);
-
-static status
 Array_decodeJson(void *dst, const UA_DataType *type, CtxJson *ctx, ParseCtx *parseCtx, UA_Boolean moveToken);
 
 static status
@@ -5596,7 +5593,7 @@ static void toUAString(const char* in, UA_String* inOut){
     }
 }*/
 
-static status
+status
 decodeJsonInternal(void *dst, const UA_DataType *type, CtxJson *ctx, ParseCtx *parseCtx, UA_Boolean moveToken) {
     /* Check the recursion limit */
     if(ctx->depth > UA_ENCODING_MAX_RECURSION)

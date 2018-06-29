@@ -48,7 +48,6 @@ typedef struct {
     UA_DataSetMessageType dataSetMessageType;
     UA_Boolean picoSecondsIncluded;
     UA_UInt16 dataSetMessageSequenceNr;
-    UA_UInt16 dataSetWriterId; //TODO: For Json DataSetMessages necessary?
     UA_UtcTime timestamp;
     UA_UInt16 picoSeconds;
     UA_UInt16 status;

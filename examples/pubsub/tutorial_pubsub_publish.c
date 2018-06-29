@@ -196,7 +196,12 @@ addDataSetWriter(UA_Server *server) {
     dataSetWriterConfig.keyFrameCount = 10;
     
     UA_JsonDataSetWriterMessageDataType jsonDswMd;
-    jsonDswMd.dataSetMessageContentMask = UA_JSONDATASETMESSAGECONTENTMASK_SEQUENCENUMBER;
+    jsonDswMd.dataSetMessageContentMask = (UA_JsonDataSetMessageContentMask)
+            (UA_JSONDATASETMESSAGECONTENTMASK_DATASETWRITERID 
+            | UA_JSONDATASETMESSAGECONTENTMASK_SEQUENCENUMBER
+            | UA_JSONDATASETMESSAGECONTENTMASK_STATUS
+            | UA_JSONDATASETMESSAGECONTENTMASK_METADATAVERSION
+            | UA_JSONDATASETMESSAGECONTENTMASK_TIMESTAMP);
     
     UA_ExtensionObject messageSettings;
     messageSettings.encoding = UA_EXTENSIONOBJECT_DECODED;
