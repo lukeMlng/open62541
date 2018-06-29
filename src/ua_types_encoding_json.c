@@ -26,7 +26,7 @@
 #include "../deps/musl/floatscan.h"
 #include "../deps/musl/vfprintf.h"
 
-#include "libc_time.h"
+#include "../deps/libc_time.h"
 
 #define UA_ENCODING_MAX_RECURSION 20
 
