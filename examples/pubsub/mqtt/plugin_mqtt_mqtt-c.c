@@ -19,7 +19,7 @@ extern "C" {
 #include "mqtt.h"
 #include <ua_network_tcp.h>
 
-    #include <fcntl.h>
+#include <fcntl.h>
     
 /* setup a client */
 struct mqtt_client client;
@@ -27,8 +27,15 @@ uint8_t sendbuf[2048]; /* sendbuf should be large enough to hold multiple whole 
 uint8_t recvbuf[1024]; /* recvbuf should be large enough any whole mqtt message expected to be received */
 int sockfd;
 
+UA_Connection connection;
+
 UA_StatusCode disconnectMqtt(){
-    if (sockfd != -1) close(sockfd);
+     
+    mqtt_disconnect(&client);
+    mqtt_sync((struct mqtt_client*) &client);
+    if (sockfd != -1){
+        connection.close(&connection);
+    }  
     return UA_STATUSCODE_GOOD;
 }
 
@@ -64,7 +71,7 @@ UA_StatusCode connectMqtt(UA_String *host, int port, UA_PubSubChannelDataMQTT* o
     conf.recvBufferSize = 2000;
     conf.maxMessageSize = 1000;
     conf.maxChunkCount = 1;
-    UA_Connection connection =  UA_ClientConnectionTCP( conf,"opc.tcp://127.0.0.1:1883", 10000,NULL);
+    connection =  UA_ClientConnectionTCP( conf,"opc.tcp://127.0.0.1:1883", 10000,NULL);
     
     //sockfd = mqtt_pal_sockopen(hostChar, portString, AF_INET);
     sockfd = connection.sockfd;

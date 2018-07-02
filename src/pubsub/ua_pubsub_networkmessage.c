@@ -277,7 +277,7 @@ DatasetMessage_Payload_decodeJsonInternal(UA_DataSetMessage* dsm, const UA_DataT
     }*/
 
     UA_ConfigurationVersionDataType cvd;
-    UA_UInt64 dataSetWriterId; //TODO: Where to store?
+    UA_UInt16 dataSetWriterId; //TODO: Where to store?
     
     dsm->header.fieldEncoding = UA_FIELDENCODING_DATAVALUE;
     
@@ -309,7 +309,26 @@ DatasetMessage_Payload_decodeJsonInternal(UA_DataSetMessage* dsm, const UA_DataT
     //TODO: PAYLOAD is key value pairs of Variant. (Or DataValue as in .net impl?), set TYPE!
     DecodeContext decodeCtx = {fieldNames, fieldPointer, functions, found, 6};
     status ret = decodeFields(ctx, parseCtx, &decodeCtx, NULL);
-    dsm->header.dataSetMessageSequenceNrEnabled = found[0];
+    
+    
+    
+    if(!found[0]){
+        //no dataSetwriterid. Is mandatory. Abort.
+        return UA_STATUSCODE_BADDECODINGERROR;
+    }else{
+        if(parseCtx->custom != NULL){
+            UA_UInt16* dataSetWriterIdsArray = (UA_UInt16*)parseCtx->custom;
+            
+            if(parseCtx->numCustom < *parseCtx->currentCustomIndex){
+                 dataSetWriterIdsArray[*parseCtx->currentCustomIndex] = dataSetWriterId;
+                 (*parseCtx->currentCustomIndex)++;
+            }else{
+                return UA_STATUSCODE_BADDECODINGERROR;
+            }
+        }else{
+            return UA_STATUSCODE_BADDECODINGERROR;
+        }
+    }
     dsm->header.dataSetMessageSequenceNrEnabled = found[1];
     dsm->header.configVersionMajorVersion = cvd.majorVersion;
     dsm->header.configVersionMinorVersion = cvd.minorVersion;
@@ -424,8 +443,18 @@ static status NetworkMessage_decodeJsonInternal(UA_NetworkMessage *dst, CtxJson 
             if(bodyToken.type == JSMN_ARRAY){
                 messageCount = (size_t)parseCtx->tokenArray[searchResultMessages].size;
             }
+        }else{
+            //DataSetmessages are in a Array!
+            return UA_STATUSCODE_BADNOTIMPLEMENTED;
         }
     }
+    
+    
+    //Set up custom context for the dataSetwriterId
+    size_t currentCustomIndex = 0;
+    parseCtx->custom = (void*)UA_calloc(messageCount, sizeof(UA_UInt16));
+    parseCtx->currentCustomIndex = &currentCustomIndex;
+    parseCtx->numCustom = messageCount;
     
     /* MessageType */
     UA_Boolean isUaData = UA_TRUE;
@@ -491,6 +520,8 @@ static status NetworkMessage_decodeJsonInternal(UA_NetworkMessage *dst, CtxJson 
         dst->payloadHeader.dataSetPayloadHeader.count = (UA_Byte)messageCount;
         
         
+        //Set the dataSetWriterIds. They are filled in the dataSet decoding.
+        dst->payloadHeader.dataSetPayloadHeader.dataSetWriterIds = (UA_UInt16*)parseCtx->custom;
         return ret;
     }else{
         //TODO: MetaData

@@ -66,6 +66,11 @@ typedef struct {
     jsmntok_t *tokenArray;
     UA_Int32 tokenCount;
     UA_UInt16 *index;
+    
+    /* Additonal data for special cases such as networkmessage/datasetmessage */
+    size_t numCustom;
+    void * custom;
+    size_t* currentCustomIndex;
 } ParseCtx;
 
 typedef status(*encodeJsonSignature)(const void *UA_RESTRICT src, const UA_DataType *type,

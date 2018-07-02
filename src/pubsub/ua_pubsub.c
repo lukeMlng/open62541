@@ -1059,8 +1059,9 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
     memset(dsmSizes, 0, writerGroup->writersCount * sizeof(UA_UInt16));
     
     /* DataSetWriterId */
-    //size_t dataSetWriterIdsCount = 0;
+    size_t dataSetWriterIdsCount = 0;
     //UA_STACKARRAY(UA_UInt16, dataSetWriterIds, writerGroup->writersCount);
+    UA_UInt16 * dataSetWriterIds = (UA_UInt16*)UA_calloc(writerGroup->writersCount, sizeof(UA_UInt16));
     //memset(dataSetWriterIds, 0, writerGroup->writersCount * sizeof(UA_UInt16));
     
     /*
@@ -1096,7 +1097,7 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
         }
         
         /* Store DataSetIds*/
-        //dataSetWriterIds[dataSetWriterIdsCount++] = tmpDataSetWriter->config.dataSetWriterId;
+        dataSetWriterIds[dataSetWriterIdsCount++] = tmpDataSetWriter->config.dataSetWriterId;
         
         /* Store Fieldnames */
         fieldNames = (UA_String**)malloc(tmpPublishedDataSet->fieldSize * sizeof(UA_String*));
@@ -1171,7 +1172,7 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
         }
         
         //DataSetWriterId
-        //nmStore[i].payloadHeader.dataSetPayloadHeader.dataSetWriterIds = &dataSetWriterIds;
+        nmStore[i].payloadHeader.dataSetPayloadHeader.dataSetWriterIds = dataSetWriterIds;
         
         UA_PubSubConnection *connection = UA_PubSubConnection_findConnectionbyId(server, writerGroup->linkedConnection);
         if(!connection){
