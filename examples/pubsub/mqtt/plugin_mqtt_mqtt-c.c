@@ -17,7 +17,9 @@ extern "C" {
 #include <stdio.h>
 #include "../../include/ua_plugin_mqtt.h"
 #include "mqtt.h"
+#include <ua_network_tcp.h>
 
+    #include <fcntl.h>
     
 /* setup a client */
 struct mqtt_client client;
@@ -56,8 +58,33 @@ UA_StatusCode connectMqtt(UA_String *host, int port, UA_PubSubChannelDataMQTT* o
     char portString[6];
     snprintf(portString, 6, "%d", port);
 
-    sockfd = mqtt_pal_sockopen(hostChar, portString, AF_INET);
+    UA_ConnectionConfig conf;
+    conf.protocolVersion = 0;
+    conf.sendBufferSize = 1000;
+    conf.recvBufferSize = 2000;
+    conf.maxMessageSize = 1000;
+    conf.maxChunkCount = 1;
+    UA_Connection connection =  UA_ClientConnectionTCP( conf,"opc.tcp://127.0.0.1:1883", 10000,NULL);
+    
+    //sockfd = mqtt_pal_sockopen(hostChar, portString, AF_INET);
+    sockfd = connection.sockfd;
 
+    if (sockfd != -1){
+        #ifdef _WIN32
+            u_long iMode = 1;
+            if(ioctlsocket(sockfd, FIONBIO, &iMode) != NO_ERROR)
+                return UA_STATUSCODE_BADINTERNALERROR;
+        #elif defined(_WRS_KERNEL) || defined(UA_FREERTOS)
+            int on = TRUE;
+            if(ioctl(sockfd, FIONBIO, &on) < 0)
+              return UA_STATUSCODE_BADINTERNALERROR;
+        #else
+            int opts = fcntl(sockfd, F_GETFL);
+            if(opts < 0 || fcntl(sockfd, F_SETFL, opts|O_NONBLOCK) < 0)
+                return UA_STATUSCODE_BADINTERNALERROR;
+        #endif
+    };
+    
     if (sockfd == -1) {
         perror("Failed to open socket: ");
         return UA_STATUSCODE_BADCONNECTIONREJECTED;
