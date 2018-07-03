@@ -3607,7 +3607,11 @@ DECODE_JSON(UInt16) {
     }
     
     jsmntype_t tokenType = getJsmnType(parseCtx);
-    if(tokenType != JSMN_PRIMITIVE){
+    
+    //TODO: HACK for DataSetWriterIdString!
+    // DataSetWriter Ids are Strings in spec, but in open62541 a numbers!
+    // Option: always decode as String
+    if(tokenType != JSMN_PRIMITIVE && tokenType != JSMN_STRING){ 
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     
@@ -3654,7 +3658,7 @@ DECODE_JSON(UInt64) {
     }
     
     jsmntype_t tokenType = getJsmnType(parseCtx);
-    if(tokenType != JSMN_PRIMITIVE && tokenType != JSMN_STRING){ //TODO: HACK for DataSetWriterIdString!
+    if(tokenType != JSMN_PRIMITIVE){
         return UA_STATUSCODE_BADDECODINGERROR;
     }
     
