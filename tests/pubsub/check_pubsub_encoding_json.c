@@ -229,7 +229,7 @@ START_TEST(UA_NetworkMessage_MetaDataVersion_json_decode) {
     // given
     UA_NetworkMessage out;
     memset(&out,0,sizeof(UA_NetworkMessage));
-    UA_ByteString buf = UA_STRING("{\"MessageId\":\"5ED82C10-50BB-CD07-0120-22521081E8EE\",\"MessageType\":\"ua-data\",\"Messages\":[{\"MetaDataVersion\":{\"MajorVersion\": 47, \"MinorVersion\": 47},\"DataSetWriterId\":\"62541\",\"Status\":22,\"SequenceNumber\":4711,\"Payload\":{\"Test\":{\"Type\":5,\"Body\":42},\"Server localtime\":{\"Type\":13,\"Body\":\"2018-06-05T05:58:36.000Z\"}}}]}");
+    UA_ByteString buf = UA_STRING("{\"MessageId\":\"5ED82C10-50BB-CD07-0120-22521081E8EE\",\"MessageType\":\"ua-data\",\"Messages\":[{\"MetaDataVersion\":{\"MajorVersion\": 47, \"MinorVersion\": 47},\"DataSetWriterId\":\"62541\",\"Status\":22,\"SequenceNumber\":4711,\"Payload\":{\"Test\":{\"Type\":5,\"Body\":42},\"Server localtime\":{\"Type\":1,\"Body\":true}}}]}");
     // when
     UA_StatusCode retval = NetworkMessage_decodeJson(&out, &buf);
     // then
@@ -271,6 +271,7 @@ START_TEST(UA_NetworkMessage_MetaDataVersion_json_decode) {
     ck_assert_int_eq(out.payload.dataSetPayload.dataSetMessages[0].data.keyFrameData.dataSetFields[0].hasValue, true);
     ck_assert_int_eq(*((UA_UInt16*)out.payload.dataSetPayload.dataSetMessages[0].data.keyFrameData.dataSetFields[0].value.data), 42);
     ck_assert_int_eq(out.payload.dataSetPayload.dataSetMessages[0].data.keyFrameData.dataSetFields[1].hasValue, true);
+    ck_assert_int_eq(*((UA_Boolean*)out.payload.dataSetPayload.dataSetMessages[0].data.keyFrameData.dataSetFields[1].value.data), 1);
     
     UA_NetworkMessage_deleteMembers(&out);
     
@@ -281,11 +282,15 @@ END_TEST
 START_TEST(UA_NetworkMessage_test_json_decode) {
     // given
     UA_NetworkMessage out;
-    UA_ByteString buf = UA_STRING("{ \"MessageId\": \"32235546-05d9-4fd7-97df-ea3ff3408574\", \"MessageType\": \"ua-data\", \"PublisherId\": \"MQTT-Localhost\", \"DataSetClassId\": \"2dc07ece-cab9-4470-8f8a-2c1ead207e0e\", \"Messages\": [ "
-            "{ \"DataSetWriterId\": \"1\", \"SequenceNumber\": 224, \"MetaDataVersion\": { \"MajorVersion\": 1, \"MinorVersion\": 1 }, \"Payload\": "
-            "{\"BoilerId\": { \"Value\": { \"Type\": 11,\"Body\": \"Boiler #1\"},\"SourceTimestamp\": \"2018-03-25T13:32:20.000Z\"},"
-            "\"DrumLevel\": { \"Value\": { \"Type\": 6,\"Body\": 99},\"SourceTimestamp\": \"2018-03-25T13:32:20.000Z\"},"
-            "\"DrumLevel.EURange\": { \"Value\": { \"Type\": 21,\"Body\": {\"TypeId\": { \"Id\": 0 }, \"Body\": true } },\"SourceTimestamp\": \"2018-03-25T13:07:36.000Z\"},"
+    UA_ByteString buf = UA_STRING("{ \"MessageId\": \"32235546-05d9-4fd7-97df-ea3ff3408574\","
+            " \"MessageType\": \"ua-data\", \"PublisherId\": \"MQTT-Localhost\","
+            " \"DataSetClassId\": \"2dc07ece-cab9-4470-8f8a-2c1ead207e0e\","
+            " \"Messages\": [ "
+            "{ \"DataSetWriterId\": \"1\", \"SequenceNumber\": 224, \"MetaDataVersion\": { \"MajorVersion\": 1, \"MinorVersion\": 1 },"
+                " \"Payload\": "
+                "{\"BoilerId\": { \"Value\": { \"Type\": 11,\"Body\": \"Boiler #1\"},\"SourceTimestamp\": \"2018-03-25T13:32:20.000Z\"},"
+                "\"DrumLevel\": { \"Value\": { \"Type\": 6,\"Body\": 99},\"SourceTimestamp\": \"2018-03-25T13:32:20.000Z\"},"
+                "\"DrumLevel.EURange\": { \"Value\": { \"Type\": 21,\"Body\": {\"TypeId\": { \"Id\": 0 }, \"Body\": true } },\"SourceTimestamp\": \"2018-03-25T13:07:36.000Z\"},"
             "\"DrumLevel.EngineeringUnits\": { \"Value\": { \"Type\": 0,\"Body\": true }, \"SourceTimestamp\": \"2018-03-25T13:07:36.000Z\"},"
             "\"FlowSetPoint\": { \"Value\": { \"Type\": 6,\"Body\": 2},\"SourceTimestamp\": \"2018-03-25T13:31:43.000Z\"},\"LevelSetPoint\": { \"Value\": { \"Type\": 6,\"Body\": 2},\"SourceTimestamp\": \"2018-03-25T13:31:29Z\"},"
             "\"InputPipeFlow\": { \"Value\": { \"Type\": 6,\"Body\": 75},\"SourceTimestamp\": \"2018-03-25T13:32:19.000Z\"},"
@@ -294,9 +299,6 @@ START_TEST(UA_NetworkMessage_test_json_decode) {
     UA_StatusCode retval = NetworkMessage_decodeJson(&out, &buf);
     // then
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
-    
-    
-    
 }
 END_TEST
 */
@@ -329,11 +331,11 @@ static Suite *testSuite_networkmessage(void) {
     
     tcase_add_test(tc_json_networkmessage, UA_NetworkMessage_oneMessage_twoFields_json_decode);
     tcase_add_test(tc_json_networkmessage, UA_Networkmessage_json_decode);
-    //tcase_add_test(tc_json_decode, UA_NetworkMessage_test_json_decode);
+
     tcase_add_test(tc_json_networkmessage, UA_PubSub_EnDecode);
     tcase_add_test(tc_json_networkmessage, UA_NetworkMessage_MetaDataVersion_json_decode);
     
-    
+    //tcase_add_test(tc_json_networkmessage, UA_NetworkMessage_test_json_decode);
     suite_add_tcase(s, tc_json_networkmessage);
     return s;
 }
