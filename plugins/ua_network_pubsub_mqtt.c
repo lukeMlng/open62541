@@ -60,6 +60,7 @@
 #include "ua_plugin_mqtt.h"
 #include "ua_network_pubsub_mqtt.h"
 #include "ua_log_stdout.h"
+#include <ua_network_tcp.h>
 
 //For testing TODO: remove
 //#define enableMQTTLinking
@@ -96,7 +97,7 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
     }
     //set default values
     UA_String mqttClientId = UA_STRING("open62541_pub");
-    memcpy(channelDataMQTT, &(UA_PubSubChannelDataMQTT){2000,2000,10,&mqttClientId}, sizeof(UA_PubSubChannelDataMQTT));
+    memcpy(channelDataMQTT, &(UA_PubSubChannelDataMQTT){2000,2000,10,&mqttClientId, NULL, NULL}, sizeof(UA_PubSubChannelDataMQTT));
     //iterate over the given KeyValuePair paramters
     UA_String keepAliveTime = UA_STRING("keepAliveTime"), sendBuffer = UA_STRING("sendBufferSize"), recvBuffer = UA_STRING("recvBufferSize"), clientId = UA_STRING("mqttClientId");
     for(size_t i = 0; i < connectionConfig->connectionPropertiesSize; i++){
@@ -128,6 +129,17 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
         return NULL;
     }
 
+    UA_ConnectionConfig conf;
+    conf.protocolVersion = 0;
+    conf.sendBufferSize = 1000;
+    conf.recvBufferSize = 2000;
+    conf.maxMessageSize = 1000;
+    conf.maxChunkCount = 1;
+    UA_Connection connection = UA_ClientConnectionTCP( conf,"opc.tcp://127.0.0.1:1883", 10000,NULL);
+    channelDataMQTT->connection = (UA_Connection*)UA_calloc(1, sizeof(UA_Connection));
+    
+    memcpy(channelDataMQTT->connection, &connection, sizeof(UA_Connection));
+    
     UA_String hostname, path;
     UA_UInt16 networkPort;
     //TODO replace fallback to use the existing parseEndpointUrl function. Extend parseEndpointUrl for UDP or create own parseEndpointUrl function for PubSub.
@@ -168,7 +180,7 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
     UA_StatusCode ret = 1;
             
 #ifdef enableMQTTLinking        
-    ret = connectMqtt(&hostname, networkPort, channelDataMQTT);
+    ret = connectMqtt(channelDataMQTT);
 #endif
     
     if(ret != UA_STATUSCODE_GOOD){
@@ -195,13 +207,13 @@ UA_PubSubChannelMQTT_regist(UA_PubSubChannel *channel, UA_ExtensionObject *trans
     }
     UA_StatusCode ret = UA_STATUSCODE_GOOD;
     
-    //UA_PubSubChannelDataMQTT * connectionConfig = (UA_PubSubChannelDataMQTT *) channel->handle;
+    UA_PubSubChannelDataMQTT * connectionConfig = (UA_PubSubChannelDataMQTT *) channel->handle;
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection register");
     //TODO: get Topic from transportsettings
     
     //ret = mqtt_funcs.subscribeMqtt(UA_STRING("Topic"), NULL);
 #ifdef enableMQTTLinking  
-    ret = subscribeMqtt(UA_STRING("Topic"), NULL);
+    ret = subscribeMqtt(connectionConfig, UA_STRING("Topic"), NULL);
 #endif
     if(!ret){
         channel->state = UA_PUBSUB_CHANNEL_PUB_SUB;
@@ -222,13 +234,13 @@ UA_PubSubChannelMQTT_unregist(UA_PubSubChannel *channel, UA_ExtensionObject *tra
     }
     UA_StatusCode ret = UA_STATUSCODE_GOOD;
     
-    //UA_PubSubChannelDataMQTT * connectionConfig = (UA_PubSubChannelDataMQTT *) channel->handle;
+    UA_PubSubChannelDataMQTT * connectionConfig = (UA_PubSubChannelDataMQTT *) channel->handle;
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection unregister");
     
     //TODO: get Topic from transportsettings
     //ret = mqtt_funcs.unSubscribeMqtt(UA_STRING("Topic"));
 #ifdef enableMQTTLinking  
-    ret = unSubscribeMqtt(UA_STRING("Topic"));
+    ret = unSubscribeMqtt(connectionConfig, UA_STRING("Topic"));
 #endif
     if(!ret){
         channel->state = UA_PUBSUB_CHANNEL_PUB;
@@ -261,7 +273,7 @@ UA_uaQos_toMqttQos(UA_BrokerTransportQualityOfService uaQos, UA_Byte *qos){
  */
 static UA_StatusCode
 UA_PubSubChannelMQTT_send(UA_PubSubChannel *channel, UA_ExtensionObject *transportSettigns, const UA_ByteString *buf) {
-    //UA_PubSubChannelDataMQTT *channelConfigMQTT = (UA_PubSubChannelDataMQTT *) channel->handle;
+    UA_PubSubChannelDataMQTT *channelConfigMQTT = (UA_PubSubChannelDataMQTT *) channel->handle;
     if(!(channel->state == UA_PUBSUB_CHANNEL_PUB || channel->state == UA_PUBSUB_CHANNEL_PUB_SUB)){
         UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection sending failed. Invalid state.");
         return UA_STATUSCODE_BADINTERNALERROR;
@@ -282,7 +294,7 @@ UA_PubSubChannelMQTT_send(UA_PubSubChannel *channel, UA_ExtensionObject *transpo
 #ifdef enableMQTTLinking  
         UA_String topic;
         topic = brokerTransportSettings->queueName;
-        ret = publishMqtt(topic, buf);
+        ret = publishMqtt(channelConfigMQTT, topic, buf);
 #endif
         if(ret){
             channel->state = UA_PUBSUB_CHANNEL_ERROR;
@@ -312,14 +324,14 @@ UA_PubSubChannelMQTT_receive(UA_PubSubChannel *channel, UA_ByteString *message, 
     }
     
     UA_StatusCode ret = UA_STATUSCODE_GOOD;
-    //UA_PubSubChannelDataMQTT *channelConfigMQTT = (UA_PubSubChannelDataMQTT *) channel->handle;
+    UA_PubSubChannelDataMQTT *channelConfigMQTT = (UA_PubSubChannelDataMQTT *) channel->handle;
     
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "Yield MQTT, recv.");
     //ret = mqtt_funcs.yieldMqtt();
     
     //ret = mqtt_funcs.recvMqtt(message);
 #ifdef enableMQTTLinking  
-    ret = recvMqtt(message);
+    ret = recvMqtt(channelConfigMQTT, message);
 #endif
    
     return ret;
@@ -339,7 +351,7 @@ UA_PubSubChannelMQTT_close(UA_PubSubChannel *channel) {
     //UA_StatusCode ret = mqtt_funcs.disconnectMqtt();
     UA_StatusCode ret = 0;
 #ifdef enableMQTTLinking  
-    ret = disconnectMqtt();
+    ret = disconnectMqtt(networkLayerData);
 #endif
     if(ret){
         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "Disconnect from Mqtt broker failed");

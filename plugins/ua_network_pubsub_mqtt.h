@@ -13,13 +13,16 @@ extern "C" {
 #endif
 
 #include "ua_plugin_pubsub.h"
- 
+#include "ua_network_tcp.h"
+    
 //mqtt network layer specific internal data
 typedef struct {
     UA_UInt32 recvBufferSize;
     UA_UInt32 sendBufferSize;
     UA_UInt32 keepAliveTime;
     UA_String *mqttClientId;
+    UA_Connection *connection; //Holds the connection with the socket fd.
+    void * mqttClient; //Holds the mqtt client
 } UA_PubSubChannelDataMQTT;
     
 /*typedef struct {

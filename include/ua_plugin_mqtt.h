@@ -14,13 +14,13 @@ extern "C" {
 
 #include "ua_network_pubsub_mqtt.h"
 
-UA_StatusCode connectMqtt(UA_String*, int, UA_PubSubChannelDataMQTT*);
-UA_StatusCode disconnectMqtt(void);
-UA_StatusCode unSubscribeMqtt(UA_String topic);
-UA_StatusCode publishMqtt(UA_String topic, const UA_ByteString *buf);
-UA_StatusCode subscribeMqtt(UA_String topic, UA_StatusCode (*cb)(UA_ByteString *buf));
-UA_StatusCode yieldMqtt(void);
-UA_StatusCode recvMqtt(UA_ByteString *buf);
+UA_StatusCode connectMqtt(UA_PubSubChannelDataMQTT*);
+UA_StatusCode disconnectMqtt(UA_PubSubChannelDataMQTT*);
+UA_StatusCode unSubscribeMqtt(UA_PubSubChannelDataMQTT*, UA_String topic);
+UA_StatusCode publishMqtt(UA_PubSubChannelDataMQTT*, UA_String topic, const UA_ByteString *buf);
+UA_StatusCode subscribeMqtt(UA_PubSubChannelDataMQTT*, UA_String topic, UA_StatusCode (*cb)(UA_ByteString *buf));
+UA_StatusCode yieldMqtt(UA_PubSubChannelDataMQTT*);
+UA_StatusCode recvMqtt(UA_PubSubChannelDataMQTT*, UA_ByteString *buf);
 
     
 #ifdef __cplusplus
