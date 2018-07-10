@@ -69,6 +69,16 @@ struct UA_PubSubChannel{
 
     /* Closing the connection and implicit free of the channel structures. */
     UA_StatusCode (*close)(UA_PubSubChannel *channel);
+    
+    
+    //------------Suggested additions----------------
+    /* Giving the connection protocoll time to process inbound and outbound traffic. */
+    UA_StatusCode (*yield)(UA_PubSubChannel *channel);
+    
+    
+    /* Setting the subscribe callback. */
+    UA_StatusCode (*setCallback)(UA_PubSubChannel *channel, void (*callback)(UA_ByteString *encodedBuffer, UA_ByteString *topic));
+    
 };
 
 /**

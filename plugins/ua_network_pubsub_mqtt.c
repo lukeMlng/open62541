@@ -99,7 +99,7 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
     
     //set default values
     UA_String mqttClientId = UA_STRING("open62541_pub");
-    memcpy(channelDataMQTT, &(UA_PubSubChannelDataMQTT){2000,2000,10,&mqttClientId, NULL, NULL}, sizeof(UA_PubSubChannelDataMQTT));
+    memcpy(channelDataMQTT, &(UA_PubSubChannelDataMQTT){2000,2000,10,&mqttClientId, NULL, NULL, NULL}, sizeof(UA_PubSubChannelDataMQTT));
     //iterate over the given KeyValuePair paramters
     UA_String keepAliveTime = UA_STRING("keepAliveTime"), sendBuffer = UA_STRING("sendBufferSize"), recvBuffer = UA_STRING("recvBufferSize"), clientId = UA_STRING("mqttClientId");
     for(size_t i = 0; i < connectionConfig->connectionPropertiesSize; i++){
@@ -196,7 +196,7 @@ UA_PubSubChannelMQTT_regist(UA_PubSubChannel *channel, UA_ExtensionObject *trans
     UA_PubSubChannelDataMQTT * connectionConfig = (UA_PubSubChannelDataMQTT *) channel->handle;
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection register");
 
-    ret = subscribeMqtt(connectionConfig, UA_STRING("Topic"), NULL);
+    ret = subscribeMqtt(connectionConfig, UA_STRING("a"), NULL);
 
     if(!ret){
         channel->state = UA_PUBSUB_CHANNEL_PUB_SUB;
@@ -330,6 +330,23 @@ UA_PubSubChannelMQTT_close(UA_PubSubChannel *channel) {
     return UA_STATUSCODE_GOOD;
 }
 
+
+static UA_StatusCode 
+UA_PubSubChannelMQTT_yield(UA_PubSubChannel *channel){
+    UA_PubSubChannelDataMQTT *networkLayerData = (UA_PubSubChannelDataMQTT *) channel->handle;
+    UA_StatusCode ret = 0;
+    ret = yieldMqtt(networkLayerData);
+    return ret;
+}
+
+
+static UA_StatusCode 
+UA_PubSubChannelMQTT_setCallback(UA_PubSubChannel *channel, void (*callback)(UA_ByteString *encodedBuffer, UA_ByteString *topic)){
+    UA_PubSubChannelDataMQTT *networkLayerData = (UA_PubSubChannelDataMQTT *) channel->handle;
+    networkLayerData->callback = callback;
+    return UA_STATUSCODE_GOOD;
+}
+
 /**
  * Generate a new channel. based on the given configuration.
  *
@@ -346,6 +363,11 @@ TransportLayerMQTT_addChannel(UA_PubSubConnectionConfig *connectionConfig) {
         pubSubChannel->send = UA_PubSubChannelMQTT_send;
         pubSubChannel->receive = UA_PubSubChannelMQTT_receive;
         pubSubChannel->close = UA_PubSubChannelMQTT_close;
+        
+        //Additional funcs for mqtt
+        pubSubChannel->setCallback = UA_PubSubChannelMQTT_setCallback;
+        pubSubChannel->yield = UA_PubSubChannelMQTT_yield;
+        
         pubSubChannel->connectionConfig = connectionConfig;
     }
     return pubSubChannel;

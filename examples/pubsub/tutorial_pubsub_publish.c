@@ -244,9 +244,9 @@ static void stopHandler(int sign) {
 int subCount = 0;
 
 static void
-subscriptionPollingCallback(UA_Server *server, UA_PubSubConnection *connection) {
+mqttPollingCallback(UA_Server *server, UA_PubSubConnection *connection) {
     
-    UA_ByteString buffer;
+    /*UA_ByteString buffer;
     if (UA_ByteString_allocBuffer(&buffer, 512) != UA_STATUSCODE_GOOD) {
         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER,
                      "Message buffer allocation failed!");
@@ -254,7 +254,7 @@ subscriptionPollingCallback(UA_Server *server, UA_PubSubConnection *connection) 
     }
 
     buffer.length = 0;
-    /* Receive the message. Blocks for 5ms */
+    // Receive the message. Blocks for 5ms 
     UA_StatusCode retval =
         connection->channel->receive(connection->channel, &buffer, NULL, 5);
     if(retval != UA_STATUSCODE_GOOD || buffer.length == 0) {
@@ -267,8 +267,16 @@ subscriptionPollingCallback(UA_Server *server, UA_PubSubConnection *connection) 
         printf("%d", subCount);
         buffer.length = 512;
         //UA_ByteString_deleteMembers(&buffer);
-    }
+    }*/
 
+    connection->channel->yield(connection->channel);
+}
+
+static void callback(UA_ByteString *encodedBuffer, UA_ByteString *topic){
+     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "callback!");
+     
+     UA_ByteString_delete(encodedBuffer);
+     UA_ByteString_delete(topic);
 }
 
 int main(void) {
@@ -284,19 +292,11 @@ int main(void) {
         return -1;
     }
     
-    /*MQTT_Funcs funcs;
-    funcs.connectMqtt = &connectMqtt;
-    funcs.publishMqtt = &publishMqtt;
-    funcs.yieldMqtt = &yieldMqtt;
-    funcs.disconnectMqtt = &disconnectMqtt;
-    funcs.unSubscribeMqtt = &unSubscribeMqtt;
-    funcs.subscribeMqtt = &subscribeMqtt;
-    funcs.recvMqtt = &recvMqtt;*/
-    
     //config->pubsubTransportLayers[0] = UA_PubSubTransportLayerUDPMP();
     //config->pubsubTransportLayersSize++;
-    config->pubsubTransportLayers[0] = UA_PubSubTransportLayerMQTT();//funcs);
+    config->pubsubTransportLayers[0] = UA_PubSubTransportLayerMQTT();
     config->pubsubTransportLayersSize++;
+    
     UA_Server *server = UA_Server_new(config);
 
     addVariable(server);
@@ -306,7 +306,7 @@ int main(void) {
     addWriterGroup(server);
     addDataSetWriter(server);
 
-    
+
     /* Receive */
      UA_PubSubConnection *connection =
         UA_PubSubConnection_findConnectionbyId(server, connectionIdent);
@@ -314,12 +314,14 @@ int main(void) {
         UA_StatusCode rv = connection->channel->regist(connection->channel, NULL);
         if (rv == UA_STATUSCODE_GOOD) {
             UA_UInt64 subscriptionCallbackId;
-            UA_Server_addRepeatedCallback(server, (UA_ServerCallback)subscriptionPollingCallback,
-                                          connection, 500, &subscriptionCallbackId);
+            UA_Server_addRepeatedCallback(server, (UA_ServerCallback)mqttPollingCallback,
+                                          connection, 20000, &subscriptionCallbackId);
         } else {
             UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "register channel failed: %s!",
                            UA_StatusCode_name(rv));
         }
+        
+        rv = connection->channel->setCallback(connection->channel, &callback);
     }
     
     retval |= UA_Server_run(server, &running);

@@ -18,7 +18,7 @@ extern "C" {
 #include "../../include/ua_plugin_mqtt.h"
 #include "mqtt.h"
 #include <ua_network_tcp.h>
-
+#include "ua_log_stdout.h"
 #include <fcntl.h>
     
 /* setup a client */
@@ -43,13 +43,40 @@ struct messageData{
 };
 struct messageData *lastMessage;
 
-void publish_callback(void** unused, struct mqtt_response_publish *published);
+void publish_callback(void** channelDataPtr, struct mqtt_response_publish *published);
 
-void publish_callback(void** unused, struct mqtt_response_publish *published) 
+void publish_callback(void** channelDataPtr, struct mqtt_response_publish *published) 
 {
-    //lastMessage->msg = published->application_message
-    /* note that published->topic_name is NOT null-terminated (here we'll change it to a c-string) */
     printf("Received publish('%s'): %s\n", "", (const char*) published->application_message);
+    if(channelDataPtr != NULL){
+        UA_PubSubChannelDataMQTT *channelData = (UA_PubSubChannelDataMQTT*)*channelDataPtr;
+        if(channelData != NULL){
+            if(channelData->callback != NULL){
+                
+                //Setup topic
+                UA_ByteString *topic = UA_ByteString_new();
+                if(!topic) return;
+                UA_ByteString *msg = UA_ByteString_new();  
+                if(!msg) return;
+                
+                UA_StatusCode ret = UA_ByteString_allocBuffer(topic, published->topic_name_size);
+                if(ret){
+                    free(topic); free(msg); return;
+                }
+                
+                ret = UA_ByteString_allocBuffer(msg, published->application_message_size);
+                if(ret){
+                    UA_ByteString_delete(topic); free(msg); return;
+                }
+                    
+                memcpy(topic->data, published->topic_name, published->topic_name_size);
+                memcpy(msg->data, published->application_message, published->application_message_size);
+                
+                //callback with message and topic as bytestring.
+                channelData->callback(msg, topic);
+            }
+        }
+    }  
 }
 
 UA_StatusCode connectMqtt(UA_PubSubChannelDataMQTT* channelData){
@@ -76,6 +103,12 @@ UA_StatusCode connectMqtt(UA_PubSubChannelDataMQTT* channelData){
     int sockfd = channelData->connection->sockfd;    
     mqtt_init(client, sockfd, sendbuf, sizeof(sendbuf), recvbuf, sizeof(recvbuf), publish_callback);
     
+    
+    //Init custom data for subscribe callback function: 
+    //A reference to the channeldata will be available in the callback.
+    //This is used to call the user callback channelData.callback
+    client->publish_response_callback_state = channelData;
+    
     //SET socket to nonblocking! TODO: code duplication: use UA_network tcp
     if (sockfd != -1){
         #ifdef _WIN32
@@ -101,7 +134,7 @@ UA_StatusCode connectMqtt(UA_PubSubChannelDataMQTT* channelData){
     
     //Connect mqtt with socket fd of networktcp 
     mqtt_connect(client, "publishing_client", NULL, NULL, 0, NULL, NULL, 0, 400);
-    //mqtt_sync(client);
+    mqtt_sync(client);
     //mqtt_sync(client);
     
     /* check that we don't have any errors */
@@ -141,6 +174,9 @@ UA_StatusCode yieldMqtt(UA_PubSubChannelDataMQTT* chanData){
     if(error == MQTT_OK){
         return UA_STATUSCODE_GOOD;
     }
+    
+    const char* errorStr = mqtt_error_str(error);
+    UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "%s", errorStr);
     
     switch(error){
         case MQTT_ERROR_CLIENT_NOT_CONNECTED:
@@ -198,7 +234,7 @@ UA_StatusCode publishMqtt(UA_PubSubChannelDataMQTT* chanData, UA_String topic, c
     
     /* check for errors */
     if (client->error != MQTT_OK) {
-        fprintf(stderr, "error: %s\n", mqtt_error_str(client->error));
+        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "%s", mqtt_error_str(client->error));
         return UA_STATUSCODE_BADCONNECTIONREJECTED;
     }
     return UA_STATUSCODE_GOOD;
@@ -206,7 +242,7 @@ UA_StatusCode publishMqtt(UA_PubSubChannelDataMQTT* chanData, UA_String topic, c
 
 UA_StatusCode recvMqtt(UA_PubSubChannelDataMQTT* chanData, UA_ByteString *buf){
      
-
+    return yieldMqtt(chanData);
     //mqtt_sync((struct mqtt_client*) &client);
 
     //if(lastMessage){
@@ -214,8 +250,6 @@ UA_StatusCode recvMqtt(UA_PubSubChannelDataMQTT* chanData, UA_ByteString *buf){
     //    memcpy(buf->data, lastMessage->application_message, lastMessage->application_message_size);
     //    buf->length = lastMessage->application_message_size;
     //}
-
-    return 0;
 }
     
 #ifdef __cplusplus

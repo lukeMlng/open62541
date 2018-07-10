@@ -23,6 +23,8 @@ typedef struct {
     UA_String *mqttClientId;
     UA_Connection *connection; //Holds the connection with the socket fd.
     void * mqttClient; //Holds the mqtt client
+    
+    void (*callback)(UA_ByteString *encodedBuffer, UA_ByteString *topic);
 } UA_PubSubChannelDataMQTT;
     
 /*typedef struct {
