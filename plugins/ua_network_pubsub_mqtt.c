@@ -67,6 +67,25 @@
 //#undef enableMQTTLinking
 #define enableMQTTLinking
 
+
+static UA_StatusCode
+UA_uaQos_toMqttQos(UA_BrokerTransportQualityOfService uaQos, UA_Byte *qos){
+    switch (uaQos){
+        case UA_BROKERTRANSPORTQUALITYOFSERVICE_BESTEFFORT:
+            *qos = 0;
+            break;
+        case UA_BROKERTRANSPORTQUALITYOFSERVICE_ATLEASTONCE:
+            *qos = 1;
+            break;
+        case UA_BROKERTRANSPORTQUALITYOFSERVICE_ATMOSTONCE:
+            *qos = 2;
+            break;
+        default:
+            break;
+    }
+    return UA_STATUSCODE_GOOD;
+}
+
 /**
  * Open communication socket based on the connectionConfig. Protocol specific parameters are
  * provided within the connectionConfig as KeyValuePair.
@@ -186,20 +205,30 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
  * @return UA_STATUSCODE_GOOD on success
  */
 static UA_StatusCode
-UA_PubSubChannelMQTT_regist(UA_PubSubChannel *channel, UA_ExtensionObject *transportSettings) {
+UA_PubSubChannelMQTT_regist(UA_PubSubChannel *channel, UA_ExtensionObject *transportSettigns) {
     if(!(channel->state == UA_PUBSUB_CHANNEL_PUB || channel->state == UA_PUBSUB_CHANNEL_RDY)){
         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection regist failed.");
         return UA_STATUSCODE_BADINTERNALERROR;
     }
     UA_StatusCode ret = UA_STATUSCODE_GOOD;
     
-    UA_PubSubChannelDataMQTT * connectionConfig = (UA_PubSubChannelDataMQTT *) channel->handle;
-    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection register");
+     if(transportSettigns != NULL && transportSettigns->encoding == UA_EXTENSIONOBJECT_DECODED 
+            && transportSettigns->content.decoded.type->typeIndex == UA_TYPES_BROKERWRITERGROUPTRANSPORTDATATYPE){
+        UA_BrokerWriterGroupTransportDataType *brokerTransportSettings = (UA_BrokerWriterGroupTransportDataType*)transportSettigns->content.decoded.data;
 
-    ret = subscribeMqtt(connectionConfig, UA_STRING("a"), NULL);
+        UA_Byte qos;
+        UA_uaQos_toMqttQos(brokerTransportSettings->requestedDeliveryGuarantee, &qos);
+        
+        UA_PubSubChannelDataMQTT * connectionConfig = (UA_PubSubChannelDataMQTT *) channel->handle;
+        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection register");
+        ret = subscribeMqtt(connectionConfig, brokerTransportSettings->queueName, qos);
 
-    if(!ret){
-        channel->state = UA_PUBSUB_CHANNEL_PUB_SUB;
+        if(!ret){
+            channel->state = UA_PUBSUB_CHANNEL_PUB_SUB;
+        }
+    
+    }else{
+         ret = UA_STATUSCODE_BADARGUMENTSMISSING;
     }
     return ret;
 }
@@ -226,24 +255,6 @@ UA_PubSubChannelMQTT_unregist(UA_PubSubChannel *channel, UA_ExtensionObject *tra
         channel->state = UA_PUBSUB_CHANNEL_PUB;
     }
     return ret;
-}
-
-static UA_StatusCode
-UA_uaQos_toMqttQos(UA_BrokerTransportQualityOfService uaQos, UA_Byte *qos){
-    switch (uaQos){
-        case UA_BROKERTRANSPORTQUALITYOFSERVICE_BESTEFFORT:
-            *qos = 0;
-            break;
-        case UA_BROKERTRANSPORTQUALITYOFSERVICE_ATLEASTONCE:
-            *qos = 1;
-            break;
-        case UA_BROKERTRANSPORTQUALITYOFSERVICE_ATMOSTONCE:
-            *qos = 2;
-            break;
-        default:
-            break;
-    }
-    return UA_STATUSCODE_GOOD;
 }
 
 /**
@@ -319,7 +330,6 @@ UA_PubSubChannelMQTT_close(UA_PubSubChannel *channel) {
     UA_PubSubChannelDataMQTT *networkLayerData = (UA_PubSubChannelDataMQTT *) channel->handle;
     
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "Disconnect from Mqtt broker");
-    //UA_StatusCode ret = mqtt_funcs.disconnectMqtt();
     UA_StatusCode ret = 0;
     ret = disconnectMqtt(networkLayerData);
     if(ret){

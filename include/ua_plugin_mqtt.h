@@ -18,7 +18,7 @@ UA_StatusCode connectMqtt(UA_PubSubChannelDataMQTT*);
 UA_StatusCode disconnectMqtt(UA_PubSubChannelDataMQTT*);
 UA_StatusCode unSubscribeMqtt(UA_PubSubChannelDataMQTT*, UA_String topic);
 UA_StatusCode publishMqtt(UA_PubSubChannelDataMQTT*, UA_String topic, const UA_ByteString *buf);
-UA_StatusCode subscribeMqtt(UA_PubSubChannelDataMQTT*, UA_String topic, UA_StatusCode (*cb)(UA_ByteString *buf));
+UA_StatusCode subscribeMqtt(UA_PubSubChannelDataMQTT*, UA_String topic, UA_Byte qos);
 UA_StatusCode yieldMqtt(UA_PubSubChannelDataMQTT*);
 UA_StatusCode recvMqtt(UA_PubSubChannelDataMQTT*, UA_ByteString *buf);
 

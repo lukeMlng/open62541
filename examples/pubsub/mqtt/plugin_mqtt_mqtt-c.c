@@ -47,7 +47,7 @@ void publish_callback(void** channelDataPtr, struct mqtt_response_publish *publi
 
 void publish_callback(void** channelDataPtr, struct mqtt_response_publish *published) 
 {
-    printf("Received publish('%s'): %s\n", "", (const char*) published->application_message);
+    //printf("Received publish('%s'): %s\n", "", (const char*) published->application_message);
     if(channelDataPtr != NULL){
         UA_PubSubChannelDataMQTT *channelData = (UA_PubSubChannelDataMQTT*)*channelDataPtr;
         if(channelData != NULL){
@@ -149,16 +149,14 @@ UA_StatusCode connectMqtt(UA_PubSubChannelDataMQTT* channelData){
 
 
 
-UA_StatusCode subscribeMqtt(UA_PubSubChannelDataMQTT* chanData, UA_String topic, UA_StatusCode (*cb)(UA_ByteString *buf)){
+UA_StatusCode subscribeMqtt(UA_PubSubChannelDataMQTT* chanData, UA_String topic, UA_Byte qos){
     struct mqtt_client* client = (struct mqtt_client*)chanData->mqttClient;
     
     UA_STACKARRAY(char, topicStr, sizeof(char) * topic.length +1);
     memcpy(topicStr, topic.data, topic.length);
     topicStr[topic.length] = 0;
-    mqtt_subscribe(client, topicStr, 0);
-    //mqtt_sync(client); //Send
-    //mqtt_sync(client); //Recv SubAck
-    
+    mqtt_subscribe(client, topicStr, (UA_Byte) qos);
+
     return UA_STATUSCODE_GOOD;
 }
 
@@ -230,7 +228,7 @@ UA_StatusCode publishMqtt(UA_PubSubChannelDataMQTT* chanData, UA_String topic, c
     
     /* publish the time */
     mqtt_publish(client, topicChar, buf->data, buf->length, MQTT_PUBLISH_QOS_0);
-    mqtt_sync(client);
+    //mqtt_sync(client);
     
     /* check for errors */
     if (client->error != MQTT_OK) {

@@ -311,11 +311,28 @@ int main(void) {
      UA_PubSubConnection *connection =
         UA_PubSubConnection_findConnectionbyId(server, connectionIdent);
     if(connection != NULL) {
-        UA_StatusCode rv = connection->channel->regist(connection->channel, NULL);
+        
+        
+        //Register Transport settings
+        UA_BrokerWriterGroupTransportDataType brokerTransportSettings; //UA_BrokerConnectionTransportDataType_new();
+        memset(&brokerTransportSettings, 0, sizeof(UA_BrokerWriterGroupTransportDataType));
+        brokerTransportSettings.queueName = UA_STRING("customTopic");
+        brokerTransportSettings.resourceUri = UA_STRING_NULL;
+        brokerTransportSettings.authenticationProfileUri = UA_STRING_NULL;
+        brokerTransportSettings.requestedDeliveryGuarantee = UA_BROKERTRANSPORTQUALITYOFSERVICE_BESTEFFORT;
+
+        UA_ExtensionObject transportSettings;
+        memset(&transportSettings, 0, sizeof(UA_ExtensionObject));
+        transportSettings.encoding = UA_EXTENSIONOBJECT_DECODED;
+        transportSettings.content.decoded.type = &UA_TYPES[UA_TYPES_BROKERWRITERGROUPTRANSPORTDATATYPE];
+        transportSettings.content.decoded.data = &brokerTransportSettings;
+        
+        
+        UA_StatusCode rv = connection->channel->regist(connection->channel, &transportSettings);
         if (rv == UA_STATUSCODE_GOOD) {
             UA_UInt64 subscriptionCallbackId;
             UA_Server_addRepeatedCallback(server, (UA_ServerCallback)mqttPollingCallback,
-                                          connection, 20000, &subscriptionCallbackId);
+                                          connection, 200, &subscriptionCallbackId);
         } else {
             UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "register channel failed: %s!",
                            UA_StatusCode_name(rv));
