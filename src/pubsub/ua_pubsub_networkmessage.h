@@ -162,6 +162,8 @@ typedef struct {
  * ^^^^^^^^^^^^^^^^^ */
 typedef struct {
     UA_Byte version;
+    UA_Boolean messageIdEnabled;
+    UA_String messageId; //For Json NetworkMessage
     UA_Boolean publisherIdEnabled;
     UA_Boolean groupHeaderEnabled;
     UA_Boolean payloadHeaderEnabled;

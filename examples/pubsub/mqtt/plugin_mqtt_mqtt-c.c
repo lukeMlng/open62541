@@ -26,8 +26,6 @@ uint8_t sendbuf[2048]; /* sendbuf should be large enough to hold multiple whole 
 uint8_t recvbuf[1024]; /* recvbuf should be large enough any whole mqtt message expected to be received */
 //int sockfd;
 
-UA_Connection connection;
-
 UA_StatusCode disconnectMqtt(UA_PubSubChannelDataMQTT* channelData){
     struct mqtt_client* client = (struct mqtt_client*)channelData->mqttClient;
     mqtt_disconnect(client);
@@ -55,30 +53,20 @@ void publish_callback(void** unused, struct mqtt_response_publish *published)
 }
 
 UA_StatusCode connectMqtt(UA_PubSubChannelDataMQTT* channelData){
+    
     /* open the non-blocking TCP socket (connecting to the broker) */
+    UA_ConnectionConfig conf;
+    conf.protocolVersion = 0;
+    conf.sendBufferSize = 1000;
+    conf.recvBufferSize = 2000;
+    conf.maxMessageSize = 1000;
+    conf.maxChunkCount = 1;
+    UA_Connection connection = UA_ClientConnectionTCP( conf,"opc.tcp://127.0.0.1:1883", 1000,NULL);
+    channelData->connection = (UA_Connection*)UA_calloc(1, sizeof(UA_Connection));
+    memcpy(channelData->connection, &connection, sizeof(UA_Connection));
     
-    //UA_STACKARRAY(char, hostChar, sizeof(char) * host->length +1);
-    //memcpy(hostChar, host->data, host->length);
-    //hostChar[host->length] = 0;
     
-    //char portString[6];
-    //snprintf(portString, 6, "%d", port);
-
-    //UA_ConnectionConfig conf;
-    //conf.protocolVersion = 0;
-    //conf.sendBufferSize = 1000;
-    //conf.recvBufferSize = 2000;
-    //conf.maxMessageSize = 1000;
-    //conf.maxChunkCount = 1;
-    //connection =  UA_ClientConnectionTCP( conf,"opc.tcp://127.0.0.1:1883", 10000,NULL);
-    
-    //sockfd = mqtt_pal_sockopen(hostChar, portString, AF_INET);
-    //sockfd = connection.sockfd;
-
- 
-
-    
-    //Setup mqtt_client
+    //alloc mqtt_client
     struct mqtt_client* client = (struct mqtt_client*)UA_calloc(1, sizeof(struct mqtt_client));
     
     //save reference
@@ -88,7 +76,7 @@ UA_StatusCode connectMqtt(UA_PubSubChannelDataMQTT* channelData){
     int sockfd = channelData->connection->sockfd;    
     mqtt_init(client, sockfd, sendbuf, sizeof(sendbuf), recvbuf, sizeof(recvbuf), publish_callback);
     
-    //SET socket to nonblocking!
+    //SET socket to nonblocking! TODO: code duplication: use UA_network tcp
     if (sockfd != -1){
         #ifdef _WIN32
             u_long iMode = 1;
@@ -111,9 +99,10 @@ UA_StatusCode connectMqtt(UA_PubSubChannelDataMQTT* channelData){
     }
     
     
-    //Connect with socket fd of networktcp
+    //Connect mqtt with socket fd of networktcp 
     mqtt_connect(client, "publishing_client", NULL, NULL, 0, NULL, NULL, 0, 400);
-    mqtt_sync(client);
+    //mqtt_sync(client);
+    //mqtt_sync(client);
     
     /* check that we don't have any errors */
     if (client->error != MQTT_OK) {
@@ -126,6 +115,7 @@ UA_StatusCode connectMqtt(UA_PubSubChannelDataMQTT* channelData){
 }
 
 
+
 UA_StatusCode subscribeMqtt(UA_PubSubChannelDataMQTT* chanData, UA_String topic, UA_StatusCode (*cb)(UA_ByteString *buf)){
     struct mqtt_client* client = (struct mqtt_client*)chanData->mqttClient;
     
@@ -133,7 +123,8 @@ UA_StatusCode subscribeMqtt(UA_PubSubChannelDataMQTT* chanData, UA_String topic,
     memcpy(topicStr, topic.data, topic.length);
     topicStr[topic.length] = 0;
     mqtt_subscribe(client, topicStr, 0);
-    mqtt_sync(client);
+    //mqtt_sync(client); //Send
+    //mqtt_sync(client); //Recv SubAck
     
     return UA_STATUSCODE_GOOD;
 }
@@ -145,8 +136,49 @@ UA_StatusCode unSubscribeMqtt(UA_PubSubChannelDataMQTT* chanData, UA_String topi
 }
 
 UA_StatusCode yieldMqtt(UA_PubSubChannelDataMQTT* chanData){
-    //mqtt_sync((struct mqtt_client*) &client);
-    return UA_STATUSCODE_GOOD;
+    struct mqtt_client* client = (struct mqtt_client*)chanData->mqttClient;
+    enum MQTTErrors error = mqtt_sync(client);
+    if(error == MQTT_OK){
+        return UA_STATUSCODE_GOOD;
+    }
+    
+    switch(error){
+        case MQTT_ERROR_CLIENT_NOT_CONNECTED:
+            return UA_STATUSCODE_BADNOTCONNECTED;
+        case MQTT_ERROR_SOCKET_ERROR:
+            return UA_STATUSCODE_BADCOMMUNICATIONERROR;
+        case MQTT_ERROR_CONNECTION_REFUSED:
+            return UA_STATUSCODE_BADCONNECTIONREJECTED;
+            
+        default:
+            return UA_STATUSCODE_BADCOMMUNICATIONERROR;
+    }
+        /*MQTT_ERROR(MQTT_ERROR_NULLPTR)                 \
+    MQTT_ERROR(MQTT_ERROR_CONTROL_FORBIDDEN_TYPE)        \
+    MQTT_ERROR(MQTT_ERROR_CONTROL_INVALID_FLAGS)         \
+    MQTT_ERROR(MQTT_ERROR_CONTROL_WRONG_TYPE)            \
+    MQTT_ERROR(MQTT_ERROR_CONNECT_NULL_CLIENT_ID)        \
+    MQTT_ERROR(MQTT_ERROR_CONNECT_NULL_WILL_MESSAGE)     \
+    MQTT_ERROR(MQTT_ERROR_CONNECT_FORBIDDEN_WILL_QOS)    \
+    MQTT_ERROR(MQTT_ERROR_CONNACK_FORBIDDEN_FLAGS)       \
+    MQTT_ERROR(MQTT_ERROR_CONNACK_FORBIDDEN_CODE)        \
+    MQTT_ERROR(MQTT_ERROR_PUBLISH_FORBIDDEN_QOS)         \
+    MQTT_ERROR(MQTT_ERROR_SUBSCRIBE_TOO_MANY_TOPICS)     \
+    MQTT_ERROR(MQTT_ERROR_MALFORMED_RESPONSE)            \
+    MQTT_ERROR(MQTT_ERROR_UNSUBSCRIBE_TOO_MANY_TOPICS)   \
+    MQTT_ERROR(MQTT_ERROR_RESPONSE_INVALID_CONTROL_TYPE) \
+    MQTT_ERROR(MQTT_ERROR_CLIENT_NOT_CONNECTED)          \
+    MQTT_ERROR(MQTT_ERROR_SEND_BUFFER_IS_FULL)           \
+    MQTT_ERROR(MQTT_ERROR_SOCKET_ERROR)                  \
+    MQTT_ERROR(MQTT_ERROR_MALFORMED_REQUEST)             \
+    MQTT_ERROR(MQTT_ERROR_RECV_BUFFER_TOO_SMALL)         \
+    MQTT_ERROR(MQTT_ERROR_ACK_OF_UNKNOWN)                \
+    MQTT_ERROR(MQTT_ERROR_NOT_IMPLEMENTED)               \
+    MQTT_ERROR(MQTT_ERROR_CONNECTION_REFUSED)            \
+    MQTT_ERROR(MQTT_ERROR_SUBSCRIBE_FAILED)              \
+    MQTT_ERROR(MQTT_ERROR_CONNECTION_CLOSED) */
+    
+    return UA_STATUSCODE_BADCOMMUNICATIONERROR;
 }
 
 

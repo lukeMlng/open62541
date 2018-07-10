@@ -81,13 +81,14 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
         WSAStartup(MAKEWORD(2, 2), &wsaData);
     #endif /* Not Windows */
 
-    UA_NetworkAddressUrlDataType address;
+    /*UA_NetworkAddressUrlDataType address;
     if(UA_Variant_hasScalarType(&connectionConfig->address, &UA_TYPES[UA_TYPES_NETWORKADDRESSURLDATATYPE])){
         address = *(UA_NetworkAddressUrlDataType *)connectionConfig->address.data;
     } else {
         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection creation failed. Invalid Address.");
         return NULL;
-    }
+    }*/
+    
     //allocate and init memory for the Mqtt specific internal data
     UA_PubSubChannelDataMQTT * channelDataMQTT =
             (UA_PubSubChannelDataMQTT *) UA_calloc(1, (sizeof(UA_PubSubChannelDataMQTT)));
@@ -95,6 +96,7 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection creation failed. Out of memory.");
         return NULL;
     }
+    
     //set default values
     UA_String mqttClientId = UA_STRING("open62541_pub");
     memcpy(channelDataMQTT, &(UA_PubSubChannelDataMQTT){2000,2000,10,&mqttClientId, NULL, NULL}, sizeof(UA_PubSubChannelDataMQTT));
@@ -128,19 +130,8 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
         UA_free(channelDataMQTT);
         return NULL;
     }
-
-    UA_ConnectionConfig conf;
-    conf.protocolVersion = 0;
-    conf.sendBufferSize = 1000;
-    conf.recvBufferSize = 2000;
-    conf.maxMessageSize = 1000;
-    conf.maxChunkCount = 1;
-    UA_Connection connection = UA_ClientConnectionTCP( conf,"opc.tcp://127.0.0.1:1883", 10000,NULL);
-    channelDataMQTT->connection = (UA_Connection*)UA_calloc(1, sizeof(UA_Connection));
     
-    memcpy(channelDataMQTT->connection, &connection, sizeof(UA_Connection));
-    
-    UA_String hostname, path;
+    /*UA_String hostname, path;
     UA_UInt16 networkPort;
     //TODO replace fallback to use the existing parseEndpointUrl function. Extend parseEndpointUrl for UDP or create own parseEndpointUrl function for PubSub.
     if(strncmp((char*)&address.url.data, "opc.tcp://", 10) != 0){
@@ -169,19 +160,14 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
 
     UA_STACKARRAY(char, addressAsChar, sizeof(char) * hostname.length +1);
     memcpy(addressAsChar, hostname.data, hostname.length);
-    addressAsChar[hostname.length] = 0;
+    addressAsChar[hostname.length] = 0;*/
 
     //link channel and internal channel data
     newChannel->handle = channelDataMQTT;
     
     
     /* MQTT Client connect call. */
-    //UA_StatusCode ret = mqtt_funcs.connectMqtt(hostname, networkPort, channelDataMQTT);
-    UA_StatusCode ret = 1;
-            
-#ifdef enableMQTTLinking        
-    ret = connectMqtt(channelDataMQTT);
-#endif
+    UA_StatusCode ret = connectMqtt(channelDataMQTT);
     
     if(ret != UA_STATUSCODE_GOOD){
         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection failed");
@@ -209,12 +195,9 @@ UA_PubSubChannelMQTT_regist(UA_PubSubChannel *channel, UA_ExtensionObject *trans
     
     UA_PubSubChannelDataMQTT * connectionConfig = (UA_PubSubChannelDataMQTT *) channel->handle;
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection register");
-    //TODO: get Topic from transportsettings
-    
-    //ret = mqtt_funcs.subscribeMqtt(UA_STRING("Topic"), NULL);
-#ifdef enableMQTTLinking  
+
     ret = subscribeMqtt(connectionConfig, UA_STRING("Topic"), NULL);
-#endif
+
     if(!ret){
         channel->state = UA_PUBSUB_CHANNEL_PUB_SUB;
     }
@@ -237,11 +220,8 @@ UA_PubSubChannelMQTT_unregist(UA_PubSubChannel *channel, UA_ExtensionObject *tra
     UA_PubSubChannelDataMQTT * connectionConfig = (UA_PubSubChannelDataMQTT *) channel->handle;
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection unregister");
     
-    //TODO: get Topic from transportsettings
-    //ret = mqtt_funcs.unSubscribeMqtt(UA_STRING("Topic"));
-#ifdef enableMQTTLinking  
     ret = unSubscribeMqtt(connectionConfig, UA_STRING("Topic"));
-#endif
+
     if(!ret){
         channel->state = UA_PUBSUB_CHANNEL_PUB;
     }
@@ -288,14 +268,10 @@ UA_PubSubChannelMQTT_send(UA_PubSubChannel *channel, UA_ExtensionObject *transpo
         UA_BrokerWriterGroupTransportDataType *brokerTransportSettings = (UA_BrokerWriterGroupTransportDataType*)transportSettigns->content.decoded.data;
         UA_uaQos_toMqttQos(brokerTransportSettings->requestedDeliveryGuarantee, &qos);
         
-        
-        //TODO: get Topic from transportsettings
-        //ret = mqtt_funcs.publishMqtt(topic, buf);
-#ifdef enableMQTTLinking  
         UA_String topic;
         topic = brokerTransportSettings->queueName;
         ret = publishMqtt(channelConfigMQTT, topic, buf);
-#endif
+
         if(ret){
             channel->state = UA_PUBSUB_CHANNEL_ERROR;
             UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "Publish failed");
@@ -305,8 +281,6 @@ UA_PubSubChannelMQTT_send(UA_PubSubChannel *channel, UA_ExtensionObject *transpo
     }else{
         UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "Transport settings not found.");
     }
-    
-    //ret = mqtt_funcs.yieldMqtt();
     return ret;
 }
 
@@ -327,12 +301,9 @@ UA_PubSubChannelMQTT_receive(UA_PubSubChannel *channel, UA_ByteString *message, 
     UA_PubSubChannelDataMQTT *channelConfigMQTT = (UA_PubSubChannelDataMQTT *) channel->handle;
     
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "Yield MQTT, recv.");
-    //ret = mqtt_funcs.yieldMqtt();
-    
-    //ret = mqtt_funcs.recvMqtt(message);
-#ifdef enableMQTTLinking  
+
+    ret = yieldMqtt(channelConfigMQTT);
     ret = recvMqtt(channelConfigMQTT, message);
-#endif
    
     return ret;
 }
@@ -350,9 +321,7 @@ UA_PubSubChannelMQTT_close(UA_PubSubChannel *channel) {
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "Disconnect from Mqtt broker");
     //UA_StatusCode ret = mqtt_funcs.disconnectMqtt();
     UA_StatusCode ret = 0;
-#ifdef enableMQTTLinking  
     ret = disconnectMqtt(networkLayerData);
-#endif
     if(ret){
         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "Disconnect from Mqtt broker failed");
     }
@@ -384,8 +353,7 @@ TransportLayerMQTT_addChannel(UA_PubSubConnectionConfig *connectionConfig) {
 
 //MQTT channel factory
 UA_PubSubTransportLayer
-UA_PubSubTransportLayerMQTT(){  //MQTT_Funcs f) {
-    //mqtt_funcs = f;
+UA_PubSubTransportLayerMQTT(){
     UA_PubSubTransportLayer pubSubTransportLayer;
     pubSubTransportLayer.transportProfileUri = UA_STRING("http://opcfoundation.org/UA-Profile/Transport/pubsub-mqtt-json");
     pubSubTransportLayer.createPubSubChannel = &TransportLayerMQTT_addChannel;
