@@ -21,14 +21,13 @@
 #include "ua_types_generated_handling.h"
 #include "ua_plugin_log.h"
 
-#include "../deps/libb64/cencode.h"
-#include "../deps/libb64/cdecode.h"
 #include "../deps/musl/floatscan.h"
 #include "../deps/musl/vfprintf.h"
 
 #include "../deps/itoa.h"
 #include "../deps/atoi.h"
 #include "../deps/string_escape.h"
+#include "../deps/base64.h"
 
 #include "../deps/libc_time.h"
 
@@ -471,44 +470,14 @@ CALC_JSON_TYPE(ByteString) {
     if(!src || src->length < 1 || src->data == NULL){
         return calcWriteNull(ctx);
     }  
-    /*TODO: replace with exact size calculation, without actual calculating!*/
-    
-    /*Estimate base64 size, this is a few bytes bigger 
-    https://stackoverflow.com/questions/1533113/calculate-the-size-to-a-base-64-encoded-message */
-    UA_UInt32 output_size = (UA_UInt32)(((src->length * 4) / 3) + (src->length / 96) + 6);
-
-    /* set up a destination buffer large enough to hold the encoded data */
-    char* output = (char*) malloc(output_size);
-    if(!output){
-        return UA_STATUSCODE_BADENCODINGERROR;
-    }
-    /* keep track of our encoded position */
-    char* c = output;
-    /* store the number of bytes encoded by a single call */
-    UA_Int32 cnt = 0;
-    /* we need an encoder state */
-    base64_encodestate s;
-
-    /* START ENCODING */
-    /* initialise the encoder state */
-    base64_init_encodestate(&s);
-    /* gather data from the input and send it to the output */
-    cnt = base64_encode_block((char*)src->data, (int)src->length, (char*)c, &s);
-    c += cnt;
-    /* since we have encoded the entire input string, we know that */
-    /*   there is no more input data; finalise the encoding */
-    cnt = base64_encode_blockend(c, &s);
-    c += cnt;
-    /* STOP ENCODING */
 
     ADDJSONCHAR(Quote);
-
-    /* Calculate size, Lib appends one \n, -1 because of this. */
-    UA_UInt64 actualLength = (UA_UInt64)((c - 1) - output);
-    ctx->pos += actualLength;
-
-    free(output);
-    output = NULL;
+    
+    int len = (int)src->length;
+    int modulusLen = len % 3 ;
+    int pad = ((modulusLen&1)<<1) + ((modulusLen&2)>>1);
+    int flen = 4*(len + pad) / 3 ;
+    ctx->pos += flen;
 
     ADDJSONCHAR(Quote);
 
@@ -1934,49 +1903,16 @@ ENCODE_JSON(ByteString) {
     if(!src || src->length < 1 || src->data == NULL){
         return writeNull(ctx);
     }
-  
-    /* Estimate base64 size, this is a few bytes bigger */
-    /* https://stackoverflow.com/questions/1533113/calculate-the-size-to-a-base-64-encoded-message */
-    UA_UInt32 output_size = (UA_UInt32)(((src->length * 4) / 3) + (src->length / 96) + 6);
-
-
-    /* set up a destination buffer large enough to hold the encoded data */
-    char* output = (char*) malloc(output_size);
-    if(!output){
-        return UA_STATUSCODE_BADENCODINGERROR;
-    }
-    /* keep track of our encoded position */
-    char* c = output;
-    /* store the number of bytes encoded by a single call */
-    UA_Int32 cnt = 0;
-    /* we need an encoder state */
-    base64_encodestate s;
-
-    /* START ENCODING */
-    /* initialise the encoder state */
-    base64_init_encodestate(&s);
-    /* gather data from the input and send it to the output */
-    cnt = base64_encode_block((char*)src->data, (int)src->length, (char*)c, &s);
-    c += cnt;
-    /* since we have encoded the entire input string, we know that
-      there is no more input data; finalise the encoding */
-    cnt = base64_encode_blockend(c, &s);
-    c += cnt;
-    /* STOP ENCODING */
-
     WRITE(Quote);
-
-    /*Calculate size, Lib appends one \n, -1 because of this. */
-    UA_UInt64 actualLength = (UA_UInt64)((c - 1) - output);
+    int flen;
+    char *b64 = UA_base64(src->data, (int)src->length, &flen);
     
-    if (ctx->pos + actualLength > ctx->end)
+    if (ctx->pos + flen > ctx->end)
         return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
     
-    memcpy(ctx->pos, output, actualLength);
-    ctx->pos += actualLength;
+    memcpy(ctx->pos, b64, (size_t)flen);
+    ctx->pos += flen;
 
-    free(output);
-    output = NULL;
     WRITE(Quote);
     return UA_STATUSCODE_GOOD;
 }
@@ -3742,46 +3678,15 @@ DECODE_JSON(ByteString) {
     int size = (parseCtx->tokenArray[*parseCtx->index].end - parseCtx->tokenArray[*parseCtx->index].start);
     const char* input = (char*)(ctx->pos + parseCtx->tokenArray[*parseCtx->index].start);
     
-    /*estimate size*/
-    UA_UInt32 outputsize = (UA_UInt32)(size * 3 / 4) + 20; /*+20 for small inputs*/
-    
-    /* set up a destination buffer large enough to hold the encoded data */
-    char* output = (char*)malloc(outputsize);
-    if(!output){
-        return UA_STATUSCODE_BADDECODINGERROR;
-    }
-    /* keep track of our decoded position */
-    char* c = output;
-    /* store the number of bytes decoded by a single call */
-    int cnt = 0;
-    /* we need a decoder state */
-    base64_decodestate s;
-
-    /* START DECODING */
-    /* initialise the decoder state */
-    base64_init_decodestate(&s);
-    /* decode the input data */
-    cnt = base64_decode_block(input, size, c, &s);
-    c += cnt;
-    /* note: there is no base64_decode_blockend! */
-    /* STOP DECODING */
-    
-    UA_UInt64 actualLength = (UA_UInt64)(c - output);
-    char* dstData = (char*)malloc(actualLength);
-    if(dstData == NULL){
-        ret = UA_STATUSCODE_BADDECODINGERROR;
-        goto cleanup;
-    }
-    memcpy(dstData, output, actualLength);
-    dst->data = (u8*)dstData;
-    dst->length = actualLength;
+    int flen;
+    unsigned char* unB64 = UA_unbase64( input, (int)size, &flen);
+ 
+    dst->data = (u8*)unB64;
+    dst->length = (size_t)flen;
     
     if(moveToken)
         (*parseCtx->index)++;
 
-    cleanup:
-        free(output);
-    
     return ret;
 }
 

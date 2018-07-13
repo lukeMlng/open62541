@@ -515,9 +515,7 @@ set(lib_sources ${PROJECT_SOURCE_DIR}/src/ua_types.c
                 ${PROJECT_SOURCE_DIR}/deps/itoa.c
                 ${PROJECT_SOURCE_DIR}/deps/atoi.c
                 ${PROJECT_SOURCE_DIR}/deps/musl/floatscan.c
-                ${PROJECT_SOURCE_DIR}/deps/musl/vfprintf.c
-                ${PROJECT_SOURCE_DIR}/deps/libb64/cencode.c
-                ${PROJECT_SOURCE_DIR}/deps/libb64/cdecode.c)
+                ${PROJECT_SOURCE_DIR}/deps/musl/vfprintf.c)
 
 
 set(default_plugin_headers #${PROJECT_SOURCE_DIR}/plugins/ua_network_tcp.h
