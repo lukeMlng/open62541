@@ -241,7 +241,7 @@ mark_as_advanced(UA_DEBUG_DUMP_PKGS)
 
 # Build Targets
 option(UA_BUILD_EXAMPLES "Build example servers and clients" OFF)
-option(UA_BUILD_UNIT_TESTS "Build the unit tests" OFF)
+option(UA_BUILD_UNIT_TESTS "Build the unit tests" ON)
 option(UA_BUILD_FUZZING "Build the fuzzing executables" OFF)
 mark_as_advanced(UA_BUILD_FUZZING)
 if(UA_BUILD_FUZZING)
@@ -517,7 +517,7 @@ set(lib_sources ${PROJECT_SOURCE_DIR}/src/ua_types.c
                 ${PROJECT_SOURCE_DIR}/deps/libb64/cdecode.c)
 
 
-set(default_plugin_headers ${PROJECT_SOURCE_DIR}/plugins/ua_network_tcp.h
+set(default_plugin_headers #${PROJECT_SOURCE_DIR}/plugins/ua_network_tcp.h
                            ${PROJECT_SOURCE_DIR}/plugins/ua_accesscontrol_default.h
                            ${PROJECT_SOURCE_DIR}/plugins/ua_pki_certificate.h
                            ${PROJECT_SOURCE_DIR}/plugins/ua_log_stdout.h
