@@ -2,7 +2,7 @@
 find_package(Check REQUIRED)
 set(LIBS ${CHECK_LIBRARIES} ${open62541_LIBRARIES})
 include_directories(${CHECK_INCLUDE_DIRS})
-find_package(Threads REQUIRED)
+#find_package(Threads REQUIRED)
 if(NOT MSVC AND UA_ENABLE_UNIT_TESTS_MEMCHECK)
     find_package(Valgrind REQUIRED)
 endif()
@@ -31,7 +31,7 @@ endif()
 
 
 # Use different plugins for testing
-set(test_plugin_sources ${PROJECT_SOURCE_DIR}/plugins/ua_network_tcp.c
+set(test_plugin_sources ${PROJECT_SOURCE_DIR}/arch/ua_network_tcp.c
                         ${PROJECT_SOURCE_DIR}/tests/testing-plugins/testing_clock.c
                         ${PROJECT_SOURCE_DIR}/plugins/ua_log_stdout.c
                         ${PROJECT_SOURCE_DIR}/plugins/ua_config_default.c
@@ -51,7 +51,7 @@ if(UA_ENABLE_ENCRYPTION)
         ${PROJECT_SOURCE_DIR}/plugins/ua_securitypolicy_basic256sha256.c)
 endif()
 
-add_library(open62541-testplugins OBJECT ${test_plugin_sources})
+add_library(open62541-testplugins OBJECT ${test_plugin_sources} ${PROJECT_SOURCE_DIR}/arch/${UA_ARCHITECTURE}/ua_architecture_functions.c)
 add_dependencies(open62541-testplugins open62541)
 target_compile_definitions(open62541-testplugins PRIVATE -DUA_DYNAMIC_LINKING_EXPORT)
 
@@ -181,6 +181,10 @@ add_test_valgrind(server_userspace ${TESTS_BINARY_DIR}/check_server_userspace)
 add_executable(check_node_inheritance server/check_node_inheritance.c $<TARGET_OBJECTS:open62541-object> $<TARGET_OBJECTS:open62541-testplugins>)
 target_link_libraries(check_node_inheritance ${LIBS})
 add_test_valgrind(node_inheritance ${TESTS_BINARY_DIR}/check_node_inheritance)
+
+add_executable(check_local_monitored_item server/check_local_monitored_item.c $<TARGET_OBJECTS:open62541-object> $<TARGET_OBJECTS:open62541-testplugins>)
+target_link_libraries(check_local_monitored_item ${LIBS})
+add_test_valgrind(local_monitored_item ${TESTS_BINARY_DIR}/check_local_monitored_item)
 
 if(UA_ENABLE_DISCOVERY)
     add_executable(check_discovery server/check_discovery.c $<TARGET_OBJECTS:open62541-object> $<TARGET_OBJECTS:open62541-testplugins>)
