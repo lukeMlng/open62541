@@ -58,7 +58,7 @@ struct UA_PubSubChannel{
                           const UA_ByteString *buf);
 
     /* Register to an specified message source, e.g. multicast group or topic */
-    UA_StatusCode (*regist)(UA_PubSubChannel * channel, UA_ExtensionObject *transportSettings);
+    UA_StatusCode (*regist)(UA_PubSubChannel * channel, UA_ExtensionObject *transportSettings);//cb
 
     /* Remove subscription to an specified message source, e.g. multicast group or topic */
     UA_StatusCode (*unregist)(UA_PubSubChannel * channel, UA_ExtensionObject *transportSettings);
@@ -71,12 +71,11 @@ struct UA_PubSubChannel{
     UA_StatusCode (*close)(UA_PubSubChannel *channel);
     
     
-    //------------Suggested additions----------------
     /* Giving the connection protocoll time to process inbound and outbound traffic. */
     UA_StatusCode (*yield)(UA_PubSubChannel *channel);
     
     
-    /* Setting the subscribe callback. */
+    /* Setting the subscribe callback. After a regist call to a specific topic.*/
     UA_StatusCode (*setCallback)(UA_PubSubChannel *channel, void (*callback)(UA_ByteString *encodedBuffer, UA_ByteString *topic));
     
 };

@@ -244,36 +244,14 @@ static void stopHandler(int sign) {
 int subCount = 0;
 
 static void
-mqttPollingCallback(UA_Server *server, UA_PubSubConnection *connection) {
-    
-    /*UA_ByteString buffer;
-    if (UA_ByteString_allocBuffer(&buffer, 512) != UA_STATUSCODE_GOOD) {
-        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER,
-                     "Message buffer allocation failed!");
-        return;
-    }
-
-    buffer.length = 0;
-    // Receive the message. Blocks for 5ms 
-    UA_StatusCode retval =
-        connection->channel->receive(connection->channel, &buffer, NULL, 5);
-    if(retval != UA_STATUSCODE_GOOD || buffer.length == 0) {
-
-        buffer.length = 512;
-        //UA_ByteString_deleteMembers(&buffer);
-        return;
-    }else{
-        subCount++;
-        printf("%d", subCount);
-        buffer.length = 512;
-        //UA_ByteString_deleteMembers(&buffer);
-    }*/
-
+mqttYieldPollingCallback(UA_Server *server, UA_PubSubConnection *connection) {
     connection->channel->yield(connection->channel);
 }
 
 static void callback(UA_ByteString *encodedBuffer, UA_ByteString *topic){
      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "callback!");
+     
+     //Decode Networkmessage...
      
      UA_ByteString_delete(encodedBuffer);
      UA_ByteString_delete(topic);
@@ -292,8 +270,6 @@ int main(void) {
         return -1;
     }
     
-    //config->pubsubTransportLayers[0] = UA_PubSubTransportLayerUDPMP();
-    //config->pubsubTransportLayersSize++;
     config->pubsubTransportLayers[0] = UA_PubSubTransportLayerMQTT();
     config->pubsubTransportLayersSize++;
     
@@ -331,7 +307,7 @@ int main(void) {
         UA_StatusCode rv = connection->channel->regist(connection->channel, &transportSettings);
         if (rv == UA_STATUSCODE_GOOD) {
             UA_UInt64 subscriptionCallbackId;
-            UA_Server_addRepeatedCallback(server, (UA_ServerCallback)mqttPollingCallback,
+            UA_Server_addRepeatedCallback(server, (UA_ServerCallback)mqttYieldPollingCallback,
                                           connection, 200, &subscriptionCallbackId);
         } else {
             UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "register channel failed: %s!",
