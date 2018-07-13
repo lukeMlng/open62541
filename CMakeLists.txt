@@ -511,6 +511,9 @@ set(lib_sources ${PROJECT_SOURCE_DIR}/src/ua_types.c
                 ${PROJECT_SOURCE_DIR}/deps/pcg_basic.c
                 ${PROJECT_SOURCE_DIR}/deps/base64.c
                 ${PROJECT_SOURCE_DIR}/deps/jsmn/jsmn.c
+                ${PROJECT_SOURCE_DIR}/deps/string_escape.c
+                ${PROJECT_SOURCE_DIR}/deps/itoa.c
+                ${PROJECT_SOURCE_DIR}/deps/atoi.c
                 ${PROJECT_SOURCE_DIR}/deps/musl/floatscan.c
                 ${PROJECT_SOURCE_DIR}/deps/musl/vfprintf.c
                 ${PROJECT_SOURCE_DIR}/deps/libb64/cencode.c

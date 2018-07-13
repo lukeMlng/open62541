@@ -1,7 +1,8 @@
+/* Originally released by the musl project (http://www.musl-libc.org/) under the
+ * MIT license. Taken from the file src/internal/floatscan.c*/
+
 #include <stdint.h>
-//#include <stdio.h>
 #include <math.h>
-//#include <float.h>
 #include <limits.h>
 #include <errno.h>
 #include <ctype.h>
@@ -24,8 +25,6 @@ void shunget(int *index){
 int shlim(int a, int b){
     return '0';
 }
-
-
 
 
 #if LDBL_MANT_DIG == 53 && LDBL_MAX_EXP == 1024

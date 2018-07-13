@@ -1,16 +1,11 @@
-//#include "stdio_impl.h"
-//#include <errno.h>
+/* Originally released by the musl project (http://www.musl-libc.org/) under the
+ * MIT license. Taken from the file src/stdio/vfprintf.c */
 
 #include <ctype.h>
 #include "floatscan.h"
 #include "vfprintf.h"
 //int isdigit(int);
 //#define isdigit(a) (0 ? isdigit(a) : ((unsigned)(a)-'0') < 10)
-
-
-
-
-
 
 long double frexpl(long double x, int *e);
 //#include <math.h>
