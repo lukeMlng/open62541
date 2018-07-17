@@ -16,32 +16,57 @@
 extern "C" {
 #endif
 
-#include "ua_util.h"
+#include "ua_util_internal.h"
 #include "ua_types_encoding_binary.h"
 #include "ua_types_encoding_json.h"
 #include "ua_types.h"
 #include "../deps/jsmn/jsmn.h"
+ 
+size_t
+UA_calcSizeJson(const void *src, const UA_DataType *type,
+        UA_String *namespaces, 
+        size_t namespaceSize,
+        UA_String *serverUris,
+        size_t serverUriSize,
+        UA_Boolean useReversible) UA_FUNC_ATTR_WARN_UNUSED_RESULT;
+
+
+status
+UA_encodeJson(const void *src, const UA_DataType *type,
+        u8 **bufPos, 
+        const u8 **bufEnd, 
+        UA_String *namespaces, 
+        size_t namespaceSize,
+        UA_String *serverUris,
+        size_t serverUriSize,
+        UA_Boolean useReversible) UA_FUNC_ATTR_WARN_UNUSED_RESULT;
+
+
+UA_StatusCode
+UA_decodeJson(const UA_ByteString *src, void *dst,
+                const UA_DataType *type) UA_FUNC_ATTR_WARN_UNUSED_RESULT;
+
+
+
+
+
+/* 
+ * Functions for future use for the pubsub NetworkMessage and DataSetMessage.
+ * Don't bother using them. 
+ */
 
 typedef struct {
-    /* Pointers to the current position and the last position in the buffer */
     u8 *pos;
     const u8 *end;
 
     u16 depth; /* How often did we en-/decoding recurse? */
-
-    size_t customTypesArraySize;
-    const UA_DataType *customTypesArray;
 
     size_t namespacesSize;
     UA_String *namespaces;
     
     size_t serverUrisSize;
     UA_String *serverUris;
-            
-    UA_exchangeEncodeBuffer exchangeBufferCallback;
-    void *exchangeBufferCallbackHandle;
 } CtxJson;
-
 
 status writeKey_UA_String(CtxJson *ctx, UA_String *key, UA_Boolean commaNeeded);
 status writeKey(CtxJson *ctx, const char* key, UA_Boolean commaNeeded);
@@ -90,13 +115,11 @@ typedef struct {
     u8 memberSize;
 } DecodeContext;
 
-
 status 
 decodeFields(CtxJson *ctx, ParseCtx *parseCtx, DecodeContext *decodeContext, const UA_DataType *type);
 
 status
 decodeJsonInternal(void *dst, const UA_DataType *type, CtxJson *ctx, ParseCtx *parseCtx, UA_Boolean moveToken);
-
 
 /* workaround: TODO generate functions for UA_xxx_decodeJson */
 decodeJsonSignature getDecodeSignature(u8 index);
@@ -105,31 +128,6 @@ status lookAheadForKey(const char* search, CtxJson *ctx, ParseCtx *parseCtx, siz
 jsmntype_t getJsmnType(const ParseCtx *parseCtx);
 status tokenize(ParseCtx *parseCtx, CtxJson *ctx, const UA_ByteString *src, UA_UInt16 *tokenIndex);
 UA_Boolean isJsonNull(const CtxJson *ctx, const ParseCtx *parseCtx);
-
-
-size_t
-UA_calcSizeJson(const void *src, const UA_DataType *type,
-        UA_String *namespaces, 
-        size_t namespaceSize,
-        UA_String *serverUris,
-        size_t serverUriSize,
-        UA_Boolean useReversible) UA_FUNC_ATTR_WARN_UNUSED_RESULT;
-
-
-status
-UA_encodeJson(const void *src, const UA_DataType *type,
-        u8 **bufPos, 
-        const u8 **bufEnd, 
-        UA_String *namespaces, 
-        size_t namespaceSize,
-        UA_String *serverUris,
-        size_t serverUriSize,
-        UA_Boolean useReversible) UA_FUNC_ATTR_WARN_UNUSED_RESULT;
-
-UA_StatusCode
-UA_decodeJson(const UA_ByteString *src, size_t *offset, void *dst,
-                const UA_DataType *type, size_t customTypesSize,
-                const UA_DataType *customTypes) UA_FUNC_ATTR_WARN_UNUSED_RESULT;
 
 #ifdef __cplusplus
 }
