@@ -576,6 +576,8 @@ CALC_JSON_TYPE(NodeId) {
         if (src->namespaceIndex > 0) {
             ret |= calcWriteKey(ctx, "Namespace", UA_TRUE);
             ret |= CALC_DIRECT(&src->namespaceIndex, UInt16);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
         }
     } else {
         /* For the non-reversible encoding, the field is the NamespaceUri 
@@ -585,6 +587,8 @@ CALC_JSON_TYPE(NodeId) {
         if (src->namespaceIndex == 1) {
             calcWriteKey(ctx, "Namespace", UA_TRUE);
             ret |= CALC_DIRECT(&src->namespaceIndex, UInt16);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
         } else {
             calcWriteKey(ctx, "Namespace", UA_TRUE);
             
@@ -614,13 +618,6 @@ CALC_JSON_TYPE(ExpandedNodeId) {
     }
 
     ADDJSONCHAR(ObjStart);
-    /* Set up the encoding mask */
-    u8 encoding = 0;
-    if ((void*) src->namespaceUri.data > UA_EMPTY_ARRAY_SENTINEL)
-        encoding |= UA_EXPANDEDNODEID_NAMESPACEURI_FLAG;
-    if (src->serverIndex > 0)
-        encoding |= UA_EXPANDEDNODEID_SERVERINDEX_FLAG;
-
     /* Encode the NodeId */
     status ret = NodeId_calcJsonInternal(&src->nodeId, ctx, useReversible);
     if (ret != UA_STATUSCODE_GOOD)
@@ -671,6 +668,8 @@ CALC_JSON_TYPE(ExpandedNodeId) {
             if (src->nodeId.namespaceIndex == 1) {
                 calcWriteKey(ctx, "Namespace", UA_TRUE);
                 ret |= CALC_DIRECT(&src->nodeId.namespaceIndex, UInt16);
+                if (ret != UA_STATUSCODE_GOOD)
+                    return ret;
             } else {
                 calcWriteKey(ctx, "Namespace", UA_TRUE);
 
@@ -911,7 +910,6 @@ CALC_JSON_TYPE(DiagnosticInfo) {
 
     if (src->hasInnerDiagnosticInfo) {
         ret |= calcWriteKey(ctx, "InnerDiagnosticInfo", commaNeeded);
-        commaNeeded = UA_TRUE;
         /*Check recursion depth in encodeJsonInternal*/
         ret |= calcJsonInternal(src->innerDiagnosticInfo, &UA_TYPES[UA_TYPES_DIAGNOSTICINFO], ctx, useReversible);
         if (ret != UA_STATUSCODE_GOOD)
@@ -1335,7 +1333,6 @@ CALC_JSON_TYPE(DataValue) {
     
     if (src->hasServerPicoseconds) {
         ret |= calcWriteKey(ctx, "ServerPicoseconds", commaNeeded);
-        commaNeeded = UA_TRUE;
         ret |= CALC_DIRECT(&src->serverPicoseconds, UInt16);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
@@ -1907,12 +1904,18 @@ ENCODE_JSON(ByteString) {
     int flen;
     char *b64 = UA_base64(src->data, (int)src->length, &flen);
     
+    if(b64 == NULL){
+        return UA_STATUSCODE_BADENCODINGERROR;
+    }
+    
     if (ctx->pos + flen > ctx->end)
         return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
     
     memcpy(ctx->pos, b64, (size_t)flen);
     ctx->pos += flen;
 
+    free(b64);
+    
     WRITE(Quote);
     return UA_STATUSCODE_GOOD;
 }
@@ -2140,6 +2143,8 @@ ENCODE_JSON(NodeId) {
         if (src->namespaceIndex > 0) {
             ret |= writeKey(ctx, "Namespace", UA_TRUE);
             ret |= ENCODE_DIRECT(&src->namespaceIndex, UInt16);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
         }
     } else {
         /* For the non-reversible encoding, the field is the NamespaceUri 
@@ -2149,6 +2154,8 @@ ENCODE_JSON(NodeId) {
         if (src->namespaceIndex == 1) {
             writeKey(ctx, "Namespace", UA_TRUE);
             ret |= ENCODE_DIRECT(&src->namespaceIndex, UInt16);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
         } else {
             writeKey(ctx, "Namespace", UA_TRUE);
             
@@ -2177,13 +2184,6 @@ ENCODE_JSON(ExpandedNodeId) {
     }
 
     WRITE(ObjStart);
-    /* Set up the encoding mask */
-    u8 encoding = 0;
-    if ((void*) src->namespaceUri.data > UA_EMPTY_ARRAY_SENTINEL)
-        encoding |= UA_EXPANDEDNODEID_NAMESPACEURI_FLAG;
-    if (src->serverIndex > 0)
-        encoding |= UA_EXPANDEDNODEID_SERVERINDEX_FLAG;
-
     /* Encode the NodeId */
     status ret = NodeId_encodeJsonInternal(&src->nodeId, ctx, useReversible);
     if (ret != UA_STATUSCODE_GOOD)
@@ -2234,6 +2234,8 @@ ENCODE_JSON(ExpandedNodeId) {
             if (src->nodeId.namespaceIndex == 1) {
                 writeKey(ctx, "Namespace", UA_TRUE);
                 ret |= ENCODE_DIRECT(&src->nodeId.namespaceIndex, UInt16);
+                if (ret != UA_STATUSCODE_GOOD)
+                    return ret;
             } else {
                 writeKey(ctx, "Namespace", UA_TRUE);
 
@@ -2630,9 +2632,6 @@ ENCODE_JSON(Variant) {
     
     if (useReversible) {
         ret |= WRITE(ObjStart);
-
-        /* Encode the encoding byte */
-        ret = UA_STATUSCODE_GOOD; /*ENCODE_DIRECT(&encoding, Byte);*/
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
 
@@ -2778,7 +2777,6 @@ ENCODE_JSON(DataValue) {
     
     if (src->hasServerPicoseconds) {
         ret |= writeKey(ctx, "ServerPicoseconds", commaNeeded);
-        commaNeeded = UA_TRUE;
         ret |= ENCODE_DIRECT(&src->serverPicoseconds, UInt16);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
@@ -2859,7 +2857,6 @@ ENCODE_JSON(DiagnosticInfo) {
 
     if (src->hasInnerDiagnosticInfo) {
         ret |= writeKey(ctx, "InnerDiagnosticInfo", commaNeeded);
-        commaNeeded = UA_TRUE;
         /*Check recursion depth in encodeJsonInternal*/
         ret |= encodeJsonInternal(src->innerDiagnosticInfo, &UA_TYPES[UA_TYPES_DIAGNOSTICINFO], ctx, useReversible);
         if (ret != UA_STATUSCODE_GOOD)
@@ -3649,6 +3646,7 @@ DECODE_JSON(String) {
     dst->data = (UA_Byte*)malloc(afterEscapeSize * sizeof(UA_Byte));
     if(dst->data == NULL){
         ret = UA_STATUSCODE_BADOUTOFMEMORY;
+        goto cleanup; /* cleanup the temp buffer */
     }
     memcpy(dst->data, tmpOutputBuffer, afterEscapeSize);
     

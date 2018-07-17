@@ -21,7 +21,7 @@ extern "C" {
 #include "ua_types_encoding_json.h"
 #include "ua_types.h"
 #include "../deps/jsmn/jsmn.h"
-
+ 
 size_t
 UA_calcSizeJson(const void *src, const UA_DataType *type,
         UA_String *namespaces, 

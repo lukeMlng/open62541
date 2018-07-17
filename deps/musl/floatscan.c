@@ -363,7 +363,7 @@ static long double decfloat(char *input, int *index, int c, int bits, int emin, 
 	if (j) {
 		for (; j<9; j++) x[k]*=10;
 		k++;
-		j=0;
+		//j=0;
 	}
 
 	a = 0;
