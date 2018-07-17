@@ -304,7 +304,7 @@ int main(void) {
         transportSettings.content.decoded.data = &brokerTransportSettings;
         
         
-        UA_StatusCode rv = connection->channel->regist(connection->channel, &transportSettings);
+        UA_StatusCode rv = connection->channel->regist(connection->channel, &transportSettings, &callback);
         if (rv == UA_STATUSCODE_GOOD) {
             UA_UInt64 subscriptionCallbackId;
             UA_Server_addRepeatedCallback(server, (UA_ServerCallback)mqttYieldPollingCallback,
@@ -314,7 +314,6 @@ int main(void) {
                            UA_StatusCode_name(rv));
         }
         
-        rv = connection->channel->setCallback(connection->channel, &callback);
     }
     
     retval |= UA_Server_run(server, &running);

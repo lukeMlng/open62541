@@ -205,12 +205,15 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
  * @return UA_STATUSCODE_GOOD on success
  */
 static UA_StatusCode
-UA_PubSubChannelMQTT_regist(UA_PubSubChannel *channel, UA_ExtensionObject *transportSettigns) {
+UA_PubSubChannelMQTT_regist(UA_PubSubChannel *channel, UA_ExtensionObject *transportSettigns, void (*callback)(UA_ByteString *encodedBuffer, UA_ByteString *topic)) {
     if(!(channel->state == UA_PUBSUB_CHANNEL_PUB || channel->state == UA_PUBSUB_CHANNEL_RDY)){
         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection regist failed.");
         return UA_STATUSCODE_BADINTERNALERROR;
     }
     UA_StatusCode ret = UA_STATUSCODE_GOOD;
+    
+    UA_PubSubChannelDataMQTT *networkLayerData = (UA_PubSubChannelDataMQTT *) channel->handle;
+    networkLayerData->callback = callback;
     
      if(transportSettigns != NULL && transportSettigns->encoding == UA_EXTENSIONOBJECT_DECODED 
             && transportSettigns->content.decoded.type->typeIndex == UA_TYPES_BROKERWRITERGROUPTRANSPORTDATATYPE){
@@ -349,14 +352,6 @@ UA_PubSubChannelMQTT_yield(UA_PubSubChannel *channel){
     return ret;
 }
 
-
-static UA_StatusCode 
-UA_PubSubChannelMQTT_setCallback(UA_PubSubChannel *channel, void (*callback)(UA_ByteString *encodedBuffer, UA_ByteString *topic)){
-    UA_PubSubChannelDataMQTT *networkLayerData = (UA_PubSubChannelDataMQTT *) channel->handle;
-    networkLayerData->callback = callback;
-    return UA_STATUSCODE_GOOD;
-}
-
 /**
  * Generate a new channel. based on the given configuration.
  *
@@ -374,8 +369,7 @@ TransportLayerMQTT_addChannel(UA_PubSubConnectionConfig *connectionConfig) {
         pubSubChannel->receive = UA_PubSubChannelMQTT_receive;
         pubSubChannel->close = UA_PubSubChannelMQTT_close;
         
-        //Additional funcs for mqtt
-        pubSubChannel->setCallback = UA_PubSubChannelMQTT_setCallback;
+        /*Additional yield func for mqtt*/
         pubSubChannel->yield = UA_PubSubChannelMQTT_yield;
         
         pubSubChannel->connectionConfig = connectionConfig;
