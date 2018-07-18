@@ -257,6 +257,9 @@ static void callback(UA_ByteString *encodedBuffer, UA_ByteString *topic){
      UA_StatusCode ret = UA_NetworkMessage_decodeJson(&dst, encodedBuffer);
      if( ret == UA_STATUSCODE_GOOD){
          UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "Decoded!");
+         if(dst.payload.dataSetPayload.dataSetMessages[0].data.keyFrameData.fieldNames[0].length == 4){
+             UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "Found");
+         }
      }
      
      UA_ByteString_delete(encodedBuffer);

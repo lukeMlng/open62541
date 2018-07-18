@@ -92,7 +92,8 @@ typedef struct {
     UA_Int32 tokenCount;
     UA_UInt16 *index;
     
-    /* Additonal data for special cases such as networkmessage/datasetmessage */
+    /* Additonal data for special cases such as networkmessage/datasetmessage
+     * Currently only used for dataSetWriterIds*/
     size_t numCustom;
     void * custom;
     size_t* currentCustomIndex;

@@ -189,6 +189,9 @@ static status DataSetPayload_decodeJsonInternal(void* dsmP, const UA_DataType *t
     //UA_Variant *var = (UA_Variant*)UA_calloc(length, sizeof(UA_Variant));
     //dsm->data.keyFrameData
     UA_String *fieldNames = (UA_String*)UA_calloc(length, sizeof(UA_String));
+    //parseCtx->fieldNames = fieldNames;
+    //parseCtx->fieldNamesCount = length;
+    dsm->data.keyFrameData.fieldNames = fieldNames;
     
     //UA_KeyValuePair *keyValuePairs = (UA_KeyValuePair*)UA_Array_new(dsm->data.keyFrameData.fieldCount, &UA_TYPES[UA_TYPES_KEYVALUEPAIR]);
     
@@ -219,8 +222,9 @@ static status DataSetPayload_decodeJsonInternal(void* dsmP, const UA_DataType *t
             dsm->header.fieldEncoding = UA_FIELDENCODING_VARIANT;
         }
         
+        UA_DataValue_init(&dsm->data.keyFrameData.dataSetFields[i]);
+        
         if(isVariant){
-            UA_DataValue_init(&dsm->data.keyFrameData.dataSetFields[i]);
             ret = getDecodeSignature(UA_TYPES_VARIANT)(&dsm->data.keyFrameData.dataSetFields[i].value, type, ctx, parseCtx, UA_TRUE);
             dsm->data.keyFrameData.dataSetFields[i].hasValue = UA_TRUE;
         }else{
@@ -234,8 +238,6 @@ static status DataSetPayload_decodeJsonInternal(void* dsmP, const UA_DataType *t
             return ret;
         }
     }
-    
-    free(fieldNames); //TODO: Save fieldnames
     
     return ret;
 }
@@ -538,6 +540,8 @@ status UA_NetworkMessage_decodeJson(UA_NetworkMessage *dst, UA_ByteString *src){
     /* Set up the context */
     CtxJson ctx;
     ParseCtx parseCtx;
+    memset(&parseCtx, 0, sizeof(ParseCtx));
+    
     parseCtx.tokenArray = (jsmntok_t*)malloc(sizeof(jsmntok_t) * TOKENCOUNT);
     memset(parseCtx.tokenArray, 0, sizeof(jsmntok_t) * TOKENCOUNT);
     

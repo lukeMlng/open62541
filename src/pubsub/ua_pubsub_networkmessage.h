@@ -73,6 +73,7 @@ UA_DataSetMessageHeader_calcSizeBinary(const UA_DataSetMessageHeader* p);
 typedef struct {
     UA_UInt16 fieldCount;
     UA_DataValue* dataSetFields;
+    UA_String* fieldNames; /* Json keys for the dataSetFields */
 } UA_DataSetMessage_DataKeyFrameData;
 
 typedef struct {
