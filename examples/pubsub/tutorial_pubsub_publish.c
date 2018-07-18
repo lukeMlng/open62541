@@ -249,9 +249,15 @@ mqttYieldPollingCallback(UA_Server *server, UA_PubSubConnection *connection) {
 }
 
 static void callback(UA_ByteString *encodedBuffer, UA_ByteString *topic){
-     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "callback!");
+     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "Message Received: Trying to decode: ");
      
      //Decode Networkmessage...
+     UA_NetworkMessage dst;
+     //UA_NetworkMessage_init(&dst);
+     UA_StatusCode ret = UA_NetworkMessage_decodeJson(&dst, encodedBuffer);
+     if( ret == UA_STATUSCODE_GOOD){
+         UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "Decoded!");
+     }
      
      UA_ByteString_delete(encodedBuffer);
      UA_ByteString_delete(topic);

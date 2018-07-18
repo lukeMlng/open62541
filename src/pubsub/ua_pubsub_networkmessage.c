@@ -72,9 +72,7 @@ UA_DataSetMessage_encodeJson(const UA_DataSetMessage* src, UA_UInt16 dataSetWrit
     
     // TODO: DataSetWriterId should be a string in json
     rv = writeKey(&ctx, "DataSetWriterId", UA_FALSE);
-    *(ctx.pos++) = '"';
     rv = UA_encodeJson(&dataSetWriterId, &UA_TYPES[UA_TYPES_UINT16], &ctx.pos, &ctx.end, NULL, 0, NULL, 0, useReversible);
-    *(ctx.pos++) = '"';
     if(rv != UA_STATUSCODE_GOOD)
         return rv;
     
@@ -192,7 +190,7 @@ static status DataSetPayload_decodeJsonInternal(void* dsmP, const UA_DataType *t
     //dsm->data.keyFrameData
     UA_String *fieldNames = (UA_String*)UA_calloc(length, sizeof(UA_String));
     
-    UA_KeyValuePair *keyValuePairs = (UA_KeyValuePair*)UA_Array_new(dsm->data.keyFrameData.fieldCount, &UA_TYPES[UA_TYPES_KEYVALUEPAIR]);
+    //UA_KeyValuePair *keyValuePairs = (UA_KeyValuePair*)UA_Array_new(dsm->data.keyFrameData.fieldCount, &UA_TYPES[UA_TYPES_KEYVALUEPAIR]);
     
     dsm->data.keyFrameData.fieldCount = (UA_UInt16)length;
     
@@ -204,8 +202,8 @@ static status DataSetPayload_decodeJsonInternal(void* dsmP, const UA_DataType *t
     (*parseCtx->index)++; // We go to first Object key!
     for(size_t i = 0; i < length; ++i) {
         
-        //ret = getDecodeSignature(UA_TYPES_STRING)(&fieldNames[i], type, ctx, parseCtx, UA_TRUE);
-        ret = getDecodeSignature(UA_TYPES_STRING)(&keyValuePairs[i].key.name, type, ctx, parseCtx, UA_TRUE);
+        ret = getDecodeSignature(UA_TYPES_STRING)(&fieldNames[i], type, ctx, parseCtx, UA_TRUE);
+        //ret = getDecodeSignature(UA_TYPES_STRING)(&keyValuePairs[i].key.name, type, ctx, parseCtx, UA_TRUE);
         if(ret != UA_STATUSCODE_GOOD){
             //TODO: handle error, free mem
         }
@@ -536,7 +534,7 @@ static status NetworkMessage_decodeJsonInternal(UA_NetworkMessage *dst, CtxJson 
 }
 
 
-status NetworkMessage_decodeJson(UA_NetworkMessage *dst, UA_ByteString *src){
+status UA_NetworkMessage_decodeJson(UA_NetworkMessage *dst, UA_ByteString *src){
     /* Set up the context */
     CtxJson ctx;
     ParseCtx parseCtx;

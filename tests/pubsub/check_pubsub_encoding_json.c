@@ -100,7 +100,7 @@ START_TEST(UA_PubSub_EnDecode) {
     //---------------
     UA_NetworkMessage m2;
     memset(&m2, 0, sizeof(UA_NetworkMessage));
-    rv = NetworkMessage_decodeJson(&m2, &buffer);
+    rv = UA_NetworkMessage_decodeJson(&m2, &buffer);
     ck_assert_int_eq(rv, UA_STATUSCODE_GOOD);
     // Version not in json? ck_assert(m.version == m2.version);  
     ck_assert(m.networkMessageType == m2.networkMessageType);
@@ -163,9 +163,9 @@ END_TEST
 START_TEST(UA_NetworkMessage_oneMessage_twoFields_json_decode) {
     // given
     UA_NetworkMessage out;
-    UA_ByteString buf = UA_STRING("{\"MessageId\":\"5ED82C10-50BB-CD07-0120-22521081E8EE\",\"MessageType\":\"ua-data\",\"Messages\":[{\"DataSetWriterId\":\"62541\",\"MetaDataVersion\":{\"MajorVersion\":1478393530,\"MinorVersion\":12345},\"SequenceNumber\":4711,\"Payload\":{\"Test\":{\"Type\":5,\"Body\":42},\"Server localtime\":{\"Type\":13,\"Body\":\"2018-06-05T05:58:36.000Z\"}}}]}");
+    UA_ByteString buf = UA_STRING("{\"MessageId\":\"5ED82C10-50BB-CD07-0120-22521081E8EE\",\"MessageType\":\"ua-data\",\"Messages\":[{\"DataSetWriterId\":62541,\"MetaDataVersion\":{\"MajorVersion\":1478393530,\"MinorVersion\":12345},\"SequenceNumber\":4711,\"Payload\":{\"Test\":{\"Type\":5,\"Body\":42},\"Server localtime\":{\"Type\":13,\"Body\":\"2018-06-05T05:58:36.000Z\"}}}]}");
     // when
-    UA_StatusCode retval = NetworkMessage_decodeJson(&out, &buf);
+    UA_StatusCode retval = UA_NetworkMessage_decodeJson(&out, &buf);
     // then
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
     
@@ -229,9 +229,9 @@ START_TEST(UA_NetworkMessage_MetaDataVersion_json_decode) {
     // given
     UA_NetworkMessage out;
     memset(&out,0,sizeof(UA_NetworkMessage));
-    UA_ByteString buf = UA_STRING("{\"MessageId\":\"5ED82C10-50BB-CD07-0120-22521081E8EE\",\"MessageType\":\"ua-data\",\"Messages\":[{\"MetaDataVersion\":{\"MajorVersion\": 47, \"MinorVersion\": 47},\"DataSetWriterId\":\"62541\",\"Status\":22,\"SequenceNumber\":4711,\"Payload\":{\"Test\":{\"Type\":5,\"Body\":42},\"Server localtime\":{\"Type\":1,\"Body\":true}}}]}");
+    UA_ByteString buf = UA_STRING("{\"MessageId\":\"5ED82C10-50BB-CD07-0120-22521081E8EE\",\"MessageType\":\"ua-data\",\"Messages\":[{\"MetaDataVersion\":{\"MajorVersion\": 47, \"MinorVersion\": 47},\"DataSetWriterId\":62541,\"Status\":22,\"SequenceNumber\":4711,\"Payload\":{\"Test\":{\"Type\":5,\"Body\":42},\"Server localtime\":{\"Type\":1,\"Body\":true}}}]}");
     // when
-    UA_StatusCode retval = NetworkMessage_decodeJson(&out, &buf);
+    UA_StatusCode retval = UA_NetworkMessage_decodeJson(&out, &buf);
     // then
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
     
@@ -296,7 +296,7 @@ START_TEST(UA_NetworkMessage_test_json_decode) {
             "\"InputPipeFlow\": { \"Value\": { \"Type\": 6,\"Body\": 75},\"SourceTimestamp\": \"2018-03-25T13:32:19.000Z\"},"
             "\"OutputPipeFlow\": { \"Value\": { \"Type\": 6,\"Body\": 85},\"SourceTimestamp\": \"2018-03-25T13:32:19.000Z\"} } } ] }");
     // when
-    UA_StatusCode retval = NetworkMessage_decodeJson(&out, &buf);
+    UA_StatusCode retval = UA_NetworkMessage_decodeJson(&out, &buf);
     // then
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
 }
@@ -309,10 +309,10 @@ START_TEST(UA_Networkmessage_json_decode) {
     
     UA_NetworkMessage out;
     memset(&out, 0, sizeof(UA_NetworkMessage));
-    UA_ByteString buf = UA_STRING("{ \"MessageId\": \"32235546-05d9-4fd7-97df-ea3ff3408574\",  \"MessageType\": \"ua-data\",  \"PublisherId\": \"MQTT-Localhost\",  \"DataSetClassId\": \"00000005-cab9-4470-8f8a-2c1ead207e0e\",  \"Messages\": [    {      \"DataSetWriterId\": \"1\",      \"SequenceNumber\": 224,     \"MetaDataVersion\": {        \"MajorVersion\": 1,        \"MinorVersion\": 1      },\"Payload\":null}]}");
+    UA_ByteString buf = UA_STRING("{ \"MessageId\": \"32235546-05d9-4fd7-97df-ea3ff3408574\",  \"MessageType\": \"ua-data\",  \"PublisherId\": \"MQTT-Localhost\",  \"DataSetClassId\": \"00000005-cab9-4470-8f8a-2c1ead207e0e\",  \"Messages\": [    {      \"DataSetWriterId\": 1,      \"SequenceNumber\": 224,     \"MetaDataVersion\": {        \"MajorVersion\": 1,        \"MinorVersion\": 1      },\"Payload\":null}]}");
 
     // when
-    UA_StatusCode retval = NetworkMessage_decodeJson(&out, &buf);
+    UA_StatusCode retval = UA_NetworkMessage_decodeJson(&out, &buf);
     // then
     ck_assert_int_eq(retval, UA_STATUSCODE_GOOD);
     ck_assert_int_eq(out.dataSetClassId.data1, 5);
