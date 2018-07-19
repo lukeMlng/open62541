@@ -20,6 +20,7 @@ extern "C" {
 #include <ua_network_tcp.h>
 #include "ua_log_stdout.h"
 #include <fcntl.h>
+#include "ua_util.h"
     
 /* setup a client */
 
@@ -87,13 +88,27 @@ UA_StatusCode connectMqtt(UA_PubSubChannelDataMQTT* channelData){
     /* Get address and replace mqtt with tcp 
      * because we use a tcp UA_ClientConnectionTCP for mqtt */
     UA_NetworkAddressUrlDataType address = channelData->address;
-    if(strncmp((char*)&address.url.data, "opc.mqtt://", 11) != 0){
+    
+    UA_String hostname, path;
+    UA_UInt16 networkPort;
+    if(UA_parseEndpointUrl(&address.url, &hostname, &networkPort, &path) != UA_STATUSCODE_GOOD){
+        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER,
+                     "PubSub Connection creation failed. Invalid URL.");
+        return UA_STATUSCODE_BADINVALIDARGUMENT;
+    }
+    
+    UA_STACKARRAY(UA_Byte, addressAsChar, 10 + (sizeof(char) * path.length));
+    strncpy((char*)addressAsChar, "opc.tcp://", 10);
+    strncpy((char*)&addressAsChar[10],(char*)path.data, path.length);
+    address.url.data = addressAsChar;
+    address.url.length = 10 + (sizeof(char) * path.length);
+    /*if(strncmp((char*)&address.url.data, "opc.mqtt://", 11) != 0){
         strncpy((char*)address.url.data, "opc.tcp://", 10);
     } else {
         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER,
                      "PubSub Connection creation failed. Invalid URL.");
         return UA_STATUSCODE_BADINVALIDARGUMENT;
-    }
+    }*/
     
     /* check if buffers are correct */
     if(!(channelData->mqttRecvBufferSize > 0 && channelData->mqttRecvBuffer != NULL 
