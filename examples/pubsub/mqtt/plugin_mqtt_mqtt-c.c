@@ -22,9 +22,6 @@ extern "C" {
 #include <fcntl.h>
     
 /* setup a client */
-uint8_t sendbuf[2048]; /* sendbuf should be large enough to hold multiple whole mqtt messages */
-uint8_t recvbuf[1024]; /* recvbuf should be large enough any whole mqtt message expected to be received */
-//int sockfd;
 
 UA_StatusCode disconnectMqtt(UA_PubSubChannelDataMQTT* channelData){
     struct mqtt_client* client = (struct mqtt_client*)channelData->mqttClient;
@@ -32,7 +29,14 @@ UA_StatusCode disconnectMqtt(UA_PubSubChannelDataMQTT* channelData){
     mqtt_sync(client);
     
     channelData->connection->close(channelData->connection);
-
+    channelData->connection->free(channelData->connection);
+    free(channelData->connection);
+    free(channelData->mqttRecvBuffer);
+    free(channelData->mqttSendBuffer);
+    free(channelData->mqttClient);
+    
+    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_NETWORK,
+             "PubSub Connection disconnected.");
     return UA_STATUSCODE_GOOD;
 }
 
@@ -72,7 +76,7 @@ void publish_callback(void** channelDataPtr, struct mqtt_response_publish *publi
                 memcpy(topic->data, published->topic_name, published->topic_name_size);
                 memcpy(msg->data, published->application_message, published->application_message_size);
                 
-                //callback with message and topic as bytestring.
+                /* callback with message and topic as bytestring. */
                 channelData->callback(msg, topic);
             }
         }
@@ -80,36 +84,53 @@ void publish_callback(void** channelDataPtr, struct mqtt_response_publish *publi
 }
 
 UA_StatusCode connectMqtt(UA_PubSubChannelDataMQTT* channelData){
+    /* Get address and replace mqtt with tcp 
+     * because we use a tcp UA_ClientConnectionTCP for mqtt */
+    UA_NetworkAddressUrlDataType address = channelData->address;
+    if(strncmp((char*)&address.url.data, "opc.mqtt://", 11) != 0){
+        strncpy((char*)address.url.data, "opc.tcp://", 10);
+    } else {
+        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER,
+                     "PubSub Connection creation failed. Invalid URL.");
+        return UA_STATUSCODE_BADINVALIDARGUMENT;
+    }
     
-    /* open the non-blocking TCP socket (connecting to the broker) */
+    /* check if buffers are correct */
+    if(!(channelData->mqttRecvBufferSize > 0 && channelData->mqttRecvBuffer != NULL 
+            && channelData->mqttSendBufferSize > 0 && channelData->mqttSendBuffer != NULL)){
+        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection creation failed. No Mqtt buffer allocated.");
+        return UA_STATUSCODE_BADARGUMENTSMISSING;
+    }
+    
+    /* Config with default parameters, TODO: adjust */
     UA_ConnectionConfig conf;
     conf.protocolVersion = 0;
     conf.sendBufferSize = 1000;
     conf.recvBufferSize = 2000;
     conf.maxMessageSize = 1000;
     conf.maxChunkCount = 1;
-    UA_Connection connection = UA_ClientConnectionTCP( conf,"opc.tcp://127.0.0.1:1883", 1000,NULL);
-    channelData->connection = (UA_Connection*)UA_calloc(1, sizeof(UA_Connection));
-    memcpy(channelData->connection, &connection, sizeof(UA_Connection));
     
+    /* Convert UA_String to char* null terminated */
+    char* url = (char*)malloc(address.url.length + 1);
+    if(!url){
+        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection creation failed. Out of memory.");
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+    }
+    memset(url, 0 , address.url.length + 1);
+    memcpy(url, address.url.data, address.url.length);
     
-    //alloc mqtt_client
-    struct mqtt_client* client = (struct mqtt_client*)UA_calloc(1, sizeof(struct mqtt_client));
+    /* Create TCP connection: open the blocking TCP socket (connecting to the broker) */
+    UA_Connection connection = UA_ClientConnectionTCP( conf, url, 1000,NULL);
+    free(url); /*free temp url for connect*/
+    if(connection.state != UA_CONNECTION_ESTABLISHED && connection.state != UA_CONNECTION_OPENING){
+        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_NETWORK, "%s", "Tcp connection failed!");
+        return UA_STATUSCODE_BADCOMMUNICATIONERROR;
+    }
     
-    //save reference
-    channelData->mqttClient = client;
+    /* Get the socketfd for mqtt client! */
+    int sockfd = connection.sockfd;
     
-    //Copy the socketfd to the mqtt client!
-    int sockfd = channelData->connection->sockfd;    
-    mqtt_init(client, sockfd, sendbuf, sizeof(sendbuf), recvbuf, sizeof(recvbuf), publish_callback);
-    
-    
-    //Init custom data for subscribe callback function: 
-    //A reference to the channeldata will be available in the callback.
-    //This is used to call the user callback channelData.callback
-    client->publish_response_callback_state = channelData;
-    
-    //SET socket to nonblocking! TODO: code duplication: use UA_network tcp
+    /* SET socket to nonblocking! TODO: code duplication: use UA_network tcp */
     if (sockfd != -1){
         #ifdef _WIN32
             u_long iMode = 1;
@@ -124,26 +145,84 @@ UA_StatusCode connectMqtt(UA_PubSubChannelDataMQTT* channelData){
             if(opts < 0 || fcntl(sockfd, F_SETFL, opts|O_NONBLOCK) < 0)
                 return UA_STATUSCODE_BADINTERNALERROR;
         #endif
-    };
+    }else{    
+        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_NETWORK, "%s", "Tcp connection failed!");
+        return UA_STATUSCODE_BADCOMMUNICATIONERROR;
+    }
     
-    if (sockfd == -1) {
-        perror("Failed to open socket: ");
-        return UA_STATUSCODE_BADCONNECTIONREJECTED;
+    /* save connection */
+    channelData->connection = (UA_Connection*)UA_calloc(1, sizeof(UA_Connection));
+    if(!channelData->connection){
+        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection creation failed. Out of memory.");
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+    }
+    
+    memcpy(channelData->connection, &connection, sizeof(UA_Connection));
+    
+    
+    /* calloc mqtt_client */
+    struct mqtt_client* client = (struct mqtt_client*)UA_calloc(1, sizeof(struct mqtt_client));
+    if(!client){
+        UA_free(channelData->connection);
+        
+        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection creation failed. Out of memory.");
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+    }
+    
+    /* save reference */
+    channelData->mqttClient = client;
+    
+    /* init mqtt client struct with buffers and callback */
+    enum MQTTErrors mqttErr = mqtt_init(client, sockfd, channelData->mqttSendBuffer, channelData->mqttSendBufferSize, 
+                channelData->mqttRecvBuffer, channelData->mqttRecvBufferSize, publish_callback);
+    if(mqttErr != MQTT_OK){
+        UA_free(channelData->connection);
+        UA_free(client);
+        
+        const char* errorStr = mqtt_error_str(mqttErr);
+        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "%s", errorStr);
+        return UA_STATUSCODE_BADCOMMUNICATIONERROR;
     }
     
     
-    //Connect mqtt with socket fd of networktcp 
-    mqtt_connect(client, "publishing_client", NULL, NULL, 0, NULL, NULL, 0, 400);
-    mqtt_sync(client);
-    //mqtt_sync(client);
-    
-    /* check that we don't have any errors */
-    if (client->error != MQTT_OK) {
-        fprintf(stderr, "error: %s\n", mqtt_error_str(client->error));
-        return UA_STATUSCODE_BADCONNECTIONREJECTED;
+    /* Init custom data for subscribe callback function: 
+     * A reference to the channeldata will be available in the callback.
+     * This is used to call the user callback channelData.callback */
+    client->publish_response_callback_state = channelData;
+
+
+    /* Convert clientId UA_String to char* null terminated */
+    char* clientId = (char*)malloc(channelData->mqttClientId->length + 1);
+    if(!url){
+        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection creation failed. Out of memory.");
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+    }
+    memset(clientId, 0 , channelData->mqttClientId->length + 1);
+    memcpy(clientId, channelData->mqttClientId->data, channelData->mqttClientId->length);
+
+
+    /* Connect mqtt with socket fd of networktcp  */
+    mqttErr = mqtt_connect(client, clientId, NULL, NULL, 0, NULL, NULL, 0, 400);
+    free(clientId);
+    if(mqttErr != MQTT_OK){
+        UA_free(channelData->connection);
+        UA_free(client);
+        
+        const char* errorStr = mqtt_error_str(mqttErr);
+        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "%s", errorStr);
+        return UA_STATUSCODE_BADCOMMUNICATIONERROR;
     }
     
+    /* sync the first mqtt packets in the buffer to send connection request.
+       After that yield must be called frequently to exchange mqtt messages. */
+    UA_StatusCode ret = yieldMqtt(channelData);
+    if(ret != UA_STATUSCODE_GOOD){
+        UA_free(channelData->connection);
+        UA_free(client);
+        return ret;
+    }
     
+    /* we did it */
     return UA_STATUSCODE_GOOD;
 }
 
@@ -155,8 +234,14 @@ UA_StatusCode subscribeMqtt(UA_PubSubChannelDataMQTT* chanData, UA_String topic,
     UA_STACKARRAY(char, topicStr, sizeof(char) * topic.length +1);
     memcpy(topicStr, topic.data, topic.length);
     topicStr[topic.length] = 0;
-    mqtt_subscribe(client, topicStr, (UA_Byte) qos);
+    enum MQTTErrors mqttErr = mqtt_subscribe(client, topicStr, (UA_Byte) qos);
 
+    if(mqttErr != MQTT_OK){
+        const char* errorStr = mqtt_error_str(mqttErr);
+        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "%s", errorStr);
+        return UA_STATUSCODE_BADCOMMUNICATIONERROR;
+    }
+    
     return UA_STATUSCODE_GOOD;
 }
 
@@ -167,6 +252,13 @@ UA_StatusCode unSubscribeMqtt(UA_PubSubChannelDataMQTT* chanData, UA_String topi
 }
 
 UA_StatusCode yieldMqtt(UA_PubSubChannelDataMQTT* chanData){
+    UA_Connection *connection = chanData->connection;
+    
+    if(connection->state != UA_CONNECTION_ESTABLISHED && connection->state != UA_CONNECTION_OPENING){
+        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_NETWORK, "PubSub Mqtt yield: Tcp Connection not established!");
+        return UA_STATUSCODE_BADCOMMUNICATIONERROR;
+    }
+    
     struct mqtt_client* client = (struct mqtt_client*)chanData->mqttClient;
     enum MQTTErrors error = mqtt_sync(client);
     if(error == MQTT_OK){
@@ -217,7 +309,7 @@ UA_StatusCode yieldMqtt(UA_PubSubChannelDataMQTT* chanData){
 
 
 
-UA_StatusCode publishMqtt(UA_PubSubChannelDataMQTT* chanData, UA_String topic, const UA_ByteString *buf){
+UA_StatusCode publishMqtt(UA_PubSubChannelDataMQTT* chanData, UA_String topic, const UA_ByteString *buf, UA_Byte qos){
     UA_STACKARRAY(char, topicChar, sizeof(char) * topic.length +1);
     memcpy(topicChar, topic.data, topic.length);
     topicChar[topic.length] = 0;
@@ -226,10 +318,21 @@ UA_StatusCode publishMqtt(UA_PubSubChannelDataMQTT* chanData, UA_String topic, c
     if(client == NULL)
         return UA_STATUSCODE_BADNOTCONNECTED;
     
-    /* publish the time */
-    mqtt_publish(client, topicChar, buf->data, buf->length, MQTT_PUBLISH_QOS_0);
-    //mqtt_sync(client);
-    
+    /* publish */
+    enum MQTTPublishFlags flags;
+    memset(&flags, 0, sizeof(enum MQTTPublishFlags));
+    if(qos == 0){
+        flags = MQTT_PUBLISH_QOS_0;
+    }else if( qos == 1){
+        flags = MQTT_PUBLISH_QOS_1;
+    }else if( qos == 2){
+        flags = MQTT_PUBLISH_QOS_2;
+    }else{
+        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_NETWORK, "Bad Qos Level.");
+        return UA_STATUSCODE_BADINVALIDARGUMENT;
+    }
+    mqtt_publish(client, topicChar, buf->data, buf->length, flags);
+
     /* check for errors */
     if (client->error != MQTT_OK) {
         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "%s", mqtt_error_str(client->error));

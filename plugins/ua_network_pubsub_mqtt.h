@@ -17,28 +17,25 @@ extern "C" {
     
 //mqtt network layer specific internal data
 typedef struct {
-    UA_UInt32 recvBufferSize;
-    UA_UInt32 sendBufferSize;
+    UA_NetworkAddressUrlDataType address;
+    
+    UA_UInt32 mqttRecvBufferSize;
+    UA_UInt32 mqttSendBufferSize;
+    
+    uint8_t *mqttSendBuffer; /* sendbuf should be large enough to hold multiple whole mqtt messages */
+    uint8_t *mqttRecvBuffer; /* recvbuf should be large enough any whole mqtt message expected to be received */
+    
     UA_UInt32 keepAliveTime;
     UA_String *mqttClientId;
+    
     UA_Connection *connection; //Holds the connection with the socket fd.
     void * mqttClient; //Holds the mqtt client
     
     void (*callback)(UA_ByteString *encodedBuffer, UA_ByteString *topic);
 } UA_PubSubChannelDataMQTT;
     
-/*typedef struct {
-    UA_StatusCode (*connectMqtt)(UA_String *host, int port, UA_PubSubChannelDataMQTT* channelDataMQTT);
-    UA_StatusCode (*disconnectMqtt)(void);
-    UA_StatusCode (*publishMqtt)(UA_String topic, const UA_ByteString *buf);
-    UA_StatusCode (*subscribeMqtt)(UA_String topic, UA_StatusCode (*cb)(UA_ByteString *buf));
-    UA_StatusCode (*unSubscribeMqtt)(UA_String topic);
-    UA_StatusCode (*yieldMqtt)(void);
-    UA_StatusCode (*recvMqtt)(UA_ByteString *buf);
-} MQTT_Funcs;*/
-    
 UA_PubSubTransportLayer
-UA_PubSubTransportLayerMQTT(void);//MQTT_Funcs);
+UA_PubSubTransportLayerMQTT(void);
 
 
 #ifdef __cplusplus

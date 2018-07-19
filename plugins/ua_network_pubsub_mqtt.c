@@ -100,13 +100,13 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
         WSAStartup(MAKEWORD(2, 2), &wsaData);
     #endif /* Not Windows */
 
-    /*UA_NetworkAddressUrlDataType address;
+    UA_NetworkAddressUrlDataType address;
     if(UA_Variant_hasScalarType(&connectionConfig->address, &UA_TYPES[UA_TYPES_NETWORKADDRESSURLDATATYPE])){
         address = *(UA_NetworkAddressUrlDataType *)connectionConfig->address.data;
     } else {
         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection creation failed. Invalid Address.");
         return NULL;
-    }*/
+    }
     
     //allocate and init memory for the Mqtt specific internal data
     UA_PubSubChannelDataMQTT * channelDataMQTT =
@@ -118,7 +118,7 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
     
     //set default values
     UA_String mqttClientId = UA_STRING("open62541_pub");
-    memcpy(channelDataMQTT, &(UA_PubSubChannelDataMQTT){2000,2000,10,&mqttClientId, NULL, NULL, NULL}, sizeof(UA_PubSubChannelDataMQTT));
+    memcpy(channelDataMQTT, &(UA_PubSubChannelDataMQTT){address, 2000,2000, NULL, NULL, 10,&mqttClientId, NULL, NULL, NULL}, sizeof(UA_PubSubChannelDataMQTT));
     //iterate over the given KeyValuePair paramters
     UA_String keepAliveTime = UA_STRING("keepAliveTime"), sendBuffer = UA_STRING("sendBufferSize"), recvBuffer = UA_STRING("recvBufferSize"), clientId = UA_STRING("mqttClientId");
     for(size_t i = 0; i < connectionConfig->connectionPropertiesSize; i++){
@@ -128,11 +128,11 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
             }
         } else if(UA_String_equal(&connectionConfig->connectionProperties[i].key.name, &sendBuffer)){
             if(UA_Variant_hasScalarType(&connectionConfig->connectionProperties[i].value, &UA_TYPES[UA_TYPES_UINT32])){
-                channelDataMQTT->sendBufferSize = *(UA_UInt32 *) connectionConfig->connectionProperties[i].value.data;
+                channelDataMQTT->mqttSendBufferSize = *(UA_UInt32 *) connectionConfig->connectionProperties[i].value.data;
             }
         } else if(UA_String_equal(&connectionConfig->connectionProperties[i].key.name, &recvBuffer)){
             if(UA_Variant_hasScalarType(&connectionConfig->connectionProperties[i].value, &UA_TYPES[UA_TYPES_UINT32])){
-                channelDataMQTT->recvBufferSize = *(UA_UInt32 *) connectionConfig->connectionProperties[i].value.data;
+                channelDataMQTT->mqttRecvBufferSize = *(UA_UInt32 *) connectionConfig->connectionProperties[i].value.data;
             }
         } else if(UA_String_equal(&connectionConfig->connectionProperties[i].key.name, &clientId)){
             if(UA_Variant_hasScalarType(&connectionConfig->connectionProperties[i].value, &UA_TYPES[UA_TYPES_STRING])){
@@ -143,6 +143,7 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
         }
     }
     
+    /* Create a new channel */
     UA_PubSubChannel *newChannel = (UA_PubSubChannel *) UA_calloc(1, sizeof(UA_PubSubChannel));
     if(!newChannel){
         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection creation failed. Out of memory.");
@@ -150,38 +151,29 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
         return NULL;
     }
     
-    /*UA_String hostname, path;
-    UA_UInt16 networkPort;
-    //TODO replace fallback to use the existing parseEndpointUrl function. Extend parseEndpointUrl for UDP or create own parseEndpointUrl function for PubSub.
-    if(strncmp((char*)&address.url.data, "opc.tcp://", 10) != 0){
-        strncpy((char*)address.url.data, "opc.tcp://", 10);
-    } else {
-        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER,
-                     "PubSub Connection creation failed. Invalid URL.");
-        UA_free(channelDataMQTT);
-        UA_free(newChannel);
-        return NULL;
+    /* TODO: is the memory allocated here or in mqtt specific impl? */
+    /* Allocate memory for mqtt receive buffer */
+    if(channelDataMQTT->mqttRecvBufferSize > 0){
+        channelDataMQTT->mqttRecvBuffer = (uint8_t*)UA_calloc(channelDataMQTT->mqttRecvBufferSize, sizeof(uint8_t));
+        if(!channelDataMQTT->mqttRecvBuffer){
+            UA_free(channelDataMQTT);
+            return NULL;
+        }
     }
-    if(UA_parseEndpointUrl(&address.url, &hostname, &networkPort, &path) != UA_STATUSCODE_GOOD){
-        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER,
-                     "PubSub Connection creation failed. Invalid URL.");
-        UA_free(channelDataMQTT);
-        UA_free(newChannel);
-        return NULL;
+    
+    /* Allocate memory for mqtt send buffer */
+    if(channelDataMQTT->mqttSendBufferSize > 0){
+        channelDataMQTT->mqttSendBuffer = (uint8_t*)UA_calloc(channelDataMQTT->mqttSendBufferSize, sizeof(uint8_t));
+        if(!channelDataMQTT->mqttSendBuffer){
+            UA_free(channelDataMQTT);
+            if(channelDataMQTT->mqttRecvBufferSize > 0){
+                UA_free(channelDataMQTT->mqttRecvBuffer);
+            }
+            return NULL;
+        }
     }
-    if(hostname.length > 512) {
-        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER,
-                     "PubSub Connection creation failed. URL maximum length is 512.");
-        UA_free(channelDataMQTT);
-        UA_free(newChannel);
-        return NULL;
-    }
-
-    UA_STACKARRAY(char, addressAsChar, sizeof(char) * hostname.length +1);
-    memcpy(addressAsChar, hostname.data, hostname.length);
-    addressAsChar[hostname.length] = 0;*/
-
-    //link channel and internal channel data
+    
+    /*link channel and internal channel data*/
     newChannel->handle = channelDataMQTT;
     
     
@@ -189,13 +181,16 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
     UA_StatusCode ret = connectMqtt(channelDataMQTT);
     
     if(ret != UA_STATUSCODE_GOOD){
-        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection failed");
+        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_NETWORK, "PubSub Connection failed");
         UA_free(newChannel);
+        UA_free(channelDataMQTT);
+        UA_free(channelDataMQTT->mqttSendBuffer);
+        UA_free(channelDataMQTT->mqttRecvBuffer);
         return NULL;
     }
-    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "Connection established.");
+    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "Mqtt (and Tcp) Connection established.");
     
-    newChannel->state = UA_PUBSUB_CHANNEL_PUB;
+    newChannel->state = UA_PUBSUB_CHANNEL_RDY;
     return newChannel;
 }
 
@@ -284,7 +279,7 @@ UA_PubSubChannelMQTT_send(UA_PubSubChannel *channel, UA_ExtensionObject *transpo
         
         UA_String topic;
         topic = brokerTransportSettings->queueName;
-        ret = publishMqtt(channelConfigMQTT, topic, buf);
+        ret = publishMqtt(channelConfigMQTT, topic, buf, qos);
 
         if(ret){
             channel->state = UA_PUBSUB_CHANNEL_ERROR;
@@ -306,7 +301,9 @@ UA_PubSubChannelMQTT_send(UA_PubSubChannel *channel, UA_ExtensionObject *transpo
  */
 static UA_StatusCode
 UA_PubSubChannelMQTT_receive(UA_PubSubChannel *channel, UA_ByteString *message, UA_ExtensionObject *transportSettigns, UA_UInt32 timeout){
-    if(!(channel->state == UA_PUBSUB_CHANNEL_PUB || channel->state == UA_PUBSUB_CHANNEL_PUB_SUB)) {
+    return UA_STATUSCODE_BADNOTSUPPORTED;
+    
+    /*if(!(channel->state == UA_PUBSUB_CHANNEL_PUB || channel->state == UA_PUBSUB_CHANNEL_PUB_SUB)) {
         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "PubSub Connection receive failed. Invalid state.");
         return UA_STATUSCODE_BADINTERNALERROR;
     }
@@ -319,7 +316,7 @@ UA_PubSubChannelMQTT_receive(UA_PubSubChannel *channel, UA_ByteString *message, 
     ret = yieldMqtt(channelConfigMQTT);
     ret = recvMqtt(channelConfigMQTT, message);
    
-    return ret;
+    return ret;*/
 }
 
 /**
@@ -349,6 +346,11 @@ UA_PubSubChannelMQTT_yield(UA_PubSubChannel *channel){
     UA_PubSubChannelDataMQTT *networkLayerData = (UA_PubSubChannelDataMQTT *) channel->handle;
     UA_StatusCode ret = 0;
     ret = yieldMqtt(networkLayerData);
+    
+    if(ret != UA_STATUSCODE_GOOD){
+        channel->state = UA_PUBSUB_CHANNEL_ERROR;
+    }
+    
     return ret;
 }
 
