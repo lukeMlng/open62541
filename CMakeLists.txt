@@ -187,7 +187,7 @@ if(UA_ENABLE_PUBSUB_INFORMATIONMODEL)
     endif()
 endif()
 
-option(UA_ENABLE_JSON_ENCODING "Enable Json encoding." ON)
+option(UA_ENABLE_JSON_ENCODING "Enable Json encoding." OFF)
 mark_as_advanced(UA_ENABLE_JSON_ENCODING)
 
 option(UA_ENABLE_STATUSCODE_DESCRIPTIONS "Enable conversion of StatusCode to human-readable error message" ON)
