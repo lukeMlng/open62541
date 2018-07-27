@@ -13,6 +13,7 @@
  *    Copyright 2016 (c) Lorenz Haas
  *    Copyright 2017 (c) Mark Giraud, Fraunhofer IOSB
  *    Copyright 2017 (c) Henrik Norrman
+ *    Copyright 2018 (c) Lukas Meling, Fraunhofer IOSB
  */
 
 #include "ua_types_encoding_json.h"
