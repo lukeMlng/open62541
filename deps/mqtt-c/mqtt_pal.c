@@ -17,6 +17,7 @@
 #include <netdb.h>
 #include <fcntl.h>
 
+#include <ua_network_tcp.h>
 
 # define SOCKET int
 # define WIN32_INT
@@ -33,14 +34,24 @@
 # define AGAIN EAGAIN
 #endif
 
-ssize_t mqtt_pal_sendall(int fd, const void* buf, size_t len, int flags) {
+ssize_t mqtt_pal_sendall(int fd, const void* buf, size_t len, int flags, void* client) {
     /* Prevent OS signals when sending to a closed socket */
     //int flags = 0;
 #ifdef MSG_NOSIGNAL
     flags |= MSG_NOSIGNAL;
 #endif
 
-    /* Send the full buffer. This may require several calls to send */
+    struct mqtt_client* c = (struct mqtt_client*)client;
+    UA_Connection *connection = (UA_Connection*) c->custom;
+    UA_ByteString sendBuffer;
+    sendBuffer.data = (UA_Byte*)UA_malloc(len);
+    //TODO: check
+    sendBuffer.length = len;
+    memcpy(sendBuffer.data, buf, len);
+
+    connection->send(connection, &sendBuffer);
+    
+    /* Send the full buffer. This may require several calls to send 
     size_t nWritten = 0;
     do {
         ssize_t n = 0;
@@ -57,7 +68,9 @@ ssize_t mqtt_pal_sendall(int fd, const void* buf, size_t len, int flags) {
         nWritten += (size_t)n;
     } while(nWritten < len);
     
-    return (ssize_t)nWritten;
+    return (ssize_t)nWritten;*/
+    
+    return (ssize_t)len;
 }
 
 /*
@@ -73,22 +86,41 @@ ssize_t mqtt_pal_sendall(int fd, const void* buf, size_t len, int flags) {
     return (ssize_t)sent;
 }
 */
-ssize_t mqtt_pal_recvall(int fd, void* buf, size_t bufsz, int flags) {
-    const void const *start = buf;
+ssize_t mqtt_pal_recvall(int fd, void* buf, size_t bufsz, int flags, void* client) {
+    
+    struct mqtt_client* c = (struct mqtt_client*)client;
+    UA_Connection *connection = (UA_Connection*) c->custom;
+    
+    connection->localConf.recvBufferSize = (UA_UInt32) bufsz;
+    UA_ByteString inBuffer;
+    UA_StatusCode ret = connection->recv(connection, &inBuffer, 10);
+    if(ret == UA_STATUSCODE_GOOD ){
+        /* Buffer received */
+        memcpy(buf, inBuffer.data, inBuffer.length);
+        
+        connection->releaseRecvBuffer(connection, &inBuffer);
+        return (ssize_t)inBuffer.length;
+    }else if(ret == UA_STATUSCODE_GOODNONCRITICALTIMEOUT){
+        /* nothin recv? */
+        return 0;
+    }else{
+        return -1;
+    }
+    /*const void const *start = buf;
     ssize_t rv;
     do {
         rv = recv(fd, buf, bufsz, flags);
         if (rv > 0) {
-            /* successfully read bytes from the socket */
+            // successfully read bytes from the socket 
             buf = (uint8_t*)buf + rv;
             bufsz -= (size_t)rv;
         } else if (rv < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
-            /* an error occurred that wasn't "nothing to read". */
+            // an error occurred that wasn't "nothing to read". 
             return MQTT_ERROR_SOCKET_ERROR;
         }
     } while (rv > 0);
 
-    return (ssize_t)((uintptr_t)buf - (uintptr_t)start);
+    return (ssize_t)((uintptr_t)buf - (uintptr_t)start);*/
 }
 
 /*

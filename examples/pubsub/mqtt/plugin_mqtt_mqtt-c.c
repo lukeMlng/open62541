@@ -25,10 +25,10 @@ extern "C" {
 /* setup a client */
 
 UA_StatusCode disconnectMqtt(UA_PubSubChannelDataMQTT* channelData){
+    channelData->callback = NULL;
     struct mqtt_client* client = (struct mqtt_client*)channelData->mqttClient;
     mqtt_disconnect(client);
-    mqtt_sync(client);
-    
+    yieldMqtt(channelData);
     channelData->connection->close(channelData->connection);
     channelData->connection->free(channelData->connection);
     free(channelData->connection);
@@ -145,25 +145,8 @@ UA_StatusCode connectMqtt(UA_PubSubChannelDataMQTT* channelData){
     /* Get the socketfd for mqtt client! */
     int sockfd = connection.sockfd;
     
-    /* SET socket to nonblocking! TODO: code duplication: use UA_network tcp */
-    if (sockfd != -1){
-        #ifdef _WIN32
-            u_long iMode = 1;
-            if(ioctlsocket(sockfd, FIONBIO, &iMode) != NO_ERROR)
-                return UA_STATUSCODE_BADINTERNALERROR;
-        #elif defined(_WRS_KERNEL) || defined(UA_FREERTOS)
-            int on = TRUE;
-            if(ioctl(sockfd, FIONBIO, &on) < 0)
-              return UA_STATUSCODE_BADINTERNALERROR;
-        #else
-            int opts = fcntl(sockfd, F_GETFL);
-            if(opts < 0 || fcntl(sockfd, F_SETFL, opts|O_NONBLOCK) < 0)
-                return UA_STATUSCODE_BADINTERNALERROR;
-        #endif
-    }else{    
-        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_NETWORK, "%s", "Tcp connection failed!");
-        return UA_STATUSCODE_BADCOMMUNICATIONERROR;
-    }
+    /* Set socket to nonblocking!*/
+    UA_socket_set_nonblocking(sockfd);
     
     /* save connection */
     channelData->connection = (UA_Connection*)UA_calloc(1, sizeof(UA_Connection));
@@ -187,6 +170,9 @@ UA_StatusCode connectMqtt(UA_PubSubChannelDataMQTT* channelData){
     /* save reference */
     channelData->mqttClient = client;
     
+    /* save the connection in the client for PAL */
+    client->custom = channelData->connection;
+
     /* init mqtt client struct with buffers and callback */
     enum MQTTErrors mqttErr = mqtt_init(client, sockfd, channelData->mqttSendBuffer, channelData->mqttSendBufferSize, 
                 channelData->mqttRecvBuffer, channelData->mqttRecvBufferSize, publish_callback);
