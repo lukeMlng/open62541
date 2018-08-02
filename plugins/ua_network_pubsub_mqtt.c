@@ -182,10 +182,10 @@ UA_PubSubChannelMQTT_open(const UA_PubSubConnectionConfig *connectionConfig) {
     
     if(ret != UA_STATUSCODE_GOOD){
         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_NETWORK, "PubSub Connection failed");
-        UA_free(newChannel);
-        UA_free(channelDataMQTT);
         UA_free(channelDataMQTT->mqttSendBuffer);
         UA_free(channelDataMQTT->mqttRecvBuffer);
+        UA_free(channelDataMQTT);
+        UA_free(newChannel);
         return NULL;
     }
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "Mqtt (and Tcp) Connection established.");
