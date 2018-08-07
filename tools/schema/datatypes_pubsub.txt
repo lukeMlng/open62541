@@ -19,3 +19,6 @@ EnumDescription
 SimpleTypeDescription
 DataSetFieldFlags
 FieldMetaData
+JsonDataSetWriterMessageDataType
+JsonDataSetMessageContentMask
+JsonNetworkMessageContentMask
