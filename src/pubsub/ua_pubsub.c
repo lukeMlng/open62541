@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
  * Copyright (c) 2017-2018 Fraunhofer IOSB (Author: Andreas Ebner)
+ * Copyright (c) 2018 Fraunhofer IOSB (Author: Lukas Meling)
  */
 
 #include "ua_types_encoding_binary.h"
@@ -729,10 +730,21 @@ UA_PubSubDataSetWriter_generateKeyFrameMessage(UA_Server *server, UA_DataSetMess
     if(!dataSetMessage->data.keyFrameData.dataSetFields)
         return UA_STATUSCODE_BADOUTOFMEMORY;
 
+    /* json keys, TODO: add to delete Members*/
+    dataSetMessage->data.keyFrameData.fieldNames = (UA_String *)
+            UA_Array_new(currentDataSet->fieldSize, &UA_TYPES[UA_TYPES_STRING]);
+    if(!dataSetMessage->data.keyFrameData.fieldNames)
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+    
     /* Loop over the fields */
     size_t counter = 0;
     UA_DataSetField *dsf;
     LIST_FOREACH(dsf, &currentDataSet->fields, listEntry) {
+        
+        /* for json store the fieldNameAlias in */
+        UA_String_copy(&dsf->config.field.variable.fieldNameAlias, 
+                &dataSetMessage->data.keyFrameData.fieldNames[counter]);
+        
         /* Sample the value */
         UA_DataValue *dfv = &dataSetMessage->data.keyFrameData.dataSetFields[counter];
         UA_PubSubDataSetField_sampleValue(server, dsf, dfv);
@@ -777,9 +789,20 @@ UA_PubSubDataSetWriter_generateDeltaFrameMessage(UA_Server *server,
     dataSetMessage->header.dataSetMessageValid = true;
     dataSetMessage->header.dataSetMessageType = UA_DATASETMESSAGE_DATADELTAFRAME;
 
+    /* json keys, TODO: add to delete Members*/
+    dataSetMessage->data.deltaFrameData.fieldNames = (UA_String *)
+            UA_Array_new(currentDataSet->fieldSize, &UA_TYPES[UA_TYPES_STRING]);
+    if(!dataSetMessage->data.deltaFrameData.fieldNames)
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+    
     UA_DataSetField *dsf;
     size_t counter = 0;
     LIST_FOREACH(dsf, &currentDataSet->fields, listEntry) {
+        
+        /* for json store the fieldNameAlias in */
+        UA_String_copy(&dsf->config.field.variable.fieldNameAlias, 
+                &dataSetMessage->data.deltaFrameData.fieldNames[counter]);
+        
         /* Sample the value */
         UA_DataValue value;
         UA_DataValue_init(&value);
@@ -857,6 +880,14 @@ UA_DataSetWriter_generateDataSetMessage(UA_Server *server, UA_DataSetMessage *da
     /* Reset the message */
     memset(dataSetMessage, 0, sizeof(UA_DataSetMessage));
 
+    //TODO:
+    //dataSetMessage->header.dataSetWriterId = dataSetWriter->config.dataSetWriterId;
+    
+    UA_UInt16 messageType = 0;
+    
+    UA_JsonDataSetWriterMessageDataType *jsonDataSetWriterMessageDataType = NULL;
+    //UA_JsonDataSetWriterMessageDataType defaultJsonConfiguration;
+    
     /* Currently is only UADP supported. The configuration Flags are included
      * inside the std. defined UA_UadpDataSetWriterMessageDataType */
     UA_UadpDataSetWriterMessageDataType defaultUadpConfiguration;
@@ -866,6 +897,13 @@ UA_DataSetWriter_generateDataSetMessage(UA_Server *server, UA_DataSetMessage *da
        (dataSetWriter->config.messageSettings.content.decoded.type == &UA_TYPES[UA_TYPES_UADPDATASETWRITERMESSAGEDATATYPE])) {
         dataSetWriterMessageDataType = (UA_UadpDataSetWriterMessageDataType *)
             dataSetWriter->config.messageSettings.content.decoded.data;
+        messageType = UA_TYPES_UADPDATASETWRITERMESSAGEDATATYPE;
+    } else if((dataSetWriter->config.messageSettings.encoding == UA_EXTENSIONOBJECT_DECODED ||
+        dataSetWriter->config.messageSettings.encoding == UA_EXTENSIONOBJECT_DECODED_NODELETE) &&
+       (dataSetWriter->config.messageSettings.content.decoded.type == &UA_TYPES[UA_TYPES_JSONDATASETWRITERMESSAGEDATATYPE])) {
+        jsonDataSetWriterMessageDataType = (UA_JsonDataSetWriterMessageDataType *)
+            dataSetWriter->config.messageSettings.content.decoded.data;
+        messageType = UA_TYPES_JSONDATASETWRITERMESSAGEDATATYPE;
     } else {
         /* create default flag configuration if no
          * UadpDataSetWriterMessageDataType was passed in */
@@ -874,6 +912,7 @@ UA_DataSetWriter_generateDataSetMessage(UA_Server *server, UA_DataSetMessage *da
             (UA_UADPDATASETMESSAGECONTENTMASK_TIMESTAMP | UA_UADPDATASETMESSAGECONTENTMASK_MAJORVERSION |
              UA_UADPDATASETMESSAGECONTENTMASK_MINORVERSION);
         dataSetWriterMessageDataType = &defaultUadpConfiguration;
+        messageType = UA_TYPES_UADPDATASETWRITERMESSAGEDATATYPE;
     }
 
     /* Sanity-test the configuration */
@@ -899,38 +938,71 @@ UA_DataSetWriter_generateDataSetMessage(UA_Server *server, UA_DataSetMessage *da
         dataSetMessage->header.fieldEncoding = UA_FIELDENCODING_VARIANT;
     }
 
-    /* Std: 'The DataSetMessageContentMask defines the flags for the content of the DataSetMessage header.' */
-    if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_MAJORVERSION){
-        dataSetMessage->header.configVersionMajorVersionEnabled = UA_TRUE;
-        dataSetMessage->header.configVersionMajorVersion =
-            currentDataSet->dataSetMetaData.configurationVersion.majorVersion;
-    }
-    if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_MINORVERSION){
-        dataSetMessage->header.configVersionMinorVersionEnabled = UA_TRUE;
-        dataSetMessage->header.configVersionMinorVersion =
-            currentDataSet->dataSetMetaData.configurationVersion.minorVersion;
-    }
+    if(messageType == UA_TYPES_UADPDATASETWRITERMESSAGEDATATYPE){
+        /* Std: 'The DataSetMessageContentMask defines the flags for the content of the DataSetMessage header.' */
+        if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_MAJORVERSION){
+            dataSetMessage->header.configVersionMajorVersionEnabled = UA_TRUE;
+            dataSetMessage->header.configVersionMajorVersion =
+                currentDataSet->dataSetMetaData.configurationVersion.majorVersion;
+        }
+        if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_MINORVERSION){
+            dataSetMessage->header.configVersionMinorVersionEnabled = UA_TRUE;
+            dataSetMessage->header.configVersionMinorVersion =
+                currentDataSet->dataSetMetaData.configurationVersion.minorVersion;
+        }
 
-    if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_SEQUENCENUMBER) {
-        dataSetMessage->header.dataSetMessageSequenceNrEnabled = UA_TRUE;
-        dataSetMessage->header.dataSetMessageSequenceNr =
-            dataSetWriter->actualDataSetMessageSequenceCount;
-    }
+        if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_SEQUENCENUMBER) {
+            dataSetMessage->header.dataSetMessageSequenceNrEnabled = UA_TRUE;
+            dataSetMessage->header.dataSetMessageSequenceNr =
+                dataSetWriter->actualDataSetMessageSequenceCount;
+        }
 
-    if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_TIMESTAMP) {
-        dataSetMessage->header.timestampEnabled = UA_TRUE;
-        dataSetMessage->header.timestamp = UA_DateTime_now();
-    }
-    /* TODO: Picoseconds resolution not supported atm */
-    if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_PICOSECONDS) {
-        dataSetMessage->header.picoSecondsIncluded = UA_FALSE;
-    }
+        if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_TIMESTAMP) {
+            dataSetMessage->header.timestampEnabled = UA_TRUE;
+            dataSetMessage->header.timestamp = UA_DateTime_now();
+        }
+        /* TODO: Picoseconds resolution not supported atm */
+        if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_PICOSECONDS) {
+            dataSetMessage->header.picoSecondsIncluded = UA_FALSE;
+        }
 
-    /* TODO: Statuscode not supported yet */
-    if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_STATUS){
-        dataSetMessage->header.statusEnabled = UA_FALSE;
-    }
+        /* TODO: Statuscode not supported yet */
+        if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_STATUS){
+            dataSetMessage->header.statusEnabled = UA_FALSE;
+        }
 
+    }else if(messageType == UA_TYPES_JSONDATASETWRITERMESSAGEDATATYPE){
+        /*UA_JSONDATASETMESSAGECONTENTMASK_DATASETWRITERID: 
+         * "This value is mandatory", Part 14: 7.2.3.3 Table 92 */
+        
+        /* Std: 'The DataSetMessageContentMask defines the flags for the content of the DataSetMessage header.' */
+        if(jsonDataSetWriterMessageDataType->dataSetMessageContentMask & UA_JSONDATASETMESSAGECONTENTMASK_METADATAVERSION){
+            dataSetMessage->header.configVersionMajorVersionEnabled = UA_TRUE;
+            dataSetMessage->header.configVersionMajorVersion =
+                currentDataSet->dataSetMetaData.configurationVersion.majorVersion;
+        }
+        if(jsonDataSetWriterMessageDataType->dataSetMessageContentMask & UA_JSONDATASETMESSAGECONTENTMASK_METADATAVERSION){
+            dataSetMessage->header.configVersionMinorVersionEnabled = UA_TRUE;
+            dataSetMessage->header.configVersionMinorVersion =
+                currentDataSet->dataSetMetaData.configurationVersion.minorVersion;
+        }
+
+        if(jsonDataSetWriterMessageDataType->dataSetMessageContentMask & UA_JSONDATASETMESSAGECONTENTMASK_SEQUENCENUMBER) {
+            dataSetMessage->header.dataSetMessageSequenceNrEnabled = UA_TRUE;
+            dataSetMessage->header.dataSetMessageSequenceNr =
+                dataSetWriter->actualDataSetMessageSequenceCount;
+        }
+
+        if(jsonDataSetWriterMessageDataType->dataSetMessageContentMask & UA_JSONDATASETMESSAGECONTENTMASK_TIMESTAMP) {
+            dataSetMessage->header.timestampEnabled = UA_TRUE;
+            dataSetMessage->header.timestamp = UA_DateTime_now();
+        }
+
+        /* TODO: Statuscode not supported yet */
+        if(jsonDataSetWriterMessageDataType->dataSetMessageContentMask & UA_JSONDATASETMESSAGECONTENTMASK_STATUS){
+            dataSetMessage->header.statusEnabled = UA_FALSE;
+        }
+    }
     /* Set the sequence count. Automatically rolls over to zero */
     dataSetWriter->actualDataSetMessageSequenceCount++;
 
@@ -986,7 +1058,9 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
     if(writerGroup->writersCount <= 0)
         return;
 
-    if(writerGroup->config.encodingMimeType != UA_PUBSUB_ENCODING_UADP) {
+    if(writerGroup->config.encodingMimeType != UA_PUBSUB_ENCODING_UADP && 
+            writerGroup->config.encodingMimeType != UA_PUBSUB_ENCODING_JSON) {
+    }else{
         UA_LOG_ERROR(server->config.logger, UA_LOGCATEGORY_SERVER, "Unknown encoding type.");
         return;
     }
@@ -1098,23 +1172,48 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
             UA_LOG_ERROR(server->config.logger, UA_LOGCATEGORY_SERVER, "Publish failed. PubSubConnection invalid.");
             return;
         }
-        //send the prepared messages
-        UA_ByteString buf;
-        size_t msgSize = UA_NetworkMessage_calcSizeBinary(&nmStore[i]);
-        if(UA_ByteString_allocBuffer(&buf, msgSize) == UA_STATUSCODE_GOOD) {
-            UA_Byte *bufPos = buf.data;
-            memset(bufPos, 0, msgSize);
-            const UA_Byte *bufEnd = &(buf.data[buf.length]);
-            if(UA_NetworkMessage_encodeBinary(&nmStore[i], &bufPos, bufEnd) != UA_STATUSCODE_GOOD){
-                UA_ByteString_deleteMembers(&buf);
-                return;
-            };
-            connection->channel->send(connection->channel, NULL, &buf);
+        
+        
+        //DataSet Array mit MetaData übergeben?
+        
+        //fieldNamesPerWriter
+        if(writerGroup->config.encodingMimeType == UA_PUBSUB_ENCODING_JSON){
+            UA_ByteString buf;
+            size_t msgSize = 2000; //WIP, TODO: get Json buffer size!
+            if(UA_ByteString_allocBuffer(&buf, msgSize) == UA_STATUSCODE_GOOD) {
+                UA_Byte *bufPos = buf.data;
+                memset(bufPos, 0, msgSize);
+                const UA_Byte *bufEnd = &(buf.data[buf.length]);
+                if(UA_NetworkMessage_encodeJson(&nmStore[i], &bufPos, bufEnd, UA_TRUE) != UA_STATUSCODE_GOOD){
+                    UA_ByteString_deleteMembers(&buf);
+                    return;
+                };
+
+                size_t len = strlen((char*)buf.data);
+                buf.length = len;
+                
+                connection->channel->send(connection->channel, &writerGroup->config.transportSettings, &buf);
+            }
+            UA_ByteString_deleteMembers(&buf);
+        }else if(writerGroup->config.encodingMimeType == UA_PUBSUB_ENCODING_UADP) {
+            //send the prepared messages
+            UA_ByteString buf;
+            size_t msgSize = UA_NetworkMessage_calcSizeBinary(&nmStore[i]);
+            if(UA_ByteString_allocBuffer(&buf, msgSize) == UA_STATUSCODE_GOOD) {
+                UA_Byte *bufPos = buf.data;
+                memset(bufPos, 0, msgSize);
+                const UA_Byte *bufEnd = &(buf.data[buf.length]);
+                if(UA_NetworkMessage_encodeBinary(&nmStore[i], &bufPos, bufEnd) != UA_STATUSCODE_GOOD){
+                    UA_ByteString_deleteMembers(&buf);
+                    return;
+                };
+                connection->channel->send(connection->channel, &writerGroup->config.transportSettings, &buf);
+            }
+            UA_ByteString_deleteMembers(&buf);
         }
         //The stack allocated sizes and dataSetWriterIds field must be set to NULL to prevent invalid free.
         nmStore[i].payload.dataSetPayload.sizes = NULL;
         nmStore->payloadHeader.dataSetPayloadHeader.dataSetWriterIds = NULL;
-        UA_ByteString_deleteMembers(&buf);
         UA_NetworkMessage_deleteMembers(&nmStore[i]);
     }
 }

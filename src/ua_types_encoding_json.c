@@ -62,7 +62,6 @@ extern const decodeJsonSignature decodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1]
 
 /* Forward declarations */
 static status encodeJsonInternal(const void *src, const UA_DataType *type, CtxJson *ctx, UA_Boolean useReversible);
-static status calcJsonInternal(const void *src, const UA_DataType *type, CtxJson *ctx, UA_Boolean useReversible);
 UA_String UA_DateTime_toJSON(UA_DateTime t);
 ENCODE_JSON(ByteString);
 
@@ -1372,7 +1371,7 @@ const calcSizeJsonSignature calcJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1] = {
     (calcSizeJsonSignature) calcJsonInternal,
 };
 
-static status
+status
 calcJsonInternal(const void *src, const UA_DataType *type, CtxJson *ctx, UA_Boolean useReversible) {
     if(!type || !ctx){
         return UA_STATUSCODE_BADENCODINGERROR;

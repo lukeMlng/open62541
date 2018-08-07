@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
  * Copyright (c) 2017 - 2018 Fraunhofer IOSB (Author: Tino Bischoff)
+ * Copyright (c) 2018 Fraunhofer IOSB (Author: Lukas Meling)
  */
 
 #ifndef UA_NETWORKMESSAGE_H_
@@ -73,6 +74,8 @@ UA_DataSetMessageHeader_calcSizeBinary(const UA_DataSetMessageHeader* p);
 typedef struct {
     UA_UInt16 fieldCount;
     UA_DataValue* dataSetFields;
+    /* Json keys for the dataSetFields: TODO: own dataSetMessageType for json? */
+    UA_String* fieldNames; 
 } UA_DataSetMessage_DataKeyFrameData;
 
 typedef struct {
@@ -83,6 +86,8 @@ typedef struct {
 typedef struct {
     UA_UInt16 fieldCount;
     UA_DataSetMessage_DeltaFrameField* deltaFrameFields;
+    /* Json keys for the dataSetFields: TODO: own dataSetMessageType for json? */
+    UA_String* fieldNames; 
 } UA_DataSetMessage_DataDeltaFrameData;
 
 typedef struct {
@@ -158,6 +163,8 @@ typedef struct {
  * ^^^^^^^^^^^^^^^^^ */
 typedef struct {
     UA_Byte version;
+    UA_Boolean messageIdEnabled;
+    UA_String messageId; //For Json NetworkMessage
     UA_Boolean publisherIdEnabled;
     UA_Boolean groupHeaderEnabled;
     UA_Boolean payloadHeaderEnabled;
@@ -217,6 +224,17 @@ UA_NetworkMessage_deleteMembers(UA_NetworkMessage* p);
 void
 UA_NetworkMessage_delete(UA_NetworkMessage* p);
 
+
+/* Json */
+UA_StatusCode
+UA_NetworkMessage_encodeJson(const UA_NetworkMessage* src,
+                               UA_Byte **bufPos, const UA_Byte *bufEnd, UA_Boolean useReversible);
+
+UA_StatusCode UA_NetworkMessage_decodeJson(UA_NetworkMessage *dst, UA_ByteString *src);
+
+
+size_t
+UA_NetworkMessage_calcSizeJson(const UA_NetworkMessage* src, UA_Boolean useReversible);
 
 #ifdef __cplusplus
 } // extern "C"
