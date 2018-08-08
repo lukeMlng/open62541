@@ -1290,9 +1290,6 @@ void UA_DataSetMessage_free(const UA_DataSetMessage* p) {
                 }
             }
             UA_free(p->data.deltaFrameData.deltaFrameFields);
-            
-            UA_Array_delete(p->data.deltaFrameData.fieldNames, p->data.deltaFrameData.fieldCount,
-                            &UA_TYPES[UA_TYPES_STRING]);
         }
     }
 }

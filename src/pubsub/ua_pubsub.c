@@ -730,7 +730,7 @@ UA_PubSubDataSetWriter_generateKeyFrameMessage(UA_Server *server, UA_DataSetMess
     if(!dataSetMessage->data.keyFrameData.dataSetFields)
         return UA_STATUSCODE_BADOUTOFMEMORY;
 
-    /* json keys, TODO: add to delete Members*/
+    /* json keys */
     dataSetMessage->data.keyFrameData.fieldNames = (UA_String *)
             UA_Array_new(currentDataSet->fieldSize, &UA_TYPES[UA_TYPES_STRING]);
     if(!dataSetMessage->data.keyFrameData.fieldNames)
@@ -789,12 +789,6 @@ UA_PubSubDataSetWriter_generateDeltaFrameMessage(UA_Server *server,
     dataSetMessage->header.dataSetMessageValid = true;
     dataSetMessage->header.dataSetMessageType = UA_DATASETMESSAGE_DATADELTAFRAME;
 
-    /* json keys, TODO: add to delete Members*/
-    dataSetMessage->data.deltaFrameData.fieldNames = (UA_String *)
-            UA_Array_new(currentDataSet->fieldSize, &UA_TYPES[UA_TYPES_STRING]);
-    if(!dataSetMessage->data.deltaFrameData.fieldNames)
-        return UA_STATUSCODE_BADOUTOFMEMORY;
-    
     UA_DataSetField *dsf;
     size_t counter = 0;
     LIST_FOREACH(dsf, &currentDataSet->fields, listEntry) {
@@ -915,17 +909,6 @@ UA_DataSetWriter_generateDataSetMessage(UA_Server *server, UA_DataSetMessage *da
         messageType = UA_TYPES_UADPDATASETWRITERMESSAGEDATATYPE;
     }
 
-    /* Sanity-test the configuration */
-    if(dataSetWriterMessageDataType->networkMessageNumber != 0 ||
-       dataSetWriterMessageDataType->dataSetOffset != 0 ||
-       dataSetWriterMessageDataType->configuredSize !=0 ) {
-        UA_LOG_WARNING(server->config.logger, UA_LOGCATEGORY_SERVER,
-                       "Static DSM configuration not supported. Using defaults");
-        dataSetWriterMessageDataType->networkMessageNumber = 0;
-        dataSetWriterMessageDataType->dataSetOffset = 0;
-        dataSetWriterMessageDataType->configuredSize = 0;
-    }
-
     /* The field encoding depends on the flags inside the writer config.
      * TODO: This can be moved to the encoding layer. */
     if(dataSetWriter->config.dataSetFieldContentMask & UA_DATASETFIELDCONTENTMASK_RAWDATAENCODING) {
@@ -939,6 +922,17 @@ UA_DataSetWriter_generateDataSetMessage(UA_Server *server, UA_DataSetMessage *da
     }
 
     if(messageType == UA_TYPES_UADPDATASETWRITERMESSAGEDATATYPE){
+        /* Sanity-test the configuration */
+        if(dataSetWriterMessageDataType->networkMessageNumber != 0 ||
+           dataSetWriterMessageDataType->dataSetOffset != 0 ||
+           dataSetWriterMessageDataType->configuredSize !=0 ) {
+            UA_LOG_WARNING(server->config.logger, UA_LOGCATEGORY_SERVER,
+                           "Static DSM configuration not supported. Using defaults");
+            dataSetWriterMessageDataType->networkMessageNumber = 0;
+            dataSetWriterMessageDataType->dataSetOffset = 0;
+            dataSetWriterMessageDataType->configuredSize = 0;
+        }  
+        
         /* Std: 'The DataSetMessageContentMask defines the flags for the content of the DataSetMessage header.' */
         if(dataSetWriterMessageDataType->dataSetMessageContentMask & UA_UADPDATASETMESSAGECONTENTMASK_MAJORVERSION){
             dataSetMessage->header.configVersionMajorVersionEnabled = UA_TRUE;
@@ -1006,6 +1000,10 @@ UA_DataSetWriter_generateDataSetMessage(UA_Server *server, UA_DataSetMessage *da
     /* Set the sequence count. Automatically rolls over to zero */
     dataSetWriter->actualDataSetMessageSequenceCount++;
 
+    /* TODO: remove. Hack for not generating deltaframes for json 
+     *  Spec does not define deltaframes for json encoding
+     */
+    if(messageType != UA_TYPES_JSONDATASETWRITERMESSAGEDATATYPE){ 
 #ifdef UA_ENABLE_PUBSUB_DELTAFRAMES
     /* Check if the PublishedDataSet version has changed -> if yes flush the lastValue store and send a KeyFrame */
     if(dataSetWriter->connectedDataSetVersion.majorVersion != currentDataSet->dataSetMetaData.configurationVersion.majorVersion ||
@@ -1041,7 +1039,8 @@ UA_DataSetWriter_generateDataSetMessage(UA_Server *server, UA_DataSetMessage *da
 
     dataSetWriter->deltaFrameCounter = 1;
 #endif
-
+    }
+    
     UA_PubSubDataSetWriter_generateKeyFrameMessage(server, dataSetMessage, dataSetWriter);
     return UA_STATUSCODE_GOOD;
 }
@@ -1060,7 +1059,6 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
 
     if(writerGroup->config.encodingMimeType != UA_PUBSUB_ENCODING_UADP && 
             writerGroup->config.encodingMimeType != UA_PUBSUB_ENCODING_JSON) {
-    }else{
         UA_LOG_ERROR(server->config.logger, UA_LOGCATEGORY_SERVER, "Unknown encoding type.");
         return;
     }
@@ -1173,10 +1171,6 @@ UA_WriterGroup_publishCallback(UA_Server *server, UA_WriterGroup *writerGroup) {
             return;
         }
         
-        
-        //DataSet Array mit MetaData übergeben?
-        
-        //fieldNamesPerWriter
         if(writerGroup->config.encodingMimeType == UA_PUBSUB_ENCODING_JSON){
             UA_ByteString buf;
             size_t msgSize = 2000; //WIP, TODO: get Json buffer size!
