@@ -2443,25 +2443,16 @@ ENCODE_JSON(ExtensionObject) {
     if (typeId.identifierType != UA_NODEIDTYPE_NUMERIC)
         return UA_STATUSCODE_BADENCODINGERROR;
 
+    ret |= WRITE(ObjStart);
+    const UA_DataType *contentType = src->content.decoded.type;
     if (ctx->useReversible) {
-        /*-REVERSIBLE-*/
-        ret |= WRITE(ObjStart);
-
+        /* REVERSIBLE */
         ret |= writeKey(ctx, "TypeId", UA_FALSE);
         ret |= ENCODE_DIRECT_JSON(&typeId, NodeId);
-        if (ret != UA_STATUSCODE_GOOD)
-            return ret;
-
-        /* Encoding field is omitted if the value is 0. */
-        const UA_DataType *contentType = src->content.decoded.type;
 
         /* Encode the content */
         ret |= writeKey(ctx, "Body", UA_TRUE);
         ret |= encodeJsonInternal(src->content.decoded.data, contentType, ctx);
-        if (ret != UA_STATUSCODE_GOOD)
-            return ret;
-
-        ret |= WRITE(ObjEnd);
     } else {
         /* NON-REVERSIBLE
          * For the non-reversible form, ExtensionObject values 
@@ -2470,13 +2461,11 @@ ENCODE_JSON(ExtensionObject) {
          * 
          * TODO: "Body" key in the ExtensionObject?
          */
-        ret |= WRITE(ObjStart);
-        const UA_DataType *contentType = src->content.decoded.type;
         ret |= writeKey(ctx, "Body", UA_FALSE);
         ret |= encodeJsonInternal(src->content.decoded.data, contentType, ctx);
-        ret |= WRITE(ObjEnd);
     }
 
+    ret |= WRITE(ObjEnd);
     return ret;
 }
 
