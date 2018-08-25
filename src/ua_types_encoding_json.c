@@ -2642,29 +2642,24 @@ ENCODE_JSON(Variant) {
      * arrays are encoded as a multi dimensional JSON array as described in 5.4.5.
      */
 
+    ret |= WRITE(ObjStart);
     if (!isBuiltin && !isAlias){
         /*NON REVERSIBLE:  NOT BUILTIN, can it be encoded? Wrap in extension object.*/
         if (src->arrayDimensionsSize > 1) {
             return UA_STATUSCODE_BADNOTIMPLEMENTED;
         }
 
-        ret |= WRITE(ObjStart);
         ret |= writeKey(ctx, "Body", UA_FALSE);
         ret |= Variant_encodeJsonWrapExtensionObject(src, isArray, ctx);
-        ret |= WRITE(ObjEnd);
     } else if (!isArray) {
         /*NON REVERSIBLE:   BUILTIN, single value.*/
-        ret |= WRITE(ObjStart);
         ret |= writeKey(ctx, "Body", UA_FALSE);
         ret |= encodeJsonInternal(src->data, src->type, ctx);
-        ret |= WRITE(ObjEnd);
     } else {
         /*NON REVERSIBLE:   BUILTIN, array.*/
-        size_t dimensionSize = src->arrayDimensionsSize;
-
-        ret |= WRITE(ObjStart);
         ret |= writeKey(ctx, "Body", UA_FALSE);
 
+        size_t dimensionSize = src->arrayDimensionsSize;
         if (dimensionSize > 1) {
             /*nonreversible multidimensional array*/
             size_t index = 0;  size_t dimensionIndex = 0;
@@ -2676,9 +2671,9 @@ ENCODE_JSON(Variant) {
             /*nonreversible simple array*/
             ret |=  Array_encodeJson(src->data, src->arrayLength, src->type, ctx, UA_TRUE);
         }
-        ret |= WRITE(ObjEnd);
     }
-    
+
+    ret |= WRITE(ObjEnd);
     return ret;
 }
 
