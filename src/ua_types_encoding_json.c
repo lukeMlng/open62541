@@ -45,7 +45,6 @@
 
 #define CALC_DIRECT(SRC, TYPE) TYPE##_calcJson((const UA_##TYPE*)SRC, NULL, ctx)
 
-
 /* ENCODE types as json */
 #define ENCODE_JSON(TYPE) static status \
     TYPE##_encodeJson(const UA_##TYPE *UA_RESTRICT src, const UA_DataType *type, CtxJson *UA_RESTRICT ctx)
@@ -56,17 +55,11 @@ extern const encodeJsonSignature encodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1]
 extern const calcSizeJsonSignature calcJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1];
 extern const decodeJsonSignature decodeJsonJumpTable[UA_BUILTIN_TYPES_COUNT + 1];
 
-
 /* Forward declarations */
 static status encodeJsonInternal(const void *src, const UA_DataType *type, CtxJson *ctx);
 static status calcJsonInternal(const void *src, const UA_DataType *type, CtxJson *ctx);
 UA_String UA_DateTime_toJSON(UA_DateTime t);
 ENCODE_JSON(ByteString);
-
-
-const u8 hexmapLower[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
-const u8 hexmapUpper[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
-
 
 /*
  * JSON HELPER
@@ -1773,6 +1766,11 @@ Array_encodeJson(const void *src, size_t length, const UA_DataType *type,
 /*****************/
 /* Builtin Types */
 /*****************/
+
+static const u8 hexmapLower[16] =
+    {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+static const u8 hexmapUpper[16] =
+    {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
 
 ENCODE_JSON(String) {
     if (!src) {
