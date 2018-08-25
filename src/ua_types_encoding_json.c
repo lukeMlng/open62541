@@ -64,56 +64,46 @@ ENCODE_JSON(ByteString);
 /*
  * JSON HELPER
  */
+
+static status
+writeChar(CtxJson *UA_RESTRICT ctx, char c) {
+    if(ctx->pos >= ctx->end)
+        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
+    *ctx->pos = (UA_Byte)c;
+    ctx->pos++;
+    return UA_STATUSCODE_GOOD;
+}
+
 #define WRITE(ELEM) writeJson##ELEM(ctx)
-#define WRITE_JSON_ELEMENT(ELEM) static status writeJson##ELEM(CtxJson *UA_RESTRICT ctx)
+#define WRITE_JSON_ELEMENT(ELEM) \
+    static UA_INLINE status writeJson##ELEM(CtxJson *UA_RESTRICT ctx)
 
 WRITE_JSON_ELEMENT(Quote) {
-    if (ctx->pos + 1 > ctx->end)
-        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
-    *(ctx->pos++) = '"';
-    return UA_STATUSCODE_GOOD;
+    return writeChar(ctx, '\"');
 }
 
 WRITE_JSON_ELEMENT(ObjStart) {
-    if (ctx->pos + 1 > ctx->end)
-        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
-    *(ctx->pos++) = '{';
-    return UA_STATUSCODE_GOOD;
+    return writeChar(ctx, '{');
 }
 
 WRITE_JSON_ELEMENT(ObjEnd) {
-    if (ctx->pos + 1 > ctx->end)
-        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED; 
-    *(ctx->pos++) = '}';
-    return UA_STATUSCODE_GOOD;
+    return writeChar(ctx, '}');
 }
 
 WRITE_JSON_ELEMENT(ArrayStart) {
-    if (ctx->pos + 1 > ctx->end)
-        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
-    *(ctx->pos++) = '[';
-    return UA_STATUSCODE_GOOD;
+    return writeChar(ctx, '[');
 }
 
 WRITE_JSON_ELEMENT(ArrayEnd) {
-    if (ctx->pos + 1 > ctx->end)
-        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
-    *(ctx->pos++) = ']';
-    return UA_STATUSCODE_GOOD;
+    return writeChar(ctx, ']');
 }
 
 WRITE_JSON_ELEMENT(Comma) {
-    if (ctx->pos + 1 > ctx->end)
-        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
-    *(ctx->pos++) = ',';
-    return UA_STATUSCODE_GOOD;
+    return writeChar(ctx, ',');
 }
 
 WRITE_JSON_ELEMENT(colon) {
-    if (ctx->pos + 1 > ctx->end)
-        return UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED;
-    *(ctx->pos++) = ':';
-    return UA_STATUSCODE_GOOD;
+    return writeChar(ctx, ':');
 }
 
 status writeComma(CtxJson *ctx, UA_Boolean commaNeeded) {
