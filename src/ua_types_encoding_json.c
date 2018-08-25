@@ -2340,35 +2340,24 @@ ENCODE_JSON(QualifiedName) {
 }
 
 ENCODE_JSON(StatusCode) {
-    if(!src){
+    if(!src)
         return writeNull(ctx);
-    }
+
+    if (ctx->useReversible)
+        return ENCODE_DIRECT_JSON(src, UInt32);
+
+    if(*src == UA_STATUSCODE_GOOD)
+        return writeNull(ctx);
+
     status ret = UA_STATUSCODE_GOOD;
-
-    if (!ctx->useReversible) {
-        if(*src != 0){
-            ret |= WRITE(ObjStart);
-            ret |= writeKey(ctx, "Code", UA_FALSE);
-            ret |= ENCODE_DIRECT_JSON(src, UInt32);
-            if (ret != UA_STATUSCODE_GOOD)
-                return ret;
-            ret |= writeKey(ctx, "Symbol", UA_TRUE);
-            /* encode the full name of error */
-            UA_String statusDescription = UA_String_fromChars(UA_StatusCode_name(*src));
-            if(statusDescription.data == NULL && statusDescription.length == 0){
-                return UA_STATUSCODE_BADENCODINGERROR;
-            }
-            ret |= ENCODE_DIRECT_JSON(&statusDescription, String);
-            UA_String_deleteMembers(&statusDescription);
-            ret |= WRITE(ObjEnd);
-        }else{
-            /* A StatusCode of Good (0) is treated like a NULL and not encoded. */
-            ret |= writeNull(ctx);
-        }
-    } else {
-        ret |= ENCODE_DIRECT_JSON(src, UInt32);
-    }
-
+    ret |= WRITE(ObjStart);
+    ret |= writeKey(ctx, "Code", UA_FALSE);
+    ret |= ENCODE_DIRECT_JSON(src, UInt32);
+    ret |= writeKey(ctx, "Symbol", UA_TRUE);
+    const char *codename = UA_StatusCode_name(*src);
+    UA_String statusDescription = UA_STRING((char*)(uintptr_t)codename);
+    ret |= ENCODE_DIRECT_JSON(&statusDescription, String);
+    ret |= WRITE(ObjEnd);
     return ret;
 }
 
