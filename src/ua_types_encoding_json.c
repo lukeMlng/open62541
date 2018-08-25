@@ -3234,8 +3234,7 @@ DECODE_JSON(Int64) {
     return UA_STATUSCODE_GOOD;
 }
 
-UA_UInt32 hex2int(char c);
-UA_UInt32 hex2int(char ch)
+static UA_UInt32 hex2int(char ch)
 {
     if (ch >= '0' && ch <= '9')
         return (UA_UInt32)(ch - '0');
