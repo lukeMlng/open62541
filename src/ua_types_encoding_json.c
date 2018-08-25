@@ -2285,56 +2285,36 @@ ENCODE_JSON(QualifiedName) {
         return writeNull(ctx);
     }
     status ret = WRITE(ObjStart);
-    if (ret != UA_STATUSCODE_GOOD)
-        return ret;
-    ret = writeKey(ctx, "Name", UA_FALSE);
-    
-    if (ret != UA_STATUSCODE_GOOD)
-        return ret;
+    ret |= writeKey(ctx, "Name", UA_FALSE);
     ret |= ENCODE_DIRECT_JSON(&src->name, String);
-    if (ret != UA_STATUSCODE_GOOD)
-        return ret;
-    
+
     if (ctx->useReversible) {
         if (src->namespaceIndex != 0) {
-            ret = writeKey(ctx, "Uri", UA_TRUE);
-            if (ret != UA_STATUSCODE_GOOD)
-                return ret;
+            ret |= writeKey(ctx, "Uri", UA_TRUE);
             ret |= ENCODE_DIRECT_JSON(&src->namespaceIndex, UInt16);
-            if (ret != UA_STATUSCODE_GOOD)
-                return ret;
         }
     } else {
-
-        /*For the non-reversible form, the NamespaceUri associated with the NamespaceIndex portion of
-         * the QualifiedName is encoded as JSON string unless the NamespaceIndex is 1 or if
-         * NamespaceUri is unknown. In these cases, the NamespaceIndex is encoded as a JSON number.
-         */
-
+        /* For the non-reversible form, the NamespaceUri associated with the
+         * NamespaceIndex portion of the QualifiedName is encoded as JSON string
+         * unless the NamespaceIndex is 1 or if NamespaceUri is unknown. In
+         * these cases, the NamespaceIndex is encoded as a JSON number. */
         if (src->namespaceIndex == 1) {
-            ret = writeKey(ctx, "Uri", UA_TRUE);
-            if (ret != UA_STATUSCODE_GOOD)
-                return ret;
+            ret |= writeKey(ctx, "Uri", UA_TRUE);
             ret |= ENCODE_DIRECT_JSON(&src->namespaceIndex, UInt16);
-            if (ret != UA_STATUSCODE_GOOD)
-                return ret;
         } else {
             ret |= writeKey(ctx, "Uri", UA_TRUE);
-            
-             /*Check if Namespace given and in range*/
-            if(src->namespaceIndex < ctx->namespacesSize 
-                    && ctx->namespaces != NULL){
-                
+
+             /* Check if Namespace given and in range */
+            if(src->namespaceIndex < ctx->namespacesSize && ctx->namespaces != NULL){
                 UA_String namespaceEntry = ctx->namespaces[src->namespaceIndex];
                 ret |= ENCODE_DIRECT_JSON(&namespaceEntry, String);
-            }else{
-                /*if not encode as Number*/
+            } else {
+                /* If not encode as number */
                 ret |= ENCODE_DIRECT_JSON(&src->namespaceIndex, UInt16);
-                if (ret != UA_STATUSCODE_GOOD)
-                    return ret;
             }
         }
     }
+
     ret |= WRITE(ObjEnd);
     return ret;
 }
