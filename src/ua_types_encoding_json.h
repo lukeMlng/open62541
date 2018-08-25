@@ -79,7 +79,8 @@ status writeComma(CtxJson *ctx, UA_Boolean commaNeeded);
 status writeNull(CtxJson *ctx);
 
 status calcWriteKey_UA_String(CtxJson *ctx, UA_String *key, UA_Boolean commaNeeded);
-status calcWriteKey(CtxJson *ctx, const char* key, UA_Boolean commaNeeded);
+status calcWriteKey(CtxJson *ctx, const char* key,
+                    UA_Boolean commaNeeded) UA_FUNC_ATTR_WARN_UNUSED_RESULT;
 status encodingCalcJsonStartObject(CtxJson *ctx);
 size_t encodingCalcJsonEndObject(CtxJson *ctx);
 status encodingCalcJsonStartArray(CtxJson *ctx);

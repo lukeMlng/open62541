@@ -599,8 +599,8 @@ CALC_JSON_TYPE(ExpandedNodeId) {
                 && (void*) src->namespaceUri.data > UA_EMPTY_ARRAY_SENTINEL) {
             /* If the NamespaceUri is specified it is 
              * encoded as a JSON string in this field. */
-            calcWriteKey(ctx, "Namespace", UA_TRUE);
-            ret = CALC_DIRECT(&src->namespaceUri, String);
+            ret = calcWriteKey(ctx, "Namespace", UA_TRUE);
+            ret |= CALC_DIRECT(&src->namespaceUri, String);
             if (ret != UA_STATUSCODE_GOOD)
                 return ret;
         }else{
@@ -620,8 +620,8 @@ CALC_JSON_TYPE(ExpandedNodeId) {
          * This field is omitted if the ServerIndex equals 0.
          */
         if (src->serverIndex > 0) {
-            calcWriteKey(ctx, "ServerUri", UA_TRUE);
-            ret = CALC_DIRECT(&src->serverIndex, UInt32);
+            ret = calcWriteKey(ctx, "ServerUri", UA_TRUE);
+            ret |= CALC_DIRECT(&src->serverIndex, UInt32);
             if (ret != UA_STATUSCODE_GOOD)
                 return ret;
         }
@@ -639,23 +639,21 @@ CALC_JSON_TYPE(ExpandedNodeId) {
      */
 
     if (src->namespaceUri.data != NULL && src->namespaceUri.length != 0){
-        calcWriteKey(ctx, "Namespace", UA_TRUE);
-        ret = CALC_DIRECT(&src->namespaceUri, String);
+        ret = calcWriteKey(ctx, "Namespace", UA_TRUE);
+        ret |= CALC_DIRECT(&src->namespaceUri, String);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
     }else{
         if (src->nodeId.namespaceIndex == 1) {
-            calcWriteKey(ctx, "Namespace", UA_TRUE);
+            ret = calcWriteKey(ctx, "Namespace", UA_TRUE);
             ret |= CALC_DIRECT(&src->nodeId.namespaceIndex, UInt16);
             if (ret != UA_STATUSCODE_GOOD)
                 return ret;
         } else {
-            calcWriteKey(ctx, "Namespace", UA_TRUE);
+            ret = calcWriteKey(ctx, "Namespace", UA_TRUE);
 
             /* Check if Namespace given and in range */
-            if(src->nodeId.namespaceIndex < ctx->namespacesSize 
-                    && ctx->namespaces != NULL){
-
+            if(src->nodeId.namespaceIndex < ctx->namespacesSize && ctx->namespaces != NULL){
                 UA_String namespaceEntry = ctx->namespaces[src->nodeId.namespaceIndex];
                 ret |= CALC_DIRECT(&namespaceEntry, String);
                 if (ret != UA_STATUSCODE_GOOD)
@@ -673,12 +671,10 @@ CALC_JSON_TYPE(ExpandedNodeId) {
      */
 
     /* Check if Namespace given and in range */
-    if(src->serverIndex < ctx->serverUrisSize
-            && ctx->serverUris != NULL){
-
+    if(src->serverIndex < ctx->serverUrisSize && ctx->serverUris != NULL){
         UA_String serverUriEntry = ctx->serverUris[src->serverIndex];
-        calcWriteKey(ctx, "ServerUri", UA_TRUE);
-        ret = CALC_DIRECT(&serverUriEntry, String);
+        ret = calcWriteKey(ctx, "ServerUri", UA_TRUE);
+        ret |= CALC_DIRECT(&serverUriEntry, String);
         if (ret != UA_STATUSCODE_GOOD)
             return ret;
     }else{
@@ -1385,7 +1381,9 @@ calcJsonInternal(const void *src, const UA_DataType *type, CtxJson *ctx) {
         const UA_DataType *membertype = &typelists[!member->namespaceZero][member->memberTypeIndex];
 
         if (member->memberName != NULL && *member->memberName != 0) {
-            calcWriteKey(ctx, member->memberName, commaNeeded);
+            ret = calcWriteKey(ctx, member->memberName, commaNeeded);
+            if (ret != UA_STATUSCODE_GOOD)
+                return ret;
             commaNeeded = UA_TRUE;
         }
 
