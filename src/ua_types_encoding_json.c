@@ -556,37 +556,28 @@ CALC_JSON_TYPE(NodeId) {
         if (src->namespaceIndex > 0) {
             ret |= calcWriteKey(ctx, "Namespace", UA_TRUE);
             ret |= CALC_DIRECT(&src->namespaceIndex, UInt16);
-            if (ret != UA_STATUSCODE_GOOD)
-                return ret;
         }
-    } else {
-        /* For the non-reversible encoding, the field is the NamespaceUri 
-         * associated with the NamespaceIndex, encoded as a JSON string.
-         * A NamespaceIndex of 1 is always encoded as a JSON number.
-         */
-        if (src->namespaceIndex == 1) {
-            calcWriteKey(ctx, "Namespace", UA_TRUE);
-            ret |= CALC_DIRECT(&src->namespaceIndex, UInt16);
-            if (ret != UA_STATUSCODE_GOOD)
-                return ret;
-        } else {
-            calcWriteKey(ctx, "Namespace", UA_TRUE);
-            
-            /* Check if Namespace given and in range */
-            if(src->namespaceIndex < ctx->namespacesSize 
-                    && ctx->namespaces != NULL){
-                
-                UA_String namespaceEntry = ctx->namespaces[src->namespaceIndex];
-                ret |= CALC_DIRECT(&namespaceEntry, String);
-                if (ret != UA_STATUSCODE_GOOD)
-                    return ret;
-            }else{
-                return UA_STATUSCODE_BADNOTFOUND;
-            }
-        }
+        ret |= ADDJSONCHAR(ObjEnd);
+        return ret;
     }
+
+     /* For the non-reversible encoding, the field is the NamespaceUri
+      * associated with the NamespaceIndex, encoded as a JSON string.
+      * A NamespaceIndex of 1 is always encoded as a JSON number.
+      */
+     ret |= calcWriteKey(ctx, "Namespace", UA_TRUE);
+     if (src->namespaceIndex == 1) {
+         ret |= CALC_DIRECT(&src->namespaceIndex, UInt16);
+     } else {
+         /* Check if Namespace given and in range */
+         if(src->namespaceIndex >= ctx->namespacesSize || ctx->namespaces != NULL)
+             return UA_STATUSCODE_BADNOTFOUND;
+
+         UA_String namespaceEntry = ctx->namespaces[src->namespaceIndex];
+         ret |= CALC_DIRECT(&namespaceEntry, String);
+     }
     
-    ret = ADDJSONCHAR(ObjEnd);
+    ret |= ADDJSONCHAR(ObjEnd);
     return ret;
 }
 
